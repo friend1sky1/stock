@@ -14,64 +14,58 @@
   --red-dark:   #8B0000;
   --red-light:  #FDF0F0;
   --gold:       #C9A96E;
-  --gold-light: #F8F4EC;
   --bg:         #FBF6F0;
   --card:       #FFFCF8;
   --text:       #3D2E2E;
   --text-secondary: #8B7870;
   --text-muted: #BFB0A5;
   --border:     #EBE0D5;
-  --shadow-sm:  0 1px 2px rgba(0,0,0,0.03);
-  --shadow:     0 2px 12px rgba(0,0,0,0.05);
-  --radius:     12px;
+  --radius:     10px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-html { height:100%; }
 body {
-  min-height:100%;
   font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  /* Subtle peony watermark */
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Cg opacity='0.04'%3E%3Ccircle cx='140' cy='160' r='60' fill='%23CC0000'/%3E%3Ccircle cx='200' cy='120' r='50' fill='%23CC0000'/%3E%3Ccircle cx='260' cy='160' r='55' fill='%23CC0000'/%3E%3Ccircle cx='170' cy='220' r='45' fill='%23CC0000'/%3E%3Ccircle cx='230' cy='210' r='48' fill='%23CC0000'/%3E%3Ccircle cx='200' cy='185' r='28' fill='%23CC2200' opacity='0.6'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 280px;
-  background-position: right -20px bottom -20px;
+  background-size: 260px;
+  background-position: right -10px bottom -10px;
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
 
-.container {
+.app {
   max-width: 480px;
   margin: 0 auto;
-  padding: 16px 16px 32px;
+  padding: 8px 12px 16px;
 }
 
-/* Header */
+/* Header - compact */
 .header {
   text-align: center;
-  padding: 24px 0 16px;
+  padding: 4px 0 6px;
 }
 .header h1 {
   font-family: 'Noto Serif SC', serif;
-  font-size: 1.35rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--red-dark);
   letter-spacing: 3px;
 }
 
-/* Mode Toggle */
+/* Toggle - compact */
 .toggle {
-  display: flex; gap: 8px;
-  margin-bottom: 16px;
+  display: flex; gap: 6px;
+  margin-bottom: 8px;
 }
 .toggle-btn {
-  flex:1; padding: 10px 0;
-  border:1.5px solid var(--border);
+  flex:1; padding: 7px 0;
+  border:1px solid var(--border);
   border-radius:var(--radius);
   background:var(--card);
-  font-size:0.88rem; font-weight:600;
+  font-size:0.8rem; font-weight:600;
   cursor:pointer; transition:all 0.2s;
   color:var(--text-secondary);
   letter-spacing:1px;
@@ -80,71 +74,78 @@ body {
   border-color:var(--red); background:var(--red-light); color:var(--red);
 }
 
-/* Card */
+/* Cards - compact */
 .card {
   background:var(--card); border-radius:var(--radius);
   border:1px solid var(--border);
-  padding:16px; margin-bottom:12px;
-  box-shadow: var(--shadow-sm);
+  padding:10px 14px; margin-bottom:8px;
 }
 .card-title {
   font-family:'Noto Serif SC',serif;
-  font-size:0.9rem; font-weight:700; color:var(--red-dark);
-  margin-bottom:12px; padding-bottom:8px;
+  font-size:0.8rem; font-weight:700; color:var(--red-dark);
+  margin-bottom:8px; padding-bottom:5px;
   border-bottom:1px dashed var(--border);
 }
 
-/* Input */
-.field { display:flex; align-items:center; margin-bottom:10px; gap:10px; }
+/* Input - compact */
+.field {
+  display:flex; align-items:center; margin-bottom:7px; gap:8px;
+}
 .field:last-child { margin-bottom:0; }
 .field label {
-  font-size:0.82rem; color:var(--text-secondary);
-  white-space:nowrap; min-width:68px;
+  font-size:0.78rem; color:var(--text-secondary);
+  white-space:nowrap; min-width:60px;
 }
 .field input {
   flex:1; min-width:0;
-  padding:9px 12px; font-size:0.92rem; font-weight:500;
-  border:1.5px solid var(--border); border-radius:8px;
+  padding:7px 10px; font-size:0.88rem; font-weight:500;
+  border:1px solid var(--border); border-radius:7px;
   background:var(--bg); color:var(--text);
   text-align:right; transition:all 0.2s;
   font-family: inherit;
 }
 .field input:focus {
   outline:none; border-color:var(--red);
-  box-shadow:0 0 0 3px rgba(204,0,0,0.06);
+  box-shadow:0 0 0 3px rgba(204,0,0,0.05);
   background:#FFF;
 }
 .field .unit {
-  font-size:0.72rem; color:var(--text-muted); min-width:24px;
+  font-size:0.7rem; color:var(--text-muted); min-width:20px;
 }
 
-/* Fee row - 2 lines */
-.fee-card { padding:12px 16px; }
+/* Fee - 2 lines, sub-labels on new lines */
+.fee-card { padding:10px 14px; }
 .fee-row {
-  display:flex; align-items:center; gap:8px; margin-bottom:6px;
-  font-size:0.78rem;
+  margin-bottom:5px;
 }
 .fee-row:last-child { margin-bottom:0; }
-.fee-row label {
-  min-width:52px; color:var(--text-secondary); white-space:nowrap;
+.fee-row-main {
+  display:flex; align-items:center; gap:8px;
 }
-.fee-row input {
+.fee-row-main label {
+  min-width:52px; font-size:0.78rem; color:var(--text-secondary);
+}
+.fee-row-main input {
   width:72px; padding:5px 8px; font-size:0.78rem;
-  border:1.5px solid var(--border); border-radius:6px;
+  border:1px solid var(--border); border-radius:6px;
   background:var(--bg); text-align:right;
 }
-.fee-row input:focus { outline:none; border-color:var(--gold); }
-.fee-row .desc { font-size:0.68rem; color:var(--text-muted); flex:1; }
-.fee-row .fixed { font-size:0.75rem; color:var(--text-muted); }
+.fee-row-main input:focus { outline:none; border-color:var(--gold); }
+.fee-row-main .desc { font-size:0.68rem; color:var(--text-muted); }
+.fee-row-sub {
+  font-size:0.68rem; color:var(--text-muted);
+  display:flex; gap:20px; padding:2px 0;
+}
+.fee-row-sub span { white-space:nowrap; }
 
-/* Button */
+/* Button - compact */
 .calc-btn {
-  width:100%; padding:13px;
+  width:100%; padding:10px;
   border:none; border-radius:var(--radius);
   background:linear-gradient(135deg, var(--red), var(--red-dark));
-  color:#FFF; font-size:1rem; font-weight:700;
+  color:#FFF; font-size:0.95rem; font-weight:700;
   cursor:pointer; letter-spacing:2px;
-  margin-bottom:12px; transition:all 0.2s;
+  margin-bottom:8px; transition:all 0.2s;
   font-family:'Noto Serif SC',serif;
 }
 .calc-btn:active { transform:scale(0.98); opacity:0.9; }
@@ -155,53 +156,51 @@ body {
 
 .result-card {
   background:var(--card); border-radius:var(--radius);
-  border:1.5px solid var(--gold);
-  padding:20px; margin-bottom:12px;
+  border:1px solid var(--gold);
+  padding:14px; margin-bottom:8px;
 }
-
 .result-big {
-  text-align:center; padding:8px 0 16px;
-  border-bottom:1px dashed var(--border); margin-bottom:12px;
+  text-align:center; padding:4px 0 10px;
+  border-bottom:1px dashed var(--border); margin-bottom:8px;
 }
-.result-big .label { font-size:0.72rem; color:var(--text-muted); margin-bottom:4px; }
+.result-big .label { font-size:0.68rem; color:var(--text-muted); }
 .result-big .value {
-  font-size:2.2rem; font-weight:800;
+  font-size:2rem; font-weight:800;
   font-family:'Noto Serif SC',serif;
 }
 .result-big .value.profit { color:var(--red); }
 .result-big .value.loss { color:#2D8A4E; }
 
 .result-grid {
-  display:grid; grid-template-columns:1fr 1fr; gap:4px 16px;
+  display:grid; grid-template-columns:1fr 1fr; gap:2px 14px;
 }
 .result-item {
   display:flex; justify-content:space-between;
-  padding:5px 0; font-size:0.8rem;
+  padding:4px 0; font-size:0.76rem;
 }
 .result-item .k { color:var(--text-secondary); }
 .result-item .v { font-weight:600; }
 .result-item.full { grid-column:1/-1; }
 
 .new-cost-box {
-  margin-top:12px; padding-top:12px;
+  margin-top:8px; padding-top:8px;
   border-top:1px dashed var(--border);
   text-align:center;
 }
-.new-cost-box .label { font-size:0.72rem; color:var(--text-muted); }
+.new-cost-box .label { font-size:0.68rem; color:var(--text-muted); }
 .new-cost-box .value {
-  font-size:1.2rem; font-weight:700; color:var(--red-dark);
+  font-size:1.05rem; font-weight:700; color:var(--red-dark);
   font-family:'Noto Serif SC',serif;
 }
 
-/* Desktop: center card */
 @media (min-width: 520px) {
-  .container { padding: 32px 16px 48px; }
+  .app { padding: 12px 16px 24px; }
 }
 </style>
 </head>
 <body>
 
-<div class="container">
+<div class="app">
   <div class="header">
     <h1>做T计算器</h1>
   </div>
@@ -221,7 +220,7 @@ body {
     </div>
     <div class="field">
       <label>持仓数量</label>
-      <input type="text" id="holdQty" value="1000" placeholder="1000">
+      <input type="text" id="holdQty" value="1000" placeholder="1000" inputmode="numeric" oninput="qtyInput(this)" onblur="qtyBlur(this)">
       <span class="unit">股</span>
     </div>
   </div>
@@ -236,7 +235,7 @@ body {
     </div>
     <div class="field">
       <label>操作数量</label>
-      <input type="text" id="tQty" value="500" placeholder="500">
+      <input type="text" id="tQty" value="500" placeholder="500" inputmode="numeric" oninput="qtyInput(this)" onblur="qtyBlur(this)">
       <span class="unit">股</span>
     </div>
     <div class="field">
@@ -246,20 +245,23 @@ body {
     </div>
   </div>
 
-  <!-- 费率 -->
+  <!-- 费率 - 2 lines with sub-labels -->
   <div class="card fee-card">
     <div class="card-title">💰 费率设置</div>
     <div class="fee-row">
-      <label>佣金</label>
-      <input type="number" id="commRate" value="0.03" step="0.001">
-      <span class="desc">%（默认万3，最低5元）</span>
+      <div class="fee-row-main">
+        <label>佣金</label>
+        <input type="number" id="commRate" value="0.03" step="0.001">
+        <span class="desc">% 默认万3 最低5元</span>
+      </div>
     </div>
     <div class="fee-row">
-      <label>印花税</label>
-      <span class="fixed">0.05%（卖出单向）</span>
-      <span style="flex:1"></span>
-      <label style="min-width:44px">过户费</label>
-      <span class="fixed">0.001%（双向）</span>
+      <div class="fee-row-sub">
+        <span>印花税 0.05%</span>
+        <span>（卖出单向）</span>
+        <span style="margin-left:12px">过户费 0.001%</span>
+        <span>（双向）</span>
+      </div>
     </div>
   </div>
 
@@ -322,6 +324,38 @@ function setMode(mode) {
   document.getElementById('resultArea').classList.remove('show');
 }
 
+// 数量输入：输入数字后自动补00，去掉末尾的0 → 8→800, 12→1200
+function qtyInput(el) {
+  let v = el.value.replace(/[^0-9]/g, '');
+  if (v === '') {
+    el.value = '';
+    return;
+  }
+  // Remove leading zeros
+  v = v.replace(/^0+/, '') || '0';
+  // Append two zeros
+  el.value = v + '00';
+}
+
+function qtyBlur(el) {
+  let v = el.value.replace(/[^0-9]/g, '');
+  if (v === '' || v === '0' || v === '00') {
+    el.value = parseInt(el.getAttribute('data-default') || '1000');
+    return;
+  }
+  // Ensure ends with 00
+  if (!v.endsWith('00')) {
+    v = v.replace(/0+$/, '') + '00';
+  }
+  el.value = v;
+}
+
+function getQty(id) {
+  const v = document.getElementById(id).value.replace(/[^0-9]/g, '');
+  const n = parseInt(v);
+  return isNaN(n) || n <= 0 ? 0 : n;
+}
+
 function parseNum(id) {
   const v = parseFloat(document.getElementById(id).value);
   return isNaN(v) ? 0 : v;
@@ -330,7 +364,7 @@ function parseNum(id) {
 function calcFee(amount, isSell) {
   const commRate = parseNum('commRate') / 100;
   let comm = amount * commRate;
-  if (comm > 0 && comm < 5) comm = 5; // min 5 yuan
+  if (comm > 0 && comm < 5) comm = 5;
   const stamp = isSell ? amount * 0.0005 : 0;
   const trans = amount * 0.00001;
   return { comm, stamp, trans, total: comm + stamp + trans };
@@ -342,15 +376,14 @@ function fmtMoney(v) {
 }
 
 function fmtFour(v) {
-  // 4 significant digits after decimal for cost price
   return v.toFixed(4);
 }
 
 function calculate() {
   const costPrice = parseNum('costPrice');
-  const holdQty = parseNum('holdQty');
+  const holdQty = getQty('holdQty');
   const tPrice1 = parseNum('tPrice1');
-  const tQty = parseNum('tQty');
+  const tQty = getQty('tQty');
   const tPrice2 = parseNum('tPrice2');
 
   if (!costPrice || !holdQty || !tPrice1 || !tQty || !tPrice2) {
@@ -393,7 +426,6 @@ function calculate() {
   document.getElementById('commDetail').textContent =
     '买入 ' + fmtMoney(fee1.comm) + ' + 卖出 ' + fmtMoney(fee2.comm);
 
-  // 净盈亏：盈利红字，亏损绿字
   const bigEl = document.getElementById('resultBig');
   if (diff >= 0) {
     bigEl.textContent = '+' + fmtMoney(diff) + ' 元';
@@ -403,7 +435,6 @@ function calculate() {
     bigEl.className = 'value loss';
   }
 
-  // 新持仓成本 - 4位小数
   const totalCostBefore = costPrice * holdQty;
   const totalCostAfter = totalCostBefore - diff;
   const newCostPrice = totalCostAfter / holdQty;
@@ -412,6 +443,10 @@ function calculate() {
   document.getElementById('resultArea').classList.add('show');
   document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
+// Init default values
+document.getElementById('holdQty').setAttribute('data-default', '1000');
+document.getElementById('tQty').setAttribute('data-default', '500');
 </script>
 </body>
 </html>
