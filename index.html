@@ -3,356 +3,307 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>青竹数苑 · 做T计算器</title>
-<link rel="icon" type="image/png" href="favicon.png">
+<title>做T计算器</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23CC0000'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='28' fill='white' font-family='serif'%3E牡%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   --red:        #CC0000;
   --red-dark:   #8B0000;
-  --red-light:  #F8E8E8;
-  --gold:       #C5A96A;
-  --gold-light: #F5F0E5;
+  --red-light:  #FDF0F0;
+  --gold:       #C9A96E;
+  --gold-light: #F8F4EC;
   --bg:         #FBF6F0;
-  --card:       #FFFFFF;
+  --card:       #FFFCF8;
   --text:       #3D2E2E;
   --text-secondary: #8B7870;
-  --text-muted: #B8A8A0;
-  --border:     #E8DCD0;
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.04);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.06);
-  --radius:     14px;
-  --transition: 0.2s ease;
+  --text-muted: #BFB0A5;
+  --border:     #EBE0D5;
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.03);
+  --shadow:     0 2px 12px rgba(0,0,0,0.05);
+  --radius:     12px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-html, body {
-  height: 100%; overflow: hidden;
+html { height:100%; }
+body {
+  min-height:100%;
   font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  /* Background watermark: faint peony */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Cg fill='%23CC0000' opacity='0.04'%3E%3Ccircle cx='140' cy='160' r='60'/%3E%3Ccircle cx='200' cy='120' r='50'/%3E%3Ccircle cx='260' cy='160' r='55'/%3E%3Ccircle cx='170' cy='220' r='45'/%3E%3Ccircle cx='230' cy='210' r='48'/%3E%3Ccircle cx='200' cy='185' r='30' fill='%23CC2200'/%3E%3C/g%3E%3Cg stroke='%235B8C5A' stroke-width='1.2' fill='none' opacity='0.06'%3E%3Cpath d='M80 380 Q120 340 160 380 M100 400 Q140 360 180 400'/%3E%3Cpath d='M220 390 Q260 350 300 390 M240 410 Q280 370 320 410'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 300px;
-  background-position: calc(100% + 50px) calc(100% + 30px);
+  /* Subtle peony watermark */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Cg opacity='0.04'%3E%3Ccircle cx='140' cy='160' r='60' fill='%23CC0000'/%3E%3Ccircle cx='200' cy='120' r='50' fill='%23CC0000'/%3E%3Ccircle cx='260' cy='160' r='55' fill='%23CC0000'/%3E%3Ccircle cx='170' cy='220' r='45' fill='%23CC0000'/%3E%3Ccircle cx='230' cy='210' r='48' fill='%23CC0000'/%3E%3Ccircle cx='200' cy='185' r='28' fill='%23CC2200' opacity='0.6'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 280px;
+  background-position: right -20px bottom -20px;
   background-repeat: no-repeat;
+  background-attachment: fixed;
 }
-.app {
-  display: flex; flex-direction: column;
-  height: 100vh; height: 100dvh;
-  max-width: 440px; margin: 0 auto;
-  padding: 8px 12px 12px;
+
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 16px 32px;
 }
+
 /* Header */
 .header {
-  flex-shrink: 0; text-align: center; padding: 4px 0 6px;
-  border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  text-align: center;
+  padding: 24px 0 16px;
 }
 .header h1 {
   font-family: 'Noto Serif SC', serif;
-  font-size: 1.15rem; font-weight: 700; color: var(--red-dark);
-  letter-spacing: 2px;
-}
-.header .brand {
-  font-size: 0.65rem; color: var(--text-muted); letter-spacing: 1px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--red-dark);
+  letter-spacing: 3px;
 }
 
 /* Mode Toggle */
-.mode-toggle {
-  flex-shrink: 0; display: flex; gap: 6px; margin-bottom: 8px;
+.toggle {
+  display: flex; gap: 8px;
+  margin-bottom: 16px;
 }
-.mode-btn {
-  flex: 1; padding: 8px 0; border-radius: 10px; border: 1.5px solid var(--border);
-  background: var(--card); font-size: 0.85rem; font-weight: 600;
-  cursor: pointer; transition: all var(--transition);
-  color: var(--text-secondary);
+.toggle-btn {
+  flex:1; padding: 10px 0;
+  border:1.5px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--card);
+  font-size:0.88rem; font-weight:600;
+  cursor:pointer; transition:all 0.2s;
+  color:var(--text-secondary);
+  letter-spacing:1px;
 }
-.mode-btn.active {
-  border-color: var(--red); background: var(--red-light); color: var(--red);
-}
-
-/* Scrollable Input Area */
-.scroll-area {
-  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding-bottom: 8px;
-}
-.input-card {
-  background: var(--card); border-radius: var(--radius);
-  border: 1px solid var(--border); padding: 14px 16px; margin-bottom: 10px;
-}
-.input-card h2 {
-  font-size: 0.85rem; font-weight: 700; color: var(--red-dark);
-  margin-bottom: 10px; padding-bottom: 6px;
-  border-bottom: 1px dashed var(--border);
-  font-family: 'Noto Serif SC', serif;
-  display: flex; align-items: center; gap: 6px;
-}
-.input-card h2 .icon { font-size: 1rem; }
-
-.input-row {
-  display: flex; align-items: center; margin-bottom: 8px; gap: 8px;
-}
-.input-row:last-child { margin-bottom: 0; }
-.input-row label {
-  font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap;
-  min-width: 72px; flex-shrink: 0;
-}
-.input-row input {
-  flex: 1; min-width: 0;
-  padding: 8px 10px; font-size: 0.9rem; font-weight: 500;
-  border: 1.5px solid var(--border); border-radius: 8px;
-  background: var(--bg); color: var(--text);
-  text-align: right; transition: all var(--transition);
-  -webkit-appearance: none;
-}
-.input-row input:focus {
-  outline: none; border-color: var(--red); background: #FFF;
-  box-shadow: 0 0 0 3px rgba(204,0,0,0.06);
-}
-.input-row .unit {
-  font-size: 0.72rem; color: var(--text-muted); flex-shrink: 0; min-width: 20px;
+.toggle-btn.active {
+  border-color:var(--red); background:var(--red-light); color:var(--red);
 }
 
-/* Fee card */
-.fee-card {
-  background: var(--card); border-radius: var(--radius);
-  border: 1px solid var(--border); padding: 12px 16px; margin-bottom: 10px;
+/* Card */
+.card {
+  background:var(--card); border-radius:var(--radius);
+  border:1px solid var(--border);
+  padding:16px; margin-bottom:12px;
+  box-shadow: var(--shadow-sm);
 }
-.fee-card h3 {
-  font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
-  margin-bottom: 8px;
+.card-title {
+  font-family:'Noto Serif SC',serif;
+  font-size:0.9rem; font-weight:700; color:var(--red-dark);
+  margin-bottom:12px; padding-bottom:8px;
+  border-bottom:1px dashed var(--border);
 }
+
+/* Input */
+.field { display:flex; align-items:center; margin-bottom:10px; gap:10px; }
+.field:last-child { margin-bottom:0; }
+.field label {
+  font-size:0.82rem; color:var(--text-secondary);
+  white-space:nowrap; min-width:68px;
+}
+.field input {
+  flex:1; min-width:0;
+  padding:9px 12px; font-size:0.92rem; font-weight:500;
+  border:1.5px solid var(--border); border-radius:8px;
+  background:var(--bg); color:var(--text);
+  text-align:right; transition:all 0.2s;
+  font-family: inherit;
+}
+.field input:focus {
+  outline:none; border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(204,0,0,0.06);
+  background:#FFF;
+}
+.field .unit {
+  font-size:0.72rem; color:var(--text-muted); min-width:24px;
+}
+
+/* Fee row - 2 lines */
+.fee-card { padding:12px 16px; }
 .fee-row {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  display:flex; align-items:center; gap:8px; margin-bottom:6px;
+  font-size:0.78rem;
 }
-.fee-row:last-child { margin-bottom: 0; }
+.fee-row:last-child { margin-bottom:0; }
 .fee-row label {
-  font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; min-width: 56px;
+  min-width:52px; color:var(--text-secondary); white-space:nowrap;
 }
 .fee-row input {
-  width: 68px; padding: 5px 8px; font-size: 0.78rem;
-  border: 1.5px solid var(--border); border-radius: 6px;
-  background: var(--bg); color: var(--text); text-align: right;
+  width:72px; padding:5px 8px; font-size:0.78rem;
+  border:1.5px solid var(--border); border-radius:6px;
+  background:var(--bg); text-align:right;
 }
-.fee-row input:focus {
-  outline: none; border-color: var(--gold);
-}
-.fee-row .desc {
-  font-size: 0.65rem; color: var(--text-muted);
-}
+.fee-row input:focus { outline:none; border-color:var(--gold); }
+.fee-row .desc { font-size:0.68rem; color:var(--text-muted); flex:1; }
+.fee-row .fixed { font-size:0.75rem; color:var(--text-muted); }
 
-/* Calculate Button */
+/* Button */
 .calc-btn {
-  width: 100%; padding: 12px;
-  border: none; border-radius: 12px;
-  background: linear-gradient(135deg, var(--red), var(--red-dark));
-  color: #FFF; font-size: 1rem; font-weight: 700;
-  cursor: pointer; letter-spacing: 2px;
-  margin-bottom: 10px; transition: all var(--transition);
-  font-family: 'Noto Serif SC', serif;
+  width:100%; padding:13px;
+  border:none; border-radius:var(--radius);
+  background:linear-gradient(135deg, var(--red), var(--red-dark));
+  color:#FFF; font-size:1rem; font-weight:700;
+  cursor:pointer; letter-spacing:2px;
+  margin-bottom:12px; transition:all 0.2s;
+  font-family:'Noto Serif SC',serif;
 }
-.calc-btn:active { transform: scale(0.98); opacity: 0.9; }
+.calc-btn:active { transform:scale(0.98); opacity:0.9; }
 
-/* Result Card */
+/* Result */
+.result { display:none; }
+.result.show { display:block; }
+
 .result-card {
-  background: var(--card); border-radius: var(--radius);
-  border: 1.5px solid var(--border); padding: 16px;
-  margin-bottom: 10px; display: none;
+  background:var(--card); border-radius:var(--radius);
+  border:1.5px solid var(--gold);
+  padding:20px; margin-bottom:12px;
 }
-.result-card.show { display: block; border-color: var(--gold); }
-.result-card h2 {
-  font-size: 0.85rem; font-weight: 700; color: var(--red-dark);
-  margin-bottom: 10px; font-family: 'Noto Serif SC', serif;
-  display: flex; align-items: center; gap: 6px;
-}
-.result-card h2 .icon { font-size: 1rem; }
 
 .result-big {
-  text-align: center; padding: 10px 0 14px;
-  border-bottom: 1px dashed var(--border); margin-bottom: 10px;
+  text-align:center; padding:8px 0 16px;
+  border-bottom:1px dashed var(--border); margin-bottom:12px;
 }
-.result-big .label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
+.result-big .label { font-size:0.72rem; color:var(--text-muted); margin-bottom:4px; }
 .result-big .value {
-  font-size: 2rem; font-weight: 800; line-height: 1.2;
+  font-size:2.2rem; font-weight:800;
+  font-family:'Noto Serif SC',serif;
 }
-.result-big .value.green { color: #2D8A4E; }
-.result-big .value.red { color: var(--red); }
+.result-big .value.profit { color:var(--red); }
+.result-big .value.loss { color:#2D8A4E; }
 
-.result-detail {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
+.result-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:4px 16px;
 }
 .result-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 5px 0; font-size: 0.78rem;
+  display:flex; justify-content:space-between;
+  padding:5px 0; font-size:0.8rem;
 }
-.result-item .key { color: var(--text-secondary); }
-.result-item .val { font-weight: 600; color: var(--text); }
-.result-item.full { grid-column: 1 / -1; }
+.result-item .k { color:var(--text-secondary); }
+.result-item .v { font-weight:600; }
+.result-item.full { grid-column:1/-1; }
 
-.new-cost {
-  margin-top: 10px; padding-top: 10px;
-  border-top: 1px dashed var(--border);
-  text-align: center;
+.new-cost-box {
+  margin-top:12px; padding-top:12px;
+  border-top:1px dashed var(--border);
+  text-align:center;
 }
-.new-cost .label { font-size: 0.7rem; color: var(--text-muted); }
-.new-cost .value {
-  font-size: 1.3rem; font-weight: 800; color: var(--red-dark);
-}
-
-/* Footer */
-.footer {
-  flex-shrink: 0; text-align: center; padding: 4px 0 0;
-  font-size: 0.6rem; color: var(--text-muted);
-  border-top: 1px solid var(--border); margin-top: 4px;
+.new-cost-box .label { font-size:0.72rem; color:var(--text-muted); }
+.new-cost-box .value {
+  font-size:1.2rem; font-weight:700; color:var(--red-dark);
+  font-family:'Noto Serif SC',serif;
 }
 
-/* Corner bamboo decoration */
-.corner-decor {
-  position: fixed; pointer-events: none; opacity: 0.06; z-index: 0;
-}
-.corner-decor.tl { top: 0; left: 0; }
-.corner-decor.br { bottom: 0; right: 0; }
-
-@media (min-width: 440px) {
-  .app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+/* Desktop: center card */
+@media (min-width: 520px) {
+  .container { padding: 32px 16px 48px; }
 }
 </style>
 </head>
 <body>
 
-<svg class="corner-decor tl" width="120" height="120" viewBox="0 0 120 120">
-  <g stroke="#5B8C5A" stroke-width="1.5" fill="none">
-    <path d="M10 110 Q30 70 60 80 Q80 85 100 60"/>
-    <path d="M5 105 Q20 80 45 85"/>
-    <path d="M25 115 Q40 95 55 95"/>
-    <path d="M80 75 Q90 65 100 55"/>
-    <circle cx="90" cy="55" r="2" fill="#5B8C5A"/>
-    <circle cx="60" cy="82" r="1.5" fill="#5B8C5A"/>
-  </g>
-</svg>
-
-<div class="app">
+<div class="container">
   <div class="header">
-    <div class="brand">青竹数苑</div>
     <h1>做T计算器</h1>
   </div>
 
-  <!-- Mode Toggle -->
-  <div class="mode-toggle">
-    <button class="mode-btn active" onclick="setMode('reverse')">倒T · 先卖后买</button>
-    <button class="mode-btn" onclick="setMode('normal')">正T · 先买后卖</button>
+  <div class="toggle">
+    <button class="toggle-btn active" onclick="setMode('reverse')">倒T · 先卖后买</button>
+    <button class="toggle-btn" onclick="setMode('normal')">正T · 先买后卖</button>
   </div>
 
-  <div class="scroll-area" id="scrollArea">
-    <!-- Position Card -->
-    <div class="input-card">
-      <h2><span class="icon">📊</span>持仓信息</h2>
-      <div class="input-row">
-        <label>成本价</label>
-        <input type="number" id="costPrice" placeholder="买入均价" step="0.001">
-        <span class="unit">元</span>
-      </div>
-      <div class="input-row">
-        <label>持仓数量</label>
-        <input type="number" id="holdQty" placeholder="持有股数" step="1">
-        <span class="unit">股</span>
-      </div>
+  <!-- 持仓 -->
+  <div class="card">
+    <div class="card-title">📊 持仓信息</div>
+    <div class="field">
+      <label>成本价</label>
+      <input type="number" id="costPrice" placeholder="买入均价" step="0.001">
+      <span class="unit">元</span>
     </div>
-
-    <!-- T Operation Card -->
-    <div class="input-card" id="opCard">
-      <h2><span class="icon">🔄</span><span id="opTitle">倒T操作</span></h2>
-      <div class="input-row">
-        <label>卖出价</label>
-        <input type="number" id="tPrice1" placeholder="先卖价格" step="0.001">
-        <span class="unit">元</span>
-      </div>
-      <div class="input-row">
-        <label>操作数量</label>
-        <input type="number" id="tQty" placeholder="操作股数" step="1">
-        <span class="unit">股</span>
-      </div>
-      <div class="input-row">
-        <label id="expectLabel">预期接回价</label>
-        <input type="number" id="tPrice2" placeholder="预期接回价" step="0.001">
-        <span class="unit">元</span>
-      </div>
+    <div class="field">
+      <label>持仓数量</label>
+      <input type="text" id="holdQty" value="1000" placeholder="1000">
+      <span class="unit">股</span>
     </div>
+  </div>
 
-    <!-- Fee Card -->
-    <div class="fee-card">
-      <h3>💰 费率设置（可修改）</h3>
-      <div class="fee-row">
-        <label>佣金</label>
-        <input type="number" id="commRate" value="0.03" step="0.001">
-        <span class="desc">%（默认万3）</span>
-      </div>
-      <div class="fee-row">
-        <label>最低佣金</label>
-        <input type="number" id="minComm" value="5" step="0.01">
-        <span class="desc">元</span>
-      </div>
-      <div class="fee-row">
-        <label>印花税</label>
-        <input type="number" id="stampRate" value="0.05" step="0.001">
-        <span class="desc">%（卖出单向）</span>
-      </div>
-      <div class="fee-row">
-        <label>过户费</label>
-        <input type="number" id="transferRate" value="0.001" step="0.001">
-        <span class="desc">%（双向）</span>
-      </div>
+  <!-- T操作 -->
+  <div class="card">
+    <div class="card-title">🔄 <span id="opTitle">倒T操作</span></div>
+    <div class="field">
+      <label>卖出价</label>
+      <input type="number" id="tPrice1" placeholder="先卖价格" step="0.001">
+      <span class="unit">元</span>
     </div>
+    <div class="field">
+      <label>操作数量</label>
+      <input type="text" id="tQty" value="500" placeholder="500">
+      <span class="unit">股</span>
+    </div>
+    <div class="field">
+      <label id="expectLabel">预期接回价</label>
+      <input type="number" id="tPrice2" placeholder="预期接回价" step="0.001">
+      <span class="unit">元</span>
+    </div>
+  </div>
 
-    <button class="calc-btn" onclick="calculate()">💰 计算预估盈亏</button>
+  <!-- 费率 -->
+  <div class="card fee-card">
+    <div class="card-title">💰 费率设置</div>
+    <div class="fee-row">
+      <label>佣金</label>
+      <input type="number" id="commRate" value="0.03" step="0.001">
+      <span class="desc">%（默认万3，最低5元）</span>
+    </div>
+    <div class="fee-row">
+      <label>印花税</label>
+      <span class="fixed">0.05%（卖出单向）</span>
+      <span style="flex:1"></span>
+      <label style="min-width:44px">过户费</label>
+      <span class="fixed">0.001%（双向）</span>
+    </div>
+  </div>
 
-    <!-- Result Card -->
-    <div class="result-card" id="resultCard">
-      <h2><span class="icon">📋</span>预估结果</h2>
+  <button class="calc-btn" onclick="calculate()">💰 计算预估盈亏</button>
+
+  <div class="result" id="resultArea">
+    <div class="result-card">
       <div class="result-big">
         <div class="label">净盈亏</div>
         <div class="value" id="resultBig"></div>
       </div>
-      <div class="result-detail">
+      <div class="result-grid">
         <div class="result-item">
-          <span class="key" id="op1Label">卖出收入</span><span class="val" id="op1Val">--</span>
+          <span class="k" id="op1Label">卖出收入</span><span class="v" id="op1Val">--</span>
         </div>
         <div class="result-item">
-          <span class="key" id="op2Label">买入支出</span><span class="val" id="op2Val">--</span>
+          <span class="k" id="op2Label">买入支出</span><span class="v" id="op2Val">--</span>
         </div>
         <div class="result-item">
-          <span class="key">差价</span><span class="val" id="diffVal">--</span>
+          <span class="k">差价</span><span class="v" id="diffVal">--</span>
         </div>
         <div class="result-item">
-          <span class="key">手续费合计</span><span class="val" id="feeTotal">--</span>
+          <span class="k">手续费合计</span><span class="v" id="feeTotal">--</span>
         </div>
         <div class="result-item full">
-          <span class="key">佣金明细</span><span class="val" id="commDetail">--</span>
-        </div>
-        <div class="result-item full">
-          <span class="key">印花税+过户费</span><span class="val" id="taxDetail">--</span>
+          <span class="k">佣金明细</span><span class="v" id="commDetail">--</span>
         </div>
       </div>
-      <div class="new-cost">
+      <div class="new-cost-box">
         <div class="label">操作后新持仓成本</div>
         <div class="value" id="newCost">--</div>
       </div>
     </div>
   </div>
-
-  <div class="footer">青竹数苑 · 做T预估计算器</div>
 </div>
 
 <script>
-let currentMode = 'reverse'; // reverse = 倒T, normal = 正T
+let currentMode = 'reverse';
 
 function setMode(mode) {
   currentMode = mode;
-  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
   if (mode === 'reverse') {
-    document.querySelector('.mode-btn:nth-child(1)').classList.add('active');
+    document.querySelectorAll('.toggle-btn')[0].classList.add('active');
     document.getElementById('opTitle').textContent = '倒T操作';
     document.getElementById('expectLabel').textContent = '预期接回价';
     document.getElementById('tPrice1').placeholder = '先卖价格';
@@ -360,7 +311,7 @@ function setMode(mode) {
     document.getElementById('op1Label').textContent = '卖出收入';
     document.getElementById('op2Label').textContent = '买入支出';
   } else {
-    document.querySelector('.mode-btn:nth-child(2)').classList.add('active');
+    document.querySelectorAll('.toggle-btn')[1].classList.add('active');
     document.getElementById('opTitle').textContent = '正T操作';
     document.getElementById('expectLabel').textContent = '预期卖出价';
     document.getElementById('tPrice1').placeholder = '先买价格';
@@ -368,8 +319,7 @@ function setMode(mode) {
     document.getElementById('op1Label').textContent = '买入支出';
     document.getElementById('op2Label').textContent = '卖出收入';
   }
-  // Clear results
-  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('resultArea').classList.remove('show');
 }
 
 function parseNum(id) {
@@ -377,27 +327,23 @@ function parseNum(id) {
   return isNaN(v) ? 0 : v;
 }
 
-function calcFee(amount, rate, isSell) {
-  // Commission
-  let commRate = parseNum('commRate') / 100; // convert % to decimal
+function calcFee(amount, isSell) {
+  const commRate = parseNum('commRate') / 100;
   let comm = amount * commRate;
-  let minComm = parseNum('minComm');
-  if (comm > 0 && comm < minComm) comm = minComm;
-
-  // Stamp tax (sell only)
-  let stampRate = parseNum('stampRate') / 100;
-  let stamp = isSell ? amount * stampRate : 0;
-
-  // Transfer fee (both sides)
-  let transRate = parseNum('transferRate') / 100;
-  let trans = amount * transRate;
-
+  if (comm > 0 && comm < 5) comm = 5; // min 5 yuan
+  const stamp = isSell ? amount * 0.0005 : 0;
+  const trans = amount * 0.00001;
   return { comm, stamp, trans, total: comm + stamp + trans };
 }
 
 function fmtMoney(v) {
   if (Math.abs(v) < 0.005) return '0.00';
   return v.toFixed(2);
+}
+
+function fmtFour(v) {
+  // 4 significant digits after decimal for cost price
+  return v.toFixed(4);
 }
 
 function calculate() {
@@ -407,83 +353,65 @@ function calculate() {
   const tQty = parseNum('tQty');
   const tPrice2 = parseNum('tPrice2');
 
-  // Validation
   if (!costPrice || !holdQty || !tPrice1 || !tQty || !tPrice2) {
     alert('请填写所有数字');
     return;
   }
+  if (tQty > holdQty) {
+    alert('操作数量不能超过持仓数量');
+    return;
+  }
 
-  let amount1, amount2, fee1, fee2, netSale, netBuy, diff;
+  let amount1, amount2, fee1, fee2, net1, net2, diff;
 
   if (currentMode === 'reverse') {
-    // 倒T: 先卖后买
-    // Step 1: Sell at tPrice1
     amount1 = tPrice1 * tQty;
-    fee1 = calcFee(amount1, parseNum('commRate'), true);
-
-    // Step 2: Buy back at tPrice2
+    fee1 = calcFee(amount1, true);
     amount2 = tPrice2 * tQty;
-    fee2 = calcFee(amount2, parseNum('commRate'), false);
-
-    netSale = amount1 - fee1.total;  // money received
-    netBuy = amount2 + fee2.total;   // money spent
-    diff = netSale - netBuy;         // profit if positive
-
-    document.getElementById('op1Val').textContent = '+' + fmtMoney(netSale);
-    document.getElementById('op2Val').textContent = '-' + fmtMoney(netBuy);
+    fee2 = calcFee(amount2, false);
+    net1 = amount1 - fee1.total;
+    net2 = amount2 + fee2.total;
+    diff = net1 - net2;
+    document.getElementById('op1Val').textContent = '+' + fmtMoney(net1);
+    document.getElementById('op2Val').textContent = '-' + fmtMoney(net2);
   } else {
-    // 正T: 先买后卖
-    // Step 1: Buy at tPrice1
     amount1 = tPrice1 * tQty;
-    fee1 = calcFee(amount1, parseNum('commRate'), false);
-
-    // Step 2: Sell at tPrice2
+    fee1 = calcFee(amount1, false);
     amount2 = tPrice2 * tQty;
-    fee2 = calcFee(amount2, parseNum('commRate'), true);
-
-    netBuy = amount1 + fee1.total;   // money spent
-    netSale = amount2 - fee2.total;  // money received
-    diff = netSale - netBuy;
-
-    document.getElementById('op1Val').textContent = '-' + fmtMoney(netBuy);
-    document.getElementById('op2Val').textContent = '+' + fmtMoney(netSale);
+    fee2 = calcFee(amount2, true);
+    net1 = amount1 + fee1.total;
+    net2 = amount2 - fee2.total;
+    diff = net2 - net1;
+    document.getElementById('op1Val').textContent = '-' + fmtMoney(net1);
+    document.getElementById('op2Val').textContent = '+' + fmtMoney(net2);
   }
 
   document.getElementById('diffVal').textContent = fmtMoney(diff);
 
-  // Fee details
   const feeTotal = fee1.total + fee2.total;
   document.getElementById('feeTotal').textContent = fmtMoney(feeTotal);
-
-  const commTotal = fee1.comm + fee2.comm;
-  const taxTotal = fee1.stamp + fee2.stamp + fee1.trans + fee2.trans;
   document.getElementById('commDetail').textContent =
-    '佣金 ' + fmtMoney(commTotal) + '（买' + fmtMoney(fee1.comm) + ' + 卖' + fmtMoney(fee2.comm) + '）';
-  document.getElementById('taxDetail').textContent =
-    '印花税 ' + fmtMoney(fee1.stamp + fee2.stamp) + ' + 过户费 ' + fmtMoney(fee1.trans + fee2.trans);
+    '买入 ' + fmtMoney(fee1.comm) + ' + 卖出 ' + fmtMoney(fee2.comm);
 
-  // Big result
+  // 净盈亏：盈利红字，亏损绿字
   const bigEl = document.getElementById('resultBig');
   if (diff >= 0) {
     bigEl.textContent = '+' + fmtMoney(diff) + ' 元';
-    bigEl.className = 'value green';
+    bigEl.className = 'value profit';
   } else {
     bigEl.textContent = fmtMoney(diff) + ' 元';
-    bigEl.className = 'value red';
+    bigEl.className = 'value loss';
   }
 
-  // New cost basis
-  const remainingQty = holdQty;
+  // 新持仓成本 - 4位小数
   const totalCostBefore = costPrice * holdQty;
-  const totalCostAfter = totalCostBefore - diff; // diff positive means profit, reducing cost
-  const newCostPrice = totalCostAfter / remainingQty;
-  document.getElementById('newCost').textContent = fmtMoney(newCostPrice) + ' 元';
+  const totalCostAfter = totalCostBefore - diff;
+  const newCostPrice = totalCostAfter / holdQty;
+  document.getElementById('newCost').textContent = fmtFour(newCostPrice) + ' 元';
 
-  // Show result card
-  const resultCard = document.getElementById('resultCard');
-  resultCard.classList.add('show');
-  resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.getElementById('resultArea').classList.add('show');
+  document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 </script>
- </body>
+</body>
 </html>
