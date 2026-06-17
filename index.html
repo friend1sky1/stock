@@ -132,8 +132,10 @@ html, body {
 /* Ref tag */
 .ref-tag {
   font-size: 0.6rem; color: var(--gold); white-space: nowrap;
-  flex-shrink: 0; background: var(--gold-light); padding: 2px 5px; border-radius: 4px;
+  flex-shrink: 0; background: var(--gold-light); padding: 2px 6px; border-radius: 4px;
+  cursor: pointer; border: 1px solid var(--gold); transition: all var(--transition); user-select: none;
 }
+.ref-tag:active, .ref-tag.active { background: var(--gold); color: #FFF; }
 
 /* Fee card */
 .fee-card {
@@ -295,7 +297,7 @@ html, body {
 
   <!-- Mode Toggle -->
   <div class="mode-toggle">
-    <button class="mode-btn active" onclick="setMode('reverse')">倒T · 先卖后买</button>
+    <button class="mode-btn active" onclick="setMode('reverse')">倒T · 高抛低吸</button>
     <button class="mode-btn" onclick="setMode('normal')">正T · 先买后卖</button>
   </div>
 
@@ -304,9 +306,9 @@ html, body {
     <div class="input-card" id="posCard">
       <h2 onclick="toggleFold('posCard')">
         <span class="icon">📊</span>持 仓 信 息
-        <span class="arrow" id="posArrow">▶</span>
+        <span class="arrow open" id="posArrow">▶</span>
       </h2>
-      <div class="fold-body hidden" id="posFold">
+      <div class="fold-body" id="posFold">
         <div class="input-row">
           <label>成本价</label>
           <input type="number" id="costPrice" placeholder="买入均价" step="0.001">
@@ -339,14 +341,15 @@ html, body {
       </div>
       <div class="input-row">
         <label>操作数量</label>
-        <input type="number" id="tQty" placeholder="500" step="1" value="500">
+        <input type="number" id="tQty" placeholder="1000" step="1" value="1000">
         <span class="unit">股</span>
       </div>
       <div class="input-row">
         <label id="expectLabel">预期接回价</label>
         <input type="number" id="tPrice2" placeholder="接回价=卖出价×99%" step="0.001" oninput="onBuybackInput()">
         <span class="unit">元</span>
-        <span class="ref-tag" id="refTag">99%参考</span>
+        <span class="ref-tag" id="refTag99" onclick="applyRatio(0.99)">0.99</span>
+        <span class="ref-tag" id="refTag995" onclick="applyRatio(0.995)">0.995</span>
         <span class="spin-btns">
           <span class="spin-btn" ontouchstart="spinStart('tPrice2',-0.01)" onmousedown="spinStart('tPrice2',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
           <span class="spin-btn" ontouchstart="spinStart('tPrice2',0.01)" onmousedown="spinStart('tPrice2',0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">+</span>
@@ -359,9 +362,8 @@ html, body {
       <h3>💰 费 率 设 置</h3>
       <div class="fee-row">
         <label>佣金</label>
-        <input type="number" id="commRate" value="0.03" step="0.001">
-        <span class="unit-pct">%</span>
-        <span class="desc">（默认万3，最低5元）</span>
+        <span class="desc" style="font-weight:600;color:var(--text)">0.016%</span>
+        <span class="desc">（万1.6，最低5元）</span>
       </div>
       <div class="fee-info">
         <span>印花税 0.05%（卖出单向）</span>
@@ -469,7 +471,18 @@ function onOpenPriceChange() {
   }
 }
 
-// ---- Ref price: 倒T=99%, 正T=101% ----
+// ---- Ref price: 倒T默认99%, 正T=101% ----
+function applyRatio(ratio) {
+  const t1 = parseFloat(document.getElementById('tPrice1').value);
+  if (!isNaN(t1) && t1 > 0) {
+    const t2 = document.getElementById('tPrice2');
+    t2.value = (t1 * ratio).toFixed(2);
+    t2.dataset.autoSet = 'false';
+    document.getElementById('refTag99').classList.toggle('active', ratio === 0.99);
+    document.getElementById('refTag995').classList.toggle('active', ratio === 0.995);
+  }
+}
+
 function updateRefPrice() {
   const t1 = parseFloat(document.getElementById('tPrice1').value);
   if (!isNaN(t1) && t1 > 0) {
@@ -504,7 +517,8 @@ function setMode(mode) {
     document.getElementById('tPrice2').placeholder = '接回价=卖出价×99%';
     document.getElementById('op1Label').textContent = '卖出收入';
     document.getElementById('op2Label').textContent = '买入支出';
-    document.getElementById('refTag').textContent = '99%参考';
+    document.getElementById('refTag99').style.display = '';
+    document.getElementById('refTag995').style.display = '';
   } else {
     document.querySelectorAll('.mode-btn')[1].classList.add('active');
     document.getElementById('opTitle').textContent = '正 T 操 作';
@@ -514,7 +528,8 @@ function setMode(mode) {
     document.getElementById('tPrice2').placeholder = '卖出价=买入价×1.01';
     document.getElementById('op1Label').textContent = '买入支出';
     document.getElementById('op2Label').textContent = '卖出收入';
-    document.getElementById('refTag').textContent = '1.01倍';
+    document.getElementById('refTag99').style.display = 'none';
+    document.getElementById('refTag995').style.display = 'none';
   }
   updateRefPrice();
   document.getElementById('resultCard').classList.remove('show');
@@ -527,7 +542,7 @@ function parseNum(id) {
 }
 
 function calcFee(amount, isSell) {
-  let commRate = parseNum('commRate') / 100;
+  let commRate = 0.016 / 100; // fixed at 0.016% (万1.6)
   let comm = amount * commRate;
   let minComm = 5; // fixed at 5 yuan, minimum commission
   if (comm > 0 && comm < minComm) comm = minComm;
@@ -654,7 +669,7 @@ function calculate() {
 function copyResult() {
   const lines = [];
   lines.push('=== 做T预估结果 ===');
-  lines.push('模式：' + (currentMode === 'reverse' ? '倒T（先卖后买）' : '正T（先买后卖）'));
+  lines.push('模式：' + (currentMode === 'reverse' ? '倒T（高抛低吸）' : '正T（先买后卖）'));
   lines.push(document.getElementById('op1Label').textContent + '：' + document.getElementById('op1Val').textContent);
   lines.push(document.getElementById('op2Label').textContent + '：' + document.getElementById('op2Val').textContent);
   lines.push('差价：' + document.getElementById('diffVal').textContent + ' 元');
