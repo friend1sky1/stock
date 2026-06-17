@@ -351,6 +351,7 @@ html, body {
         <span class="unit">元</span>
         <span class="ref-tag" id="refTag99" onclick="applyRatio(0.99)">0.99</span>
         <span class="ref-tag" id="refTag995" onclick="applyRatio(0.995)">0.995</span>
+        <span class="ref-tag" id="refTag101" onclick="applyRatio(1.01)" style="display:none">1.01</span>
         <span class="spin-btns">
           <span class="spin-btn" ontouchstart="spinStart('tPrice2',-0.01)" onmousedown="spinStart('tPrice2',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
           <span class="spin-btn" ontouchstart="spinStart('tPrice2',0.01)" onmousedown="spinStart('tPrice2',0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">+</span>
@@ -478,6 +479,7 @@ function applyRatio(ratio) {
     t2.dataset.autoSet = 'false';
     document.getElementById('refTag99').classList.toggle('active', ratio === 0.99);
     document.getElementById('refTag995').classList.toggle('active', ratio === 0.995);
+    if (document.getElementById('refTag101')) document.getElementById('refTag101').classList.toggle('active', ratio === 1.01);
   }
 }
 
@@ -517,6 +519,7 @@ function setMode(mode) {
     document.getElementById('op2Label').textContent = '买入支出';
     document.getElementById('refTag99').style.display = '';
     document.getElementById('refTag995').style.display = '';
+    document.getElementById('refTag101').style.display = 'none';
   } else {
     document.querySelectorAll('.mode-btn')[1].classList.add('active');
     document.getElementById('opTitle').textContent = '正 T 操 作';
@@ -528,6 +531,7 @@ function setMode(mode) {
     document.getElementById('op2Label').textContent = '卖出收入';
     document.getElementById('refTag99').style.display = 'none';
     document.getElementById('refTag995').style.display = 'none';
+    document.getElementById('refTag101').style.display = '';
   }
   updateRefPrice();
   document.getElementById('resultCard').classList.remove('show');
