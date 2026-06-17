@@ -333,13 +333,14 @@ html, body {
       <h2><span class="icon">🔄</span><span id="opTitle">倒 T 操 作</span></h2>
       <div class="input-row">
         <label>开盘价</label>
-        <input type="number" id="openPrice" placeholder="" step="0.01" value="10.00" onchange="onOpenPriceChange()">
+        <input type="number" id="openPrice" placeholder="" step="0.01" value="10.00" onchange="onOpenPriceChange()"
+          ontouchstart="slideStart(event, this, openPriceBounds, function(v){ onSlideOpenPrice(v); })" onmousedown="slideStart(event, this, openPriceBounds, function(v){ onSlideOpenPrice(v); })">
         <span class="unit">元</span>
       </div>
       <div class="input-row key-row" id="tPrice1Row">
         <label id="tPrice1Label">卖出价</label>
         <input type="number" id="tPrice1" placeholder="先卖价格" step="0.01" oninput="onSellPriceInput()"
-          ontouchstart="slideStart(event, this)" onmousedown="slideStart(event, this)">
+          ontouchstart="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })" onmousedown="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })">
         <span class="unit">元</span>
         <span class="spin-btns">
           <span class="spin-btn" ontouchstart="spinStart('tPrice1',-0.01)" onmousedown="spinStart('tPrice1',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
@@ -426,32 +427,36 @@ let spinTimer = null;
 let spinId = null;
 let spinDelta = 0;
 
-// ---- Slide-to-adjust for tPrice1 (sell price in reverse-T) ----
-let slideState = null; // { inputEl, startX, lastVal, openPrice, pixelStep }
+// ---- 滑动微调（通用） ----
+// 功能：手指/鼠标在输入框上左右滑动实时调节数值
+// 触发：touchstart + touchmove | mousedown + mousemove
+// 步进：±0.01元 / 每5px
+// 边界：由各输入框的 getBounds 回调决定；松手后触发 onChange 回调
+let slideState = null; // { inputEl, startX, lastVal, pixelAccum, getBounds, onChange }
 const SLIDE_PIXEL_STEP = 5;      // 每5px触发一次步进
 const SLIDE_PRICE_STEP = 0.01;   // 每次步进0.01元
 
-function getTPrice1Bounds() {
+// 卖出价边界（倒T模式）：开盘价 ±10%
+function sellPriceBounds() {
   const openP = parseFloat(document.getElementById('openPrice').value);
   if (isNaN(openP) || openP <= 0) return { min: 0.01, max: 99999 };
   return { min: Math.round(openP * 0.9 * 100) / 100, max: Math.round(openP * 1.1 * 100) / 100 };
 }
 
-function clampTPrice1(val) {
-  const b = getTPrice1Bounds();
-  if (val < b.min) return b.min;
-  if (val > b.max) return b.max;
-  return val;
+// 开盘价边界：温和范围，不严格限制
+function openPriceBounds() {
+  return { min: 0.01, max: 99999 };
 }
 
-function slideStart(e, el) {
-  if (currentMode !== 'reverse') return; // only for reverse-T
+function slideStart(e, el, getBounds, onChange) {
   const pos = e.touches ? e.touches[0] : e;
   slideState = {
     inputEl: el,
     startX: pos.clientX,
     lastVal: parseFloat(el.value) || 0,
-    pixelAccum: 0
+    pixelAccum: 0,
+    getBounds: getBounds || function() { return { min: 0.01, max: 99999 }; },
+    onChange: onChange || function() {}
   };
   el.style.cursor = 'ew-resize';
   el.classList.add('sliding');
@@ -470,10 +475,12 @@ function slideMove(e) {
     const sign = slideState.pixelAccum > 0 ? 1 : -1;
     slideState.pixelAccum -= sign * steps * SLIDE_PIXEL_STEP;
     let newVal = Math.round((slideState.lastVal + sign * steps * SLIDE_PRICE_STEP) * 100) / 100;
-    newVal = clampTPrice1(newVal);
+    const b = slideState.getBounds();
+    if (newVal < b.min) newVal = b.min;
+    if (newVal > b.max) newVal = b.max;
     slideState.lastVal = newVal;
     slideState.inputEl.value = newVal.toFixed(2);
-    updateRefPrice();
+    slideState.onChange(newVal);
   }
   e.preventDefault();
 }
@@ -528,6 +535,14 @@ function applySpin() {
 
 // ---- Open price -> sync sell price ----
 function onOpenPriceChange() {
+  syncPricesFromOpen();
+}
+
+function onSlideOpenPrice(newVal) {
+  syncPricesFromOpen();
+}
+
+function syncPricesFromOpen() {
   const openP = parseFloat(document.getElementById('openPrice').value);
   if (!isNaN(openP) && openP > 0) {
     document.getElementById('tPrice1').value = openP.toFixed(2);
