@@ -340,12 +340,11 @@ html, body {
         <div class="input-row">
           <label>持仓数量</label>
           <span class="spin-btns">
-            <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="-100">−</span>
-            <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="100">+</span>
-          </span>
+          <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="-100">−</span>
           <input type="text" inputmode="numeric" id="holdQty" placeholder="1000" value="1000"
             onchange="onHoldQtyChange()"
             ontouchstart="slideStart(event, this, holdQtyBounds, function(v){ }, 100)" onmousedown="slideStart(event, this, holdQtyBounds, function(v){ }, 100)">
+          <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="100">+</span>
           <span class="unit">股</span>
         </div>
       </div>
@@ -363,32 +362,29 @@ html, body {
       <div class="input-row key-row" id="tPrice1Row">
         <label id="tPrice1Label">卖出价</label>
         <span class="spin-btns">
-          <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="-0.01">−</span>
-          <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="0.01">+</span>
-        </span>
+        <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="-0.01">−</span>
         <input type="text" inputmode="decimal" id="tPrice1" placeholder="先卖价格" oninput="onSellPriceInput()"
           ontouchstart="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })" onmousedown="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })">
+        <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="0.01">+</span>
         <span class="unit">元</span>
       </div>
       <div class="input-row">
         <label>操作股数</label>
         <span class="spin-btns">
-          <span class="spin-btn" data-spin-id="tQty" data-spin-delta="-100">−</span>
-          <span class="spin-btn" data-spin-id="tQty" data-spin-delta="100">+</span>
-        </span>
+        <span class="spin-btn" data-spin-id="tQty" data-spin-delta="-100">−</span>
         <input type="text" inputmode="numeric" id="tQty" placeholder="1000" value="1000"
           onchange="onTQtyChange()"
           ontouchstart="slideStart(event, this, tQtyBounds, function(v){ }, 100)" onmousedown="slideStart(event, this, tQtyBounds, function(v){ }, 100)">
+        <span class="spin-btn" data-spin-id="tQty" data-spin-delta="100">+</span>
         <span class="unit">股</span>
       </div>
       <div class="input-row">
         <label id="expectLabel">预期接回价</label>
         <span class="spin-btns">
-          <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="-0.01">−</span>
-          <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="0.01">+</span>
-        </span>
+        <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="-0.01">−</span>
         <input type="text" inputmode="decimal" id="tPrice2" placeholder="" oninput="onBuybackInput()"
           ontouchstart="slideStart(event, this, buybackPriceBounds, function(v){ document.getElementById('tPrice2').dataset.autoSet='false'; })" onmousedown="slideStart(event, this, buybackPriceBounds, function(v){ document.getElementById('tPrice2').dataset.autoSet='false'; })">
+        <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="0.01">+</span>
         <span class="unit">元</span>
       </div>
       <div class="input-row" id="refTagRow">
