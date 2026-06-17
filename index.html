@@ -129,8 +129,13 @@ html, body {
 .spin-btn:active { background: var(--profit-bg); color: var(--profit); border-color: var(--profit); }
 .spin-btns { display: flex; gap: 2px; flex-shrink: 0; }
 
-/* Ref tag */
-.ref-tag {
+/* Ref tag row — standalone */
+#refTagRow {
+  margin-top: 0;
+  padding-left: 86px; /* align with input after label */
+  gap: 8px;
+}
+#refTagRow .ref-tag { margin: 0; }
   font-size: 0.68rem; color: var(--gold); white-space: nowrap;
   flex-shrink: 0; background: var(--gold-light); padding: 4px 8px; border-radius: 5px;
   cursor: pointer; border: 1.5px solid var(--gold); transition: all var(--transition); user-select: none;
@@ -333,7 +338,7 @@ html, body {
       <h2><span class="icon">🔄</span><span id="opTitle">倒 T 操 作</span></h2>
       <div class="input-row">
         <label>开盘价</label>
-        <input type="number" id="openPrice" placeholder="" step="0.01" value="10.00" onchange="onOpenPriceChange()"
+        <input type="text" inputmode="decimal" id="openPrice" placeholder="" value="10.00" onchange="onOpenPriceChange()"
           ontouchstart="slideStart(event, this, openPriceBounds, function(v){ onSlideOpenPrice(v); })" onmousedown="slideStart(event, this, openPriceBounds, function(v){ onSlideOpenPrice(v); })">
         <span class="unit">元</span>
       </div>
@@ -348,21 +353,30 @@ html, body {
         </span>
       </div>
       <div class="input-row">
-        <label>操作数量</label>
-        <input type="number" id="tQty" placeholder="1000" step="100" value="1000">
+        <label>操作股数</label>
+        <input type="text" inputmode="numeric" id="tQty" placeholder="1000" value="1000"
+          onchange="onTQtyChange()"
+          ontouchstart="slideStart(event, this, tQtyBounds, function(v){ }, 100)" onmousedown="slideStart(event, this, tQtyBounds, function(v){ }, 100)">
         <span class="unit">股</span>
+        <span class="spin-btns">
+          <span class="spin-btn" data-spin-id="tQty" data-spin-delta="-100">−</span>
+          <span class="spin-btn" data-spin-id="tQty" data-spin-delta="100">+</span>
+        </span>
       </div>
       <div class="input-row">
         <label id="expectLabel">预期接回价</label>
-        <input type="number" id="tPrice2" placeholder="" step="0.01" oninput="onBuybackInput()">
+        <input type="number" id="tPrice2" placeholder="" step="0.01" oninput="onBuybackInput()"
+          ontouchstart="slideStart(event, this, buybackPriceBounds, function(v){ document.getElementById('tPrice2').dataset.autoSet='false'; })" onmousedown="slideStart(event, this, buybackPriceBounds, function(v){ document.getElementById('tPrice2').dataset.autoSet='false'; })">
         <span class="unit">元</span>
-        <span class="ref-tag" id="refTag99" onclick="applyRatio(0.99)">0.99</span>
-        <span class="ref-tag" id="refTag995" onclick="applyRatio(0.995)">0.995</span>
-        <span class="ref-tag" id="refTag101" onclick="applyRatio(1.01)" style="display:none">1.01</span>
         <span class="spin-btns">
           <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="-0.01">−</span>
           <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="0.01">+</span>
         </span>
+      </div>
+      <div class="input-row" id="refTagRow">
+        <span class="ref-tag" id="refTag99" onclick="applyRatio(0.99)">0.99</span>
+        <span class="ref-tag" id="refTag995" onclick="applyRatio(0.995)">0.995</span>
+        <span class="ref-tag" id="refTag101" onclick="applyRatio(1.01)" style="display:none">1.01</span>
       </div>
     </div>
 
@@ -430,11 +444,9 @@ let spinDelta = 0;
 // ---- 滑动微调（通用） ----
 // 功能：手指/鼠标在输入框上左右滑动实时调节数值
 // 触发：touchstart + touchmove | mousedown + mousemove
-// 步进：±0.01元 / 每5px
 // 边界：由各输入框的 getBounds 回调决定；松手后触发 onChange 回调
-let slideState = null; // { inputEl, startX, lastVal, pixelAccum, getBounds, onChange }
+let slideState = null; // { inputEl, startX, lastVal, pixelAccum, getBounds, onChange, step }
 const SLIDE_PIXEL_STEP = 5;      // 每5px触发一次步进
-const SLIDE_PRICE_STEP = 0.01;   // 每次步进0.01元
 
 // 卖出价边界（倒T模式）：开盘价 ±10%
 function sellPriceBounds() {
@@ -443,12 +455,33 @@ function sellPriceBounds() {
   return { min: Math.round(openP * 0.9 * 100) / 100, max: Math.round(openP * 1.1 * 100) / 100 };
 }
 
+// 买入价/接回价边界：开盘价 ±10%
+function buybackPriceBounds() {
+  return sellPriceBounds();
+}
+
+// 操作股数边界
+function tQtyBounds() {
+  const min = 100;
+  let max = 10000;
+  if (currentMode === 'reverse') {
+    const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
+    max = Math.min(10000, Math.floor(holdQty / 100) * 100);
+    if (max < 100) {
+      // 底仓不足，外部应已禁用
+      max = 100;
+    }
+  }
+  return { min, max };
+}
+
 // 开盘价边界：温和范围，不严格限制
 function openPriceBounds() {
   return { min: 0.01, max: 99999 };
 }
 
-function slideStart(e, el, getBounds, onChange) {
+function slideStart(e, el, getBounds, onChange, step) {
+  step = step || 0.01;
   const pos = e.touches ? e.touches[0] : e;
   slideState = {
     inputEl: el,
@@ -456,7 +489,8 @@ function slideStart(e, el, getBounds, onChange) {
     lastVal: parseFloat(el.value) || 0,
     pixelAccum: 0,
     getBounds: getBounds || function() { return { min: 0.01, max: 99999 }; },
-    onChange: onChange || function() {}
+    onChange: onChange || function() {},
+    step: step
   };
   el.style.cursor = 'ew-resize';
   el.classList.add('sliding');
@@ -474,12 +508,13 @@ function slideMove(e) {
   if (steps > 0) {
     const sign = slideState.pixelAccum > 0 ? 1 : -1;
     slideState.pixelAccum -= sign * steps * SLIDE_PIXEL_STEP;
-    let newVal = Math.round((slideState.lastVal + sign * steps * SLIDE_PRICE_STEP) * 100) / 100;
+    const s = slideState.step;
+    let newVal = Math.round((slideState.lastVal + sign * steps * s) * 100) / 100;
     const b = slideState.getBounds();
     if (newVal < b.min) newVal = b.min;
     if (newVal > b.max) newVal = b.max;
     slideState.lastVal = newVal;
-    slideState.inputEl.value = newVal.toFixed(2);
+    slideState.inputEl.value = (s >= 1) ? Math.round(newVal).toString() : newVal.toFixed(2);
     slideState.onChange(newVal);
   }
   e.preventDefault();
@@ -525,12 +560,51 @@ function applySpin() {
   if (!spinId) return;
   const el = document.getElementById(spinId);
   let val = parseFloat(el.value) || 0;
+  if (spinId === 'tQty') {
+    // 股数步进100
+    val = Math.round(val + spinDelta);
+    const bounds = tQtyBounds();
+    if (val < bounds.min) val = bounds.min;
+    if (val > bounds.max) val = bounds.max;
+    el.value = Math.round(val).toString();
+    return;
+  }
   val = Math.round((val + spinDelta) * 100) / 100;
   if (val < 0) val = 0;
   if (val > 99999) val = 99999;
   el.value = val.toFixed(2);
   if (spinId === 'tPrice1') updateRefPrice();
   if (spinId === 'tPrice2') document.getElementById('tPrice2').dataset.autoSet = 'false';
+}
+
+// ---- 操作股数校验 ----
+function onTQtyChange() {
+  const el = document.getElementById('tQty');
+  let val = parseInt(el.value, 10);
+  if (isNaN(val) || val < 1) { el.value = '100'; return; }
+  // Round to nearest 100
+  val = Math.round(val / 100) * 100;
+  const bounds = tQtyBounds();
+  if (val < bounds.min) val = bounds.min;
+  if (val > bounds.max) val = bounds.max;
+  el.value = val.toString();
+  // Check底仓不足
+  if (currentMode === 'reverse') {
+    checkHoldQtySufficient();
+  }
+}
+
+function checkHoldQtySufficient() {
+  const el = document.getElementById('tQty');
+  const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
+  if (holdQty < 100) {
+    el.value = '';
+    el.placeholder = '底仓不足，无法操作';
+    el.disabled = true;
+  } else {
+    el.disabled = false;
+    el.placeholder = '1000';
+  }
 }
 
 // ---- Open price -> sync sell price ----
@@ -614,6 +688,7 @@ function setMode(mode) {
     document.getElementById('refTag101').style.display = '';
   }
   updateRefPrice();
+  checkHoldQtySufficient();
   document.getElementById('resultCard').classList.remove('show');
 }
 
