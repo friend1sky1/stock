@@ -508,6 +508,8 @@ function toggleFold(cardId) {
 
 // ---- Spin button ----
 function spinStart(id, delta) {
+  // 防重入：移动端 touchstart 和 mousedown 可能同时触发
+  if (spinId === id && spinDelta === delta) return;
   spinStop();
   spinId = id;
   spinDelta = delta;
