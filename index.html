@@ -53,7 +53,7 @@ html, body {
 }
 .header h1 {
   font-family: 'Noto Serif SC', serif;
-  font-size: 1.05rem; font-weight: 700; color: var(--profit);
+  font-size: 1.15rem; font-weight: 700; color: var(--profit);
   letter-spacing: 3px;
 }
 
@@ -62,8 +62,8 @@ html, body {
   flex-shrink: 0; display: flex; gap: 6px; margin-bottom: 6px;
 }
 .mode-btn {
-  flex: 1; padding: 6px 0; border-radius: 8px; border: 1.5px solid var(--border);
-  background: var(--card); font-size: 0.8rem; font-weight: 600;
+  flex: 1; padding: 7px 0; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--card); font-size: 0.85rem; font-weight: 600;
   cursor: pointer; transition: all var(--transition);
   color: var(--text-secondary); font-family: inherit;
 }
@@ -81,7 +81,7 @@ html, body {
   box-shadow: var(--shadow-card); padding: 10px 14px; margin-bottom: 8px;
 }
 .input-card h2 {
-  font-size: 0.82rem; font-weight: 700; color: var(--profit);
+  font-size: 0.88rem; font-weight: 700; color: var(--profit);
   margin-bottom: 8px; padding-bottom: 5px;
   border-bottom: 1px dashed var(--border);
   font-family: 'Noto Serif SC', serif;
@@ -101,12 +101,12 @@ html, body {
 }
 .input-row:last-child { margin-bottom: 0; }
 .input-row label {
-  font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap;
-  min-width: 80px; flex-shrink: 0; font-family: 'Noto Serif SC', serif;
+  font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap;
+  min-width: 84px; flex-shrink: 0; font-family: 'Noto Serif SC', serif;
 }
 .input-row input {
   flex: 1; min-width: 0;
-  padding: 7px 8px; font-size: 0.9rem; font-weight: 500;
+  padding: 8px 10px; font-size: 0.95rem; font-weight: 500;
   border: 1.5px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--text);
   text-align: right; transition: all var(--transition);
@@ -119,15 +119,15 @@ html, body {
   box-shadow: var(--shadow-focus);
 }
 .input-row .unit {
-  font-size: 0.7rem; color: var(--text-muted); flex-shrink: 0; min-width: 18px;
+  font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; min-width: 20px; text-align: right;
 }
 
 /* Spin buttons */
 .spin-btn {
-  width: 28px; height: 34px; flex-shrink: 0;
+  width: 30px; height: 36px; flex-shrink: 0;
   border: 1.5px solid var(--border); border-radius: 6px;
   background: var(--card); color: var(--text-secondary);
-  font-size: 0.65rem; font-weight: 700; cursor: pointer;
+  font-size: 0.7rem; font-weight: 700; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all var(--transition); user-select: none;
   -webkit-user-select: none;
@@ -138,7 +138,7 @@ html, body {
 /* Ref tag row — standalone */
 #refTagRow {
   margin-top: 2px; margin-bottom: 0;
-  padding-left: 86px; /* align with input after label */
+  padding-left: 88px; /* align with input after label (84px min + 4px gap) */
   gap: 8px;
   display: flex; align-items: center;
 }
@@ -146,9 +146,9 @@ html, body {
 
 /* Ref tag */
 .ref-tag {
-  font-size: 0.72rem; color: var(--gold); white-space: nowrap;
+  font-size: 0.76rem; color: var(--gold); white-space: nowrap;
   flex-shrink: 0; background: var(--gold-light);
-  padding: 6px 14px; border-radius: 18px;
+  padding: 6px 16px; border-radius: 18px;
   cursor: pointer; border: 1.5px solid var(--gold);
   transition: all var(--transition); user-select: none;
   font-weight: 700; letter-spacing: 0.5px;
@@ -162,7 +162,7 @@ html, body {
   box-shadow: var(--shadow-card); padding: 10px 14px; margin-bottom: 8px;
 }
 .fee-card h3 {
-  font-size: 0.82rem; font-weight: 700; color: var(--text-secondary);
+  font-size: 0.88rem; font-weight: 700; color: var(--text-secondary);
   margin-bottom: 6px; letter-spacing: 2px;
   font-family: 'Noto Serif SC', serif;
 }
@@ -171,11 +171,11 @@ html, body {
 }
 .fee-row:last-child { margin-bottom: 0; }
 .fee-row label {
-  font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; min-width: 54px;
+  font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; min-width: 54px;
   font-family: 'Noto Serif SC', serif;
 }
 .fee-row input {
-  width: 60px; padding: 5px 6px; font-size: 0.78rem;
+  width: 60px; padding: 5px 6px; font-size: 0.84rem;
   border: 1.5px solid var(--border); border-radius: 6px;
   background: var(--bg); color: var(--text); text-align: right;
   font-family: inherit;
@@ -184,13 +184,13 @@ html, body {
   outline: none; border-color: var(--gold);
 }
 .fee-row .unit-pct {
-  font-size: 0.7rem; color: var(--text-muted); flex-shrink: 0;
+  font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0;
 }
 .fee-row .desc {
-  font-size: 0.65rem; color: var(--text-muted); margin-left: 2px;
+  font-size: 0.72rem; color: var(--text-muted); margin-left: 2px;
 }
 .fee-info {
-  font-size: 0.65rem; color: var(--text-muted);
+  font-size: 0.7rem; color: var(--text-muted);
   margin-top: 4px; padding-top: 4px;
   border-top: 1px dotted var(--border);
   display: flex; flex-wrap: wrap; gap: 6px;
@@ -199,10 +199,10 @@ html, body {
 
 /* Calculate Button */
 .calc-btn {
-  width: 100%; padding: 11px;
+  width: 100%; padding: 12px;
   border: none; border-radius: 10px;
   background: linear-gradient(135deg, var(--profit), #B8000E);
-  color: #FFF; font-size: 0.95rem; font-weight: 700;
+  color: #FFF; font-size: 1rem; font-weight: 700;
   cursor: pointer; letter-spacing: 3px;
   margin-bottom: 8px; transition: all var(--transition);
   font-family: 'Noto Serif SC', serif;
@@ -217,7 +217,7 @@ html, body {
 }
 .result-card.show { display: block; border: 1.5px solid var(--gold); }
 .result-card h2 {
-  font-size: 0.82rem; font-weight: 700; color: var(--profit);
+  font-size: 0.88rem; font-weight: 700; color: var(--profit);
   margin-bottom: 8px; font-family: 'Noto Serif SC', serif;
   display: flex; align-items: center; gap: 6px;
 }
