@@ -342,12 +342,7 @@ html, body {
         <label>佣金</label>
         <input type="number" id="commRate" value="0.03" step="0.001">
         <span class="unit-pct">%</span>
-        <span class="desc">（默认万3 最低5元）</span>
-      </div>
-      <div class="fee-row">
-        <label>最低佣金</label>
-        <input type="number" id="minComm" value="5" step="0.01">
-        <span class="desc">元</span>
+        <span class="desc">（默认万3，最低5元）</span>
       </div>
       <div class="fee-info">
         <span>印花税 0.05%（卖出单向）</span>
@@ -522,7 +517,7 @@ function parseNum(id) {
 function calcFee(amount, isSell) {
   let commRate = parseNum('commRate') / 100;
   let comm = amount * commRate;
-  let minComm = parseNum('minComm');
+  let minComm = 5; // fixed at 5 yuan, minimum commission
   if (comm > 0 && comm < minComm) comm = minComm;
 
   // Stamp tax (sell only) — fixed 0.05%
