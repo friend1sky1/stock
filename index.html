@@ -310,7 +310,7 @@ html, body {
         <span class="unit">元</span>
       </div>
       <div class="input-row">
-        <label>卖出价</label>
+        <label id="tPrice1Label">卖出价</label>
         <input type="number" id="tPrice1" placeholder="先卖价格" step="0.001" oninput="onSellPriceInput()">
         <span class="unit">元</span>
         <span class="spin-btns">
@@ -479,6 +479,7 @@ function setMode(mode) {
     document.querySelectorAll('.mode-btn')[0].classList.add('active');
     document.getElementById('opTitle').textContent = '倒 T 操 作';
     document.getElementById('expectLabel').textContent = '预期接回价';
+    document.getElementById('tPrice1Label').textContent = '卖出价';
     document.getElementById('tPrice1').placeholder = '先卖价格';
     document.getElementById('tPrice2').placeholder = '接回价=卖出价×99%';
     document.getElementById('op1Label').textContent = '卖出收入';
@@ -488,6 +489,7 @@ function setMode(mode) {
     document.querySelectorAll('.mode-btn')[1].classList.add('active');
     document.getElementById('opTitle').textContent = '正 T 操 作';
     document.getElementById('expectLabel').textContent = '预期卖出价';
+    document.getElementById('tPrice1Label').textContent = '买入价';
     document.getElementById('tPrice1').placeholder = '先买价格';
     document.getElementById('tPrice2').placeholder = '卖出价=买入价×1.01';
     document.getElementById('op1Label').textContent = '买入支出';
