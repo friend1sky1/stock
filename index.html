@@ -515,11 +515,12 @@ function slideStart(e, el, getBounds, onChange, step) {
     pixelAccum: 0,
     getBounds: getBounds || function() { return { min: 0.01, max: 99999 }; },
     onChange: onChange || function() {},
-    step: step
+    step: step,
+    moved: false
   };
   el.style.cursor = 'ew-resize';
   el.classList.add('sliding');
-  e.preventDefault();
+  // Don't preventDefault here — allow click-to-focus
 }
 
 function slideMove(e) {
@@ -531,6 +532,8 @@ function slideMove(e) {
 
   const steps = Math.floor(Math.abs(slideState.pixelAccum) / SLIDE_PIXEL_STEP);
   if (steps > 0) {
+    e.preventDefault(); // Only block default when actually sliding
+    slideState.moved = true;
     const sign = slideState.pixelAccum > 0 ? 1 : -1;
     slideState.pixelAccum -= sign * steps * SLIDE_PIXEL_STEP;
     const s = slideState.step;
@@ -612,6 +615,10 @@ function onHoldQtyChange() {
   if (val < bounds.min) val = bounds.min;
   if (val > bounds.max) val = bounds.max;
   el.value = val.toString();
+  // 同步操作股数：取持仓数量和10000中较小值
+  const tQty = document.getElementById('tQty');
+  const tMax = Math.floor(Math.min(val, 10000) / 100) * 100;
+  tQty.value = tMax >= 100 ? tMax.toString() : '100';
   // 持仓变化后重新检查操作股数上限
   if (currentMode === 'reverse') checkHoldQtySufficient();
 }
