@@ -463,11 +463,8 @@ function applySpin() {
 function onOpenPriceChange() {
   const openP = parseFloat(document.getElementById('openPrice').value);
   if (!isNaN(openP) && openP > 0) {
-    const sellInput = document.getElementById('tPrice1');
-    if (!sellInput.value || parseFloat(sellInput.value) === 0) {
-      sellInput.value = openP.toFixed(2);
-      updateRefPrice();
-    }
+    document.getElementById('tPrice1').value = openP.toFixed(2);
+    updateRefPrice();
   }
 }
 
