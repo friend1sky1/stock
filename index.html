@@ -245,10 +245,15 @@ html, body {
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--profit);
+  touch-action: none; /* prevent scroll when sliding on input */
 }
 .input-row.key-row label {
   font-weight: 700;
   color: var(--profit);
+}
+.input-row.key-row input.sliding {
+  background: #FFF5F5;
+  border-color: #CC0008;
 }
 
 .result-detail {
@@ -333,7 +338,8 @@ html, body {
       </div>
       <div class="input-row key-row" id="tPrice1Row">
         <label id="tPrice1Label">卖出价</label>
-        <input type="number" id="tPrice1" placeholder="先卖价格" step="0.01" oninput="onSellPriceInput()">
+        <input type="number" id="tPrice1" placeholder="先卖价格" step="0.01" oninput="onSellPriceInput()"
+          ontouchstart="slideStart(event, this)" onmousedown="slideStart(event, this)">
         <span class="unit">元</span>
         <span class="spin-btns">
           <span class="spin-btn" ontouchstart="spinStart('tPrice1',-0.01)" onmousedown="spinStart('tPrice1',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
@@ -419,6 +425,65 @@ let currentMode = 'reverse';
 let spinTimer = null;
 let spinId = null;
 let spinDelta = 0;
+
+// ---- Slide-to-adjust for tPrice1 (sell price in reverse-T) ----
+let slideState = null; // { inputEl, startX, lastVal, openPrice, pixelStep }
+const SLIDE_PIXEL_STEP = 5;      // 每5px触发一次步进
+const SLIDE_PRICE_STEP = 0.01;   // 每次步进0.01元
+
+function getTPrice1Bounds() {
+  const openP = parseFloat(document.getElementById('openPrice').value);
+  if (isNaN(openP) || openP <= 0) return { min: 0.01, max: 99999 };
+  return { min: Math.round(openP * 0.9 * 100) / 100, max: Math.round(openP * 1.1 * 100) / 100 };
+}
+
+function clampTPrice1(val) {
+  const b = getTPrice1Bounds();
+  if (val < b.min) return b.min;
+  if (val > b.max) return b.max;
+  return val;
+}
+
+function slideStart(e, el) {
+  if (currentMode !== 'reverse') return; // only for reverse-T
+  const pos = e.touches ? e.touches[0] : e;
+  slideState = {
+    inputEl: el,
+    startX: pos.clientX,
+    lastVal: parseFloat(el.value) || 0,
+    pixelAccum: 0
+  };
+  el.style.cursor = 'ew-resize';
+  el.classList.add('sliding');
+  e.preventDefault();
+}
+
+function slideMove(e) {
+  if (!slideState) return;
+  const pos = e.touches ? e.touches[0] : e;
+  const dx = pos.clientX - slideState.startX;
+  slideState.pixelAccum += dx;
+  slideState.startX = pos.clientX;
+
+  const steps = Math.floor(Math.abs(slideState.pixelAccum) / SLIDE_PIXEL_STEP);
+  if (steps > 0) {
+    const sign = slideState.pixelAccum > 0 ? 1 : -1;
+    slideState.pixelAccum -= sign * steps * SLIDE_PIXEL_STEP;
+    let newVal = Math.round((slideState.lastVal + sign * steps * SLIDE_PRICE_STEP) * 100) / 100;
+    newVal = clampTPrice1(newVal);
+    slideState.lastVal = newVal;
+    slideState.inputEl.value = newVal.toFixed(2);
+    updateRefPrice();
+  }
+  e.preventDefault();
+}
+
+function slideEnd() {
+  if (!slideState) return;
+  slideState.inputEl.style.cursor = '';
+  slideState.inputEl.classList.remove('sliding');
+  slideState = null;
+}
 
 // ---- Fold toggle ----
 function toggleFold(cardId) {
@@ -701,6 +766,20 @@ function copyResult() {
     setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
   }
 }
+
+// ---- Slide global listeners ----
+document.addEventListener('touchmove', function(e) {
+  if (slideState) slideMove(e);
+}, { passive: false });
+document.addEventListener('touchend', function(e) {
+  slideEnd();
+});
+document.addEventListener('mousemove', function(e) {
+  if (slideState) slideMove(e);
+});
+document.addEventListener('mouseup', function(e) {
+  slideEnd();
+});
 
 // ---- Keyboard shortcuts ----
 document.addEventListener('keydown', function(e) {
