@@ -312,7 +312,7 @@ html, body {
       <div class="fold-body" id="posFold">
         <div class="input-row">
           <label>成本价</label>
-          <input type="number" id="costPrice" placeholder="" step="0.001">
+          <input type="number" id="costPrice" placeholder="" step="0.01">
           <span class="unit">元</span>
         </div>
         <div class="input-row">
@@ -328,12 +328,12 @@ html, body {
       <h2><span class="icon">🔄</span><span id="opTitle">倒 T 操 作</span></h2>
       <div class="input-row">
         <label>开盘价</label>
-        <input type="number" id="openPrice" placeholder="" step="0.001" onchange="onOpenPriceChange()">
+        <input type="number" id="openPrice" placeholder="" step="0.01" onchange="onOpenPriceChange()">
         <span class="unit">元</span>
       </div>
       <div class="input-row key-row" id="tPrice1Row">
         <label id="tPrice1Label">卖出价</label>
-        <input type="number" id="tPrice1" placeholder="先卖价格" step="0.001" oninput="onSellPriceInput()">
+        <input type="number" id="tPrice1" placeholder="先卖价格" step="0.01" oninput="onSellPriceInput()">
         <span class="unit">元</span>
         <span class="spin-btns">
           <span class="spin-btn" ontouchstart="spinStart('tPrice1',-0.01)" onmousedown="spinStart('tPrice1',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
@@ -342,12 +342,12 @@ html, body {
       </div>
       <div class="input-row">
         <label>操作数量</label>
-        <input type="number" id="tQty" placeholder="1000" step="1" value="1000">
+        <input type="number" id="tQty" placeholder="1000" step="100" value="1000">
         <span class="unit">股</span>
       </div>
       <div class="input-row">
         <label id="expectLabel">预期接回价</label>
-        <input type="number" id="tPrice2" placeholder="" step="0.001" oninput="onBuybackInput()">
+        <input type="number" id="tPrice2" placeholder="" step="0.01" oninput="onBuybackInput()">
         <span class="unit">元</span>
         <span class="ref-tag" id="refTag99" onclick="applyRatio(0.99)">0.99</span>
         <span class="ref-tag" id="refTag995" onclick="applyRatio(0.995)">0.995</span>
