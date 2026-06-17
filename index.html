@@ -3,154 +3,187 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>青竹数苑 · 做T计算器</title>
+<title>做T计算器</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --red:        #CC0000;
-  --red-dark:   #8B0000;
-  --red-light:  #F8E8E8;
-  --gold:       #C5A96A;
-  --gold-light: #F5F0E5;
-  --bg:         #FBF6F0;
-  --card:       #FFFFFF;
-  --text:       #3D2E2E;
+  --profit:      #E60012;
+  --profit-bg:   #FEF0F0;
+  --loss:        #2D8A4E;
+  --loss-bg:     #EEF7F0;
+  --gold:        #D4A843;
+  --gold-light:  #FAF4E5;
+  --bg:          #FBF6F0;
+  --card:        #FFFFFF;
+  --text:        #3D2E2E;
   --text-secondary: #8B7870;
-  --text-muted: #B8A8A0;
-  --border:     #E8DCD0;
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.04);
-  --shadow-md:  0 4px 16px rgba(0,0,0,0.06);
-  --radius:     14px;
-  --transition: 0.2s ease;
+  --text-muted:  #B8A8A0;
+  --border:      #E8DCD0;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.04);
+  --shadow-card: 0 2px 12px rgba(0,0,0,0.05);
+  --shadow-focus: 0 0 0 3px rgba(230,0,18,0.08);
+  --radius:      12px;
+  --transition:  0.15s ease;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body {
   height: 100%; overflow: hidden;
-  font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  /* Background watermark: faint peony */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Cg fill='%23CC0000' opacity='0.04'%3E%3Ccircle cx='140' cy='160' r='60'/%3E%3Ccircle cx='200' cy='120' r='50'/%3E%3Ccircle cx='260' cy='160' r='55'/%3E%3Ccircle cx='170' cy='220' r='45'/%3E%3Ccircle cx='230' cy='210' r='48'/%3E%3Ccircle cx='200' cy='185' r='30' fill='%23CC2200'/%3E%3C/g%3E%3Cg stroke='%235B8C5A' stroke-width='1.2' fill='none' opacity='0.06'%3E%3Cpath d='M80 380 Q120 340 160 380 M100 400 Q140 360 180 400'/%3E%3Cpath d='M220 390 Q260 350 300 390 M240 410 Q280 370 320 410'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 300px;
-  background-position: calc(100% + 50px) calc(100% + 30px);
-  background-repeat: no-repeat;
 }
 .app {
   display: flex; flex-direction: column;
   height: 100vh; height: 100dvh;
   max-width: 440px; margin: 0 auto;
-  padding: 8px 12px 12px;
+  padding: 4px 10px 8px;
 }
-/* Header */
+/* Header — compact */
 .header {
-  flex-shrink: 0; text-align: center; padding: 4px 0 6px;
-  border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  flex-shrink: 0; text-align: center; padding: 2px 0 4px;
+  margin-bottom: 4px;
 }
 .header h1 {
   font-family: 'Noto Serif SC', serif;
-  font-size: 1.15rem; font-weight: 700; color: var(--red-dark);
-  letter-spacing: 2px;
-}
-.header .brand {
-  font-size: 0.65rem; color: var(--text-muted); letter-spacing: 1px;
+  font-size: 1.05rem; font-weight: 700; color: var(--profit);
+  letter-spacing: 3px;
 }
 
 /* Mode Toggle */
 .mode-toggle {
-  flex-shrink: 0; display: flex; gap: 6px; margin-bottom: 8px;
+  flex-shrink: 0; display: flex; gap: 6px; margin-bottom: 6px;
 }
 .mode-btn {
-  flex: 1; padding: 8px 0; border-radius: 10px; border: 1.5px solid var(--border);
-  background: var(--card); font-size: 0.85rem; font-weight: 600;
+  flex: 1; padding: 6px 0; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--card); font-size: 0.8rem; font-weight: 600;
   cursor: pointer; transition: all var(--transition);
-  color: var(--text-secondary);
+  color: var(--text-secondary); font-family: inherit;
 }
 .mode-btn.active {
-  border-color: var(--red); background: var(--red-light); color: var(--red);
+  border-color: var(--profit); background: var(--profit-bg); color: var(--profit);
 }
 
 /* Scrollable Input Area */
 .scroll-area {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding-bottom: 8px;
+  padding-bottom: 4px;
 }
 .input-card {
   background: var(--card); border-radius: var(--radius);
-  border: 1px solid var(--border); padding: 14px 16px; margin-bottom: 10px;
+  box-shadow: var(--shadow-card); padding: 10px 14px; margin-bottom: 8px;
 }
 .input-card h2 {
-  font-size: 0.85rem; font-weight: 700; color: var(--red-dark);
-  margin-bottom: 10px; padding-bottom: 6px;
+  font-size: 0.82rem; font-weight: 700; color: var(--profit);
+  margin-bottom: 8px; padding-bottom: 5px;
   border-bottom: 1px dashed var(--border);
   font-family: 'Noto Serif SC', serif;
   display: flex; align-items: center; gap: 6px;
+  letter-spacing: 2px;
+  cursor: pointer; user-select: none;
 }
-.input-card h2 .icon { font-size: 1rem; }
+.input-card h2 .icon { font-size: 0.9rem; }
+.input-card h2 .arrow { font-size: 0.7rem; margin-left: auto; color: var(--text-muted); transition: transform 0.2s; }
+.input-card h2 .arrow.open { transform: rotate(90deg); }
+
+.input-card .fold-body { display: block; }
+.input-card .fold-body.hidden { display: none; }
 
 .input-row {
-  display: flex; align-items: center; margin-bottom: 8px; gap: 8px;
+  display: flex; align-items: center; margin-bottom: 6px; gap: 6px;
 }
 .input-row:last-child { margin-bottom: 0; }
 .input-row label {
   font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap;
-  min-width: 72px; flex-shrink: 0;
+  min-width: 80px; flex-shrink: 0; font-family: 'Noto Serif SC', serif;
 }
 .input-row input {
   flex: 1; min-width: 0;
-  padding: 8px 10px; font-size: 0.9rem; font-weight: 500;
+  padding: 7px 8px; font-size: 0.9rem; font-weight: 500;
   border: 1.5px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--text);
   text-align: right; transition: all var(--transition);
-  -webkit-appearance: none;
+  -webkit-appearance: none; font-family: inherit;
 }
 .input-row input:focus {
-  outline: none; border-color: var(--red); background: #FFF;
-  box-shadow: 0 0 0 3px rgba(204,0,0,0.06);
+  outline: none; border-color: var(--profit); background: #FFF;
+  box-shadow: var(--shadow-focus);
 }
 .input-row .unit {
-  font-size: 0.72rem; color: var(--text-muted); flex-shrink: 0; min-width: 20px;
+  font-size: 0.7rem; color: var(--text-muted); flex-shrink: 0; min-width: 18px;
+}
+
+/* Spin buttons */
+.spin-btn {
+  width: 28px; height: 34px; flex-shrink: 0;
+  border: 1.5px solid var(--border); border-radius: 6px;
+  background: var(--card); color: var(--text-secondary);
+  font-size: 0.65rem; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition); user-select: none;
+  -webkit-user-select: none;
+}
+.spin-btn:active { background: var(--profit-bg); color: var(--profit); border-color: var(--profit); }
+.spin-btns { display: flex; gap: 2px; flex-shrink: 0; }
+
+/* Ref tag */
+.ref-tag {
+  font-size: 0.6rem; color: var(--gold); white-space: nowrap;
+  flex-shrink: 0; background: var(--gold-light); padding: 2px 5px; border-radius: 4px;
 }
 
 /* Fee card */
 .fee-card {
   background: var(--card); border-radius: var(--radius);
-  border: 1px solid var(--border); padding: 12px 16px; margin-bottom: 10px;
+  box-shadow: var(--shadow-card); padding: 10px 14px; margin-bottom: 8px;
 }
 .fee-card h3 {
-  font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
-  margin-bottom: 8px;
+  font-size: 0.82rem; font-weight: 700; color: var(--text-secondary);
+  margin-bottom: 6px; letter-spacing: 2px;
+  font-family: 'Noto Serif SC', serif;
 }
 .fee-row {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
 }
 .fee-row:last-child { margin-bottom: 0; }
 .fee-row label {
-  font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; min-width: 56px;
+  font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; min-width: 54px;
+  font-family: 'Noto Serif SC', serif;
 }
 .fee-row input {
-  width: 68px; padding: 5px 8px; font-size: 0.78rem;
+  width: 60px; padding: 5px 6px; font-size: 0.78rem;
   border: 1.5px solid var(--border); border-radius: 6px;
   background: var(--bg); color: var(--text); text-align: right;
+  font-family: inherit;
 }
 .fee-row input:focus {
   outline: none; border-color: var(--gold);
 }
-.fee-row .desc {
-  font-size: 0.65rem; color: var(--text-muted);
+.fee-row .unit-pct {
+  font-size: 0.7rem; color: var(--text-muted); flex-shrink: 0;
 }
+.fee-row .desc {
+  font-size: 0.65rem; color: var(--text-muted); margin-left: 2px;
+}
+.fee-info {
+  font-size: 0.65rem; color: var(--text-muted);
+  margin-top: 4px; padding-top: 4px;
+  border-top: 1px dotted var(--border);
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.fee-info span { white-space: nowrap; }
 
 /* Calculate Button */
 .calc-btn {
-  width: 100%; padding: 12px;
-  border: none; border-radius: 12px;
-  background: linear-gradient(135deg, var(--red), var(--red-dark));
-  color: #FFF; font-size: 1rem; font-weight: 700;
-  cursor: pointer; letter-spacing: 2px;
-  margin-bottom: 10px; transition: all var(--transition);
+  width: 100%; padding: 11px;
+  border: none; border-radius: 10px;
+  background: linear-gradient(135deg, var(--profit), #B8000E);
+  color: #FFF; font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; letter-spacing: 3px;
+  margin-bottom: 8px; transition: all var(--transition);
   font-family: 'Noto Serif SC', serif;
 }
 .calc-btn:active { transform: scale(0.98); opacity: 0.9; }
@@ -158,84 +191,86 @@ html, body {
 /* Result Card */
 .result-card {
   background: var(--card); border-radius: var(--radius);
-  border: 1.5px solid var(--border); padding: 16px;
-  margin-bottom: 10px; display: none;
+  box-shadow: var(--shadow-card); padding: 14px;
+  margin-bottom: 8px; display: none;
 }
-.result-card.show { display: block; border-color: var(--gold); }
+.result-card.show { display: block; border: 1.5px solid var(--gold); }
 .result-card h2 {
-  font-size: 0.85rem; font-weight: 700; color: var(--red-dark);
-  margin-bottom: 10px; font-family: 'Noto Serif SC', serif;
+  font-size: 0.82rem; font-weight: 700; color: var(--profit);
+  margin-bottom: 8px; font-family: 'Noto Serif SC', serif;
   display: flex; align-items: center; gap: 6px;
 }
-.result-card h2 .icon { font-size: 1rem; }
+.result-card h2 .icon { font-size: 0.9rem; }
 
 .result-big {
-  text-align: center; padding: 10px 0 14px;
-  border-bottom: 1px dashed var(--border); margin-bottom: 10px;
+  text-align: center; padding: 8px 0 10px;
+  border-bottom: 1px dashed var(--border); margin-bottom: 8px;
+  position: relative;
 }
-.result-big .label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
+.result-big .label { font-size: 0.65rem; color: var(--text-muted); margin-bottom: 1px; }
 .result-big .value {
-  font-size: 2rem; font-weight: 800; line-height: 1.2;
+  font-size: 2rem; font-weight: 800; line-height: 1.15;
 }
-.result-big .value.green { color: #2D8A4E; }
-.result-big .value.red { color: var(--red); }
+.result-big .value.profit { color: var(--profit); }
+.result-big .value.loss { color: var(--loss); }
+.result-big .pct {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-top: 2px;
+}
+
+/* Copy button */
+.copy-btn {
+  position: absolute; top: 0; right: 0;
+  font-size: 0.6rem; padding: 3px 8px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--card); color: var(--text-muted);
+  cursor: pointer; transition: all var(--transition);
+  font-family: inherit;
+}
+.copy-btn:active { background: var(--gold-light); color: var(--gold); }
+.copy-btn.copied { color: var(--loss); border-color: var(--loss); }
 
 .result-detail {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px;
 }
 .result-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 5px 0; font-size: 0.78rem;
+  padding: 3px 0; font-size: 0.76rem;
 }
 .result-item .key { color: var(--text-secondary); }
 .result-item .val { font-weight: 600; color: var(--text); }
 .result-item.full { grid-column: 1 / -1; }
 
 .new-cost {
-  margin-top: 10px; padding-top: 10px;
+  margin-top: 8px; padding-top: 8px;
   border-top: 1px dashed var(--border);
   text-align: center;
 }
-.new-cost .label { font-size: 0.7rem; color: var(--text-muted); }
+.new-cost .label { font-size: 0.65rem; color: var(--text-muted); }
 .new-cost .value {
-  font-size: 1.3rem; font-weight: 800; color: var(--red-dark);
+  font-size: 1.2rem; font-weight: 800; color: var(--profit);
+  font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', monospace;
 }
 
 /* Footer */
 .footer {
-  flex-shrink: 0; text-align: center; padding: 4px 0 0;
-  font-size: 0.6rem; color: var(--text-muted);
-  border-top: 1px solid var(--border); margin-top: 4px;
+  flex-shrink: 0; text-align: center; padding: 2px 0 0;
+  font-size: 0.55rem; color: var(--text-muted);
 }
-
-/* Corner bamboo decoration */
-.corner-decor {
-  position: fixed; pointer-events: none; opacity: 0.06; z-index: 0;
-}
-.corner-decor.tl { top: 0; left: 0; }
-.corner-decor.br { bottom: 0; right: 0; }
 
 @media (min-width: 440px) {
-  .app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .app {
+    margin-top: 12px;
+    margin-bottom: 12px;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
 }
 </style>
 </head>
 <body>
 
-<svg class="corner-decor tl" width="120" height="120" viewBox="0 0 120 120">
-  <g stroke="#5B8C5A" stroke-width="1.5" fill="none">
-    <path d="M10 110 Q30 70 60 80 Q80 85 100 60"/>
-    <path d="M5 105 Q20 80 45 85"/>
-    <path d="M25 115 Q40 95 55 95"/>
-    <path d="M80 75 Q90 65 100 55"/>
-    <circle cx="90" cy="55" r="2" fill="#5B8C5A"/>
-    <circle cx="60" cy="82" r="1.5" fill="#5B8C5A"/>
-  </g>
-</svg>
-
 <div class="app">
   <div class="header">
-    <div class="brand">青竹数苑</div>
     <h1>做T计算器</h1>
   </div>
 
@@ -246,74 +281,90 @@ html, body {
   </div>
 
   <div class="scroll-area" id="scrollArea">
-    <!-- Position Card -->
-    <div class="input-card">
-      <h2><span class="icon">📊</span>持仓信息</h2>
-      <div class="input-row">
-        <label>成本价</label>
-        <input type="number" id="costPrice" placeholder="买入均价" step="0.001">
-        <span class="unit">元</span>
-      </div>
-      <div class="input-row">
-        <label>持仓数量</label>
-        <input type="number" id="holdQty" placeholder="持有股数" step="1">
-        <span class="unit">股</span>
+    <!-- Position Card — folded by default -->
+    <div class="input-card" id="posCard">
+      <h2 onclick="toggleFold('posCard')">
+        <span class="icon">📊</span>持 仓 信 息
+        <span class="arrow" id="posArrow">▶</span>
+      </h2>
+      <div class="fold-body hidden" id="posFold">
+        <div class="input-row">
+          <label>成本价</label>
+          <input type="number" id="costPrice" placeholder="买入均价" step="0.001">
+          <span class="unit">元</span>
+        </div>
+        <div class="input-row">
+          <label>持仓数量</label>
+          <input type="text" id="holdQty" placeholder="1000" data-auto="true" oninput="autoPad(this)" maxlength="8" inputmode="numeric" pattern="[0-9]*" value="1000">
+          <span class="unit">股</span>
+        </div>
       </div>
     </div>
 
     <!-- T Operation Card -->
     <div class="input-card" id="opCard">
-      <h2><span class="icon">🔄</span><span id="opTitle">倒T操作</span></h2>
+      <h2><span class="icon">🔄</span><span id="opTitle">倒 T 操 作</span></h2>
       <div class="input-row">
-        <label>卖出价</label>
-        <input type="number" id="tPrice1" placeholder="先卖价格" step="0.001">
+        <label>开盘价</label>
+        <input type="number" id="openPrice" placeholder="今日开盘价" step="0.001" onchange="onOpenPriceChange()">
         <span class="unit">元</span>
       </div>
       <div class="input-row">
+        <label>卖出价</label>
+        <input type="number" id="tPrice1" placeholder="先卖价格" step="0.001" oninput="onSellPriceInput()">
+        <span class="unit">元</span>
+        <span class="spin-btns">
+          <span class="spin-btn" ontouchstart="spinStart('tPrice1',-0.01)" onmousedown="spinStart('tPrice1',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
+          <span class="spin-btn" ontouchstart="spinStart('tPrice1',0.01)" onmousedown="spinStart('tPrice1',0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">+</span>
+        </span>
+      </div>
+      <div class="input-row">
         <label>操作数量</label>
-        <input type="number" id="tQty" placeholder="操作股数" step="1">
+        <input type="text" id="tQty" placeholder="500" data-auto="true" oninput="autoPad(this)" maxlength="8" inputmode="numeric" pattern="[0-9]*" value="500">
         <span class="unit">股</span>
       </div>
       <div class="input-row">
         <label id="expectLabel">预期接回价</label>
-        <input type="number" id="tPrice2" placeholder="预期接回价" step="0.001">
+        <input type="number" id="tPrice2" placeholder="接回价=卖出价×99%" step="0.001" oninput="onBuybackInput()">
         <span class="unit">元</span>
+        <span class="ref-tag" id="refTag">99%参考</span>
+        <span class="spin-btns">
+          <span class="spin-btn" ontouchstart="spinStart('tPrice2',-0.01)" onmousedown="spinStart('tPrice2',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
+          <span class="spin-btn" ontouchstart="spinStart('tPrice2',0.01)" onmousedown="spinStart('tPrice2',0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">+</span>
+        </span>
       </div>
     </div>
 
     <!-- Fee Card -->
     <div class="fee-card">
-      <h3>💰 费率设置（可修改）</h3>
+      <h3>💰 费 率 设 置</h3>
       <div class="fee-row">
         <label>佣金</label>
         <input type="number" id="commRate" value="0.03" step="0.001">
-        <span class="desc">%（默认万3）</span>
+        <span class="unit-pct">%</span>
+        <span class="desc">（默认万3 最低5元）</span>
       </div>
       <div class="fee-row">
         <label>最低佣金</label>
         <input type="number" id="minComm" value="5" step="0.01">
         <span class="desc">元</span>
       </div>
-      <div class="fee-row">
-        <label>印花税</label>
-        <input type="number" id="stampRate" value="0.05" step="0.001">
-        <span class="desc">%（卖出单向）</span>
-      </div>
-      <div class="fee-row">
-        <label>过户费</label>
-        <input type="number" id="transferRate" value="0.001" step="0.001">
-        <span class="desc">%（双向）</span>
+      <div class="fee-info">
+        <span>印花税 0.05%（卖出单向）</span>
+        <span>过户费 0.001%（双向）</span>
       </div>
     </div>
 
-    <button class="calc-btn" onclick="calculate()">💰 计算预估盈亏</button>
+    <button class="calc-btn" onclick="calculate()" id="calcBtn">💰 计算预估盈亏</button>
 
     <!-- Result Card -->
     <div class="result-card" id="resultCard">
       <h2><span class="icon">📋</span>预估结果</h2>
       <div class="result-big">
+        <button class="copy-btn" onclick="copyResult()" id="copyBtn">复制</button>
         <div class="label">净盈亏</div>
         <div class="value" id="resultBig"></div>
+        <div class="pct" id="resultPct"></div>
       </div>
       <div class="result-detail">
         <div class="result-item">
@@ -342,54 +393,144 @@ html, body {
     </div>
   </div>
 
-  <div class="footer">青竹数苑 · 做T预估计算器</div>
+  <div class="footer">做T预估计算器</div>
 </div>
 
 <script>
-let currentMode = 'reverse'; // reverse = 倒T, normal = 正T
+let currentMode = 'reverse';
+let spinTimer = null;
+let spinId = null;
+let spinDelta = 0;
 
+// ---- Fold toggle ----
+function toggleFold(cardId) {
+  const foldEl = document.getElementById(cardId === 'posCard' ? 'posFold' : cardId + 'Fold');
+  const arrowEl = document.getElementById(cardId === 'posCard' ? 'posArrow' : cardId + 'Arrow');
+  const isHidden = foldEl.classList.contains('hidden');
+  if (isHidden) {
+    foldEl.classList.remove('hidden');
+    if (arrowEl) arrowEl.classList.add('open');
+  } else {
+    foldEl.classList.add('hidden');
+    if (arrowEl) arrowEl.classList.remove('open');
+  }
+}
+
+// ---- Auto-pad: number × 100, digits only ----
+function autoPad(el) {
+  if (el.dataset.auto !== 'true') return;
+  let raw = el.value.replace(/\D/g, '');
+  if (raw === '') { el.dataset.raw = ''; return; }
+  raw = raw.replace(/^0+/, '');
+  if (raw === '') raw = '0';
+  el.dataset.raw = raw;
+  el.value = parseInt(raw) * 100;
+}
+
+// ---- Spin button ----
+function spinStart(id, delta) {
+  spinStop();
+  spinId = id;
+  spinDelta = delta;
+  applySpin();
+  spinTimer = setInterval(applySpin, 120);
+}
+
+function spinStop() {
+  if (spinTimer) { clearInterval(spinTimer); spinTimer = null; }
+  spinId = null;
+  spinDelta = 0;
+}
+
+function applySpin() {
+  if (!spinId) return;
+  const el = document.getElementById(spinId);
+  let val = parseFloat(el.value) || 0;
+  val = Math.round((val + spinDelta) * 100) / 100;
+  if (val < 0) val = 0;
+  if (val > 99999) val = 99999;
+  el.value = val.toFixed(2);
+  if (spinId === 'tPrice1') updateRefPrice();
+  if (spinId === 'tPrice2') document.getElementById('tPrice2').dataset.autoSet = 'false';
+}
+
+// ---- Open price -> sync sell price ----
+function onOpenPriceChange() {
+  const openP = parseFloat(document.getElementById('openPrice').value);
+  if (!isNaN(openP) && openP > 0) {
+    const sellInput = document.getElementById('tPrice1');
+    if (!sellInput.value || parseFloat(sellInput.value) === 0) {
+      sellInput.value = openP.toFixed(2);
+      updateRefPrice();
+    }
+  }
+}
+
+// ---- Ref price: tPrice2 = tPrice1 × 99% ----
+function updateRefPrice() {
+  const t1 = parseFloat(document.getElementById('tPrice1').value);
+  if (!isNaN(t1) && t1 > 0) {
+    const t2 = document.getElementById('tPrice2');
+    if (!t2.value || t2.dataset.autoSet === 'true') {
+      t2.value = (t1 * 0.99).toFixed(2);
+      t2.dataset.autoSet = 'true';
+    }
+  }
+}
+
+function onSellPriceInput() {
+  updateRefPrice();
+}
+
+function onBuybackInput() {
+  document.getElementById('tPrice2').dataset.autoSet = 'false';
+}
+
+// ---- Mode switch ----
 function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   if (mode === 'reverse') {
-    document.querySelector('.mode-btn:nth-child(1)').classList.add('active');
-    document.getElementById('opTitle').textContent = '倒T操作';
+    document.querySelectorAll('.mode-btn')[0].classList.add('active');
+    document.getElementById('opTitle').textContent = '倒 T 操 作';
     document.getElementById('expectLabel').textContent = '预期接回价';
     document.getElementById('tPrice1').placeholder = '先卖价格';
-    document.getElementById('tPrice2').placeholder = '预期接回价';
+    document.getElementById('tPrice2').placeholder = '接回价=卖出价×99%';
     document.getElementById('op1Label').textContent = '卖出收入';
     document.getElementById('op2Label').textContent = '买入支出';
+    document.getElementById('refTag').textContent = '99%参考';
   } else {
-    document.querySelector('.mode-btn:nth-child(2)').classList.add('active');
-    document.getElementById('opTitle').textContent = '正T操作';
+    document.querySelectorAll('.mode-btn')[1].classList.add('active');
+    document.getElementById('opTitle').textContent = '正 T 操 作';
     document.getElementById('expectLabel').textContent = '预期卖出价';
     document.getElementById('tPrice1').placeholder = '先买价格';
     document.getElementById('tPrice2').placeholder = '预期卖出价';
     document.getElementById('op1Label').textContent = '买入支出';
     document.getElementById('op2Label').textContent = '卖出收入';
+    document.getElementById('refTag').textContent = '99%参考';
   }
-  // Clear results
+  updateRefPrice();
   document.getElementById('resultCard').classList.remove('show');
 }
 
+// ---- Calculation ----
 function parseNum(id) {
   const v = parseFloat(document.getElementById(id).value);
   return isNaN(v) ? 0 : v;
 }
 
-function calcFee(amount, rate, isSell) {
-  // Commission
-  let commRate = parseNum('commRate') / 100; // convert % to decimal
+function calcFee(amount, isSell) {
+  let commRate = parseNum('commRate') / 100;
   let comm = amount * commRate;
   let minComm = parseNum('minComm');
   if (comm > 0 && comm < minComm) comm = minComm;
 
-  // Stamp tax (sell only)
-  let stampRate = parseNum('stampRate') / 100;
+  // Stamp tax (sell only) — fixed 0.05%
+  let stampRate = 0.05 / 100;
   let stamp = isSell ? amount * stampRate : 0;
 
-  // Transfer fee (both sides)
-  let transRate = parseNum('transferRate') / 100;
+  // Transfer fee (both sides) — fixed 0.001%
+  let transRate = 0.001 / 100;
   let trans = amount * transRate;
 
   return { comm, stamp, trans, total: comm + stamp + trans };
@@ -400,90 +541,148 @@ function fmtMoney(v) {
   return v.toFixed(2);
 }
 
+function fmtMoney4(v) {
+  if (Math.abs(v) < 0.00005) return '0.0000';
+  return v.toFixed(4);
+}
+
 function calculate() {
   const costPrice = parseNum('costPrice');
-  const holdQty = parseNum('holdQty');
+  const holdQtyVal = document.getElementById('holdQty').value.replace(/\D/g, '');
+  const holdQty = parseInt(holdQtyVal) || 0;
   const tPrice1 = parseNum('tPrice1');
-  const tQty = parseNum('tQty');
+  const tQtyVal = document.getElementById('tQty').value.replace(/\D/g, '');
+  const tQty = parseInt(tQtyVal) || 0;
   const tPrice2 = parseNum('tPrice2');
 
-  // Validation
   if (!costPrice || !holdQty || !tPrice1 || !tQty || !tPrice2) {
     alert('请填写所有数字');
     return;
   }
 
-  let amount1, amount2, fee1, fee2, netSale, netBuy, diff;
+  let amount1, amount2, fee1, fee2, netOp1, netOp2, diff;
 
   if (currentMode === 'reverse') {
     // 倒T: 先卖后买
-    // Step 1: Sell at tPrice1
     amount1 = tPrice1 * tQty;
-    fee1 = calcFee(amount1, parseNum('commRate'), true);
-
-    // Step 2: Buy back at tPrice2
+    fee1 = calcFee(amount1, true);
     amount2 = tPrice2 * tQty;
-    fee2 = calcFee(amount2, parseNum('commRate'), false);
-
-    netSale = amount1 - fee1.total;  // money received
-    netBuy = amount2 + fee2.total;   // money spent
-    diff = netSale - netBuy;         // profit if positive
-
-    document.getElementById('op1Val').textContent = '+' + fmtMoney(netSale);
-    document.getElementById('op2Val').textContent = '-' + fmtMoney(netBuy);
+    fee2 = calcFee(amount2, false);
+    netOp1 = amount1 - fee1.total;  // money received from sell
+    netOp2 = amount2 + fee2.total;  // money spent on buy
+    diff = netOp1 - netOp2;
+    document.getElementById('op1Val').textContent = '+' + fmtMoney(netOp1);
+    document.getElementById('op2Val').textContent = '-' + fmtMoney(netOp2);
   } else {
     // 正T: 先买后卖
-    // Step 1: Buy at tPrice1
     amount1 = tPrice1 * tQty;
-    fee1 = calcFee(amount1, parseNum('commRate'), false);
-
-    // Step 2: Sell at tPrice2
+    fee1 = calcFee(amount1, false);
     amount2 = tPrice2 * tQty;
-    fee2 = calcFee(amount2, parseNum('commRate'), true);
-
-    netBuy = amount1 + fee1.total;   // money spent
-    netSale = amount2 - fee2.total;  // money received
-    diff = netSale - netBuy;
-
-    document.getElementById('op1Val').textContent = '-' + fmtMoney(netBuy);
-    document.getElementById('op2Val').textContent = '+' + fmtMoney(netSale);
+    fee2 = calcFee(amount2, true);
+    netOp1 = amount1 + fee1.total;  // money spent on buy
+    netOp2 = amount2 - fee2.total;  // money received from sell
+    diff = netOp2 - netOp1;
+    document.getElementById('op1Val').textContent = '-' + fmtMoney(netOp1);
+    document.getElementById('op2Val').textContent = '+' + fmtMoney(netOp2);
   }
 
   document.getElementById('diffVal').textContent = fmtMoney(diff);
 
-  // Fee details
   const feeTotal = fee1.total + fee2.total;
   document.getElementById('feeTotal').textContent = fmtMoney(feeTotal);
 
   const commTotal = fee1.comm + fee2.comm;
-  const taxTotal = fee1.stamp + fee2.stamp + fee1.trans + fee2.trans;
   document.getElementById('commDetail').textContent =
     '佣金 ' + fmtMoney(commTotal) + '（买' + fmtMoney(fee1.comm) + ' + 卖' + fmtMoney(fee2.comm) + '）';
   document.getElementById('taxDetail').textContent =
     '印花税 ' + fmtMoney(fee1.stamp + fee2.stamp) + ' + 过户费 ' + fmtMoney(fee1.trans + fee2.trans);
 
-  // Big result
+  // Big result — profit=red, loss=green (A股 convention)
   const bigEl = document.getElementById('resultBig');
   if (diff >= 0) {
     bigEl.textContent = '+' + fmtMoney(diff) + ' 元';
-    bigEl.className = 'value green';
+    bigEl.className = 'value profit';
   } else {
     bigEl.textContent = fmtMoney(diff) + ' 元';
-    bigEl.className = 'value red';
+    bigEl.className = 'value loss';
   }
 
-  // New cost basis
+  // Profit percentage
+  const investCapital = (amount1 + fee1.total); // actual money out
+  const pctEl = document.getElementById('resultPct');
+  if (investCapital > 0) {
+    const pct = (diff / investCapital * 100);
+    const sign = pct >= 0 ? '+' : '';
+    pctEl.textContent = sign + pct.toFixed(2) + '%';
+    if (diff >= 0) {
+      pctEl.style.color = 'var(--profit)';
+    } else {
+      pctEl.style.color = 'var(--loss)';
+    }
+  } else {
+    pctEl.textContent = '--';
+  }
+
+  // New cost basis — 4 decimals
   const remainingQty = holdQty;
   const totalCostBefore = costPrice * holdQty;
-  const totalCostAfter = totalCostBefore - diff; // diff positive means profit, reducing cost
+  const totalCostAfter = totalCostBefore - diff;
   const newCostPrice = totalCostAfter / remainingQty;
-  document.getElementById('newCost').textContent = fmtMoney(newCostPrice) + ' 元';
+  document.getElementById('newCost').textContent = fmtMoney4(newCostPrice) + ' 元';
 
-  // Show result card
+  // Show result
   const resultCard = document.getElementById('resultCard');
   resultCard.classList.add('show');
+  document.getElementById('copyBtn').classList.remove('copied');
+  document.getElementById('copyBtn').textContent = '复制';
   resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
+// ---- Copy result ----
+function copyResult() {
+  const lines = [];
+  lines.push('=== 做T预估结果 ===');
+  lines.push('模式：' + (currentMode === 'reverse' ? '倒T（先卖后买）' : '正T（先买后卖）'));
+  lines.push(document.getElementById('op1Label').textContent + '：' + document.getElementById('op1Val').textContent);
+  lines.push(document.getElementById('op2Label').textContent + '：' + document.getElementById('op2Val').textContent);
+  lines.push('差价：' + document.getElementById('diffVal').textContent + ' 元');
+  lines.push('手续费合计：' + document.getElementById('feeTotal').textContent + ' 元');
+  lines.push('净盈亏：' + document.getElementById('resultBig').textContent);
+  lines.push('盈亏率：' + document.getElementById('resultPct').textContent);
+  lines.push('新持仓成本：' + document.getElementById('newCost').textContent);
+
+  const text = lines.join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '已复制 ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+    });
+  } else {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '已复制 ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+  }
+}
+
+// ---- Keyboard shortcuts ----
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT') return; // don't interfere with typing
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    calculate();
+  }
+  if (e.key === 'b' || e.key === 'B') { setMode('normal'); }
+  if (e.key === 's' || e.key === 'S') { setMode('reverse'); }
+});
 </script>
 </body>
 </html>
