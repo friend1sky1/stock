@@ -31,10 +31,12 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body {
   height: 100%; overflow: hidden;
-  font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+  font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
 }
 .app {
   display: flex; flex-direction: column;
@@ -131,16 +133,23 @@ html, body {
 
 /* Ref tag row — standalone */
 #refTagRow {
-  margin-top: 0;
+  margin-top: 2px; margin-bottom: 0;
   padding-left: 86px; /* align with input after label */
   gap: 8px;
+  display: flex; align-items: center;
 }
 #refTagRow .ref-tag { margin: 0; }
-  font-size: 0.68rem; color: var(--gold); white-space: nowrap;
-  flex-shrink: 0; background: var(--gold-light); padding: 4px 8px; border-radius: 5px;
-  cursor: pointer; border: 1.5px solid var(--gold); transition: all var(--transition); user-select: none;
-  font-weight: 700;
+
+/* Ref tag */
+.ref-tag {
+  font-size: 0.72rem; color: var(--gold); white-space: nowrap;
+  flex-shrink: 0; background: var(--gold-light);
+  padding: 6px 14px; border-radius: 18px;
+  cursor: pointer; border: 1.5px solid var(--gold);
+  transition: all var(--transition); user-select: none;
+  font-weight: 700; letter-spacing: 0.5px;
 }
+.ref-tag:hover { background: #FDF0D5; }
 .ref-tag:active, .ref-tag.active { background: var(--gold); color: #FFF; }
 
 /* Fee card */
@@ -280,7 +289,6 @@ html, body {
 .new-cost .label { font-size: 0.65rem; color: var(--text-muted); }
 .new-cost .value {
   font-size: 1.2rem; font-weight: 800; color: var(--profit);
-  font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', monospace;
 }
 
 /* Footer */
@@ -327,8 +335,14 @@ html, body {
         </div>
         <div class="input-row">
           <label>持仓数量</label>
-          <input type="number" id="holdQty" placeholder="1000" step="1" value="1000">
+          <input type="text" inputmode="numeric" id="holdQty" placeholder="1000" value="1000"
+            onchange="onHoldQtyChange()"
+            ontouchstart="slideStart(event, this, holdQtyBounds, function(v){ }, 100)" onmousedown="slideStart(event, this, holdQtyBounds, function(v){ }, 100)">
           <span class="unit">股</span>
+          <span class="spin-btns">
+            <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="-100">−</span>
+            <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="100">+</span>
+          </span>
         </div>
       </div>
     </div>
@@ -460,6 +474,11 @@ function buybackPriceBounds() {
   return sellPriceBounds();
 }
 
+// 持仓数量边界
+function holdQtyBounds() {
+  return { min: 100, max: 999999 };
+}
+
 // 操作股数边界
 function tQtyBounds() {
   const min = 100;
@@ -560,10 +579,10 @@ function applySpin() {
   if (!spinId) return;
   const el = document.getElementById(spinId);
   let val = parseFloat(el.value) || 0;
-  if (spinId === 'tQty') {
+  if (spinId === 'tQty' || spinId === 'holdQty') {
     // 股数步进100
     val = Math.round(val + spinDelta);
-    const bounds = tQtyBounds();
+    const bounds = spinId === 'tQty' ? tQtyBounds() : holdQtyBounds();
     if (val < bounds.min) val = bounds.min;
     if (val > bounds.max) val = bounds.max;
     el.value = Math.round(val).toString();
@@ -575,6 +594,20 @@ function applySpin() {
   el.value = val.toFixed(2);
   if (spinId === 'tPrice1') updateRefPrice();
   if (spinId === 'tPrice2') document.getElementById('tPrice2').dataset.autoSet = 'false';
+}
+
+// ---- 持仓数量校验 ----
+function onHoldQtyChange() {
+  const el = document.getElementById('holdQty');
+  let val = parseInt(el.value, 10);
+  if (isNaN(val) || val < 1) { el.value = '100'; return; }
+  val = Math.round(val / 100) * 100;
+  const bounds = holdQtyBounds();
+  if (val < bounds.min) val = bounds.min;
+  if (val > bounds.max) val = bounds.max;
+  el.value = val.toString();
+  // 持仓变化后重新检查操作股数上限
+  if (currentMode === 'reverse') checkHoldQtySufficient();
 }
 
 // ---- 操作股数校验 ----
