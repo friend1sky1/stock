@@ -363,8 +363,8 @@ html, body {
       <h3>💰 费 率 设 置</h3>
       <div class="fee-row">
         <label>佣金</label>
-        <span class="desc">0.016%</span>
-        <span class="desc">（万1.6，最低5元）</span>
+        <span class="desc">0.01854%</span>
+        <span class="desc">（万1.854，最低5元）</span>
       </div>
       <div class="fee-info">
         <span>印花税 0.05%（卖出单向）</span>
@@ -540,7 +540,7 @@ function parseNum(id) {
 }
 
 function calcFee(amount, isSell) {
-  let commRate = 0.016 / 100; // fixed at 0.016% (万1.6)
+  let commRate = 0.01854 / 100; // 中信证券实际佣金率 万1.854
   let comm = amount * commRate;
   let minComm = 5; // fixed at 5 yuan, minimum commission
   if (comm > 0 && comm < minComm) comm = minComm;
