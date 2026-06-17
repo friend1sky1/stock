@@ -343,8 +343,8 @@ html, body {
           ontouchstart="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })" onmousedown="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })">
         <span class="unit">元</span>
         <span class="spin-btns">
-          <span class="spin-btn" ontouchstart="spinStart('tPrice1',-0.01)" onmousedown="spinStart('tPrice1',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
-          <span class="spin-btn" ontouchstart="spinStart('tPrice1',0.01)" onmousedown="spinStart('tPrice1',0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">+</span>
+          <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="-0.01">−</span>
+          <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="0.01">+</span>
         </span>
       </div>
       <div class="input-row">
@@ -360,8 +360,8 @@ html, body {
         <span class="ref-tag" id="refTag995" onclick="applyRatio(0.995)">0.995</span>
         <span class="ref-tag" id="refTag101" onclick="applyRatio(1.01)" style="display:none">1.01</span>
         <span class="spin-btns">
-          <span class="spin-btn" ontouchstart="spinStart('tPrice2',-0.01)" onmousedown="spinStart('tPrice2',-0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">−</span>
-          <span class="spin-btn" ontouchstart="spinStart('tPrice2',0.01)" onmousedown="spinStart('tPrice2',0.01)" ontouchend="spinStop()" onmouseup="spinStop()" onmouseleave="spinStop()">+</span>
+          <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="-0.01">−</span>
+          <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="0.01">+</span>
         </span>
       </div>
     </div>
@@ -506,10 +506,8 @@ function toggleFold(cardId) {
   }
 }
 
-// ---- Spin button ----
+// ---- Spin buttons (pointer events — no double-fire) ----
 function spinStart(id, delta) {
-  // 防重入：移动端 touchstart 和 mousedown 可能同时触发
-  if (spinId === id && spinDelta === delta) return;
   spinStop();
   spinId = id;
   spinDelta = delta;
@@ -783,6 +781,28 @@ function copyResult() {
     setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
   }
 }
+
+// ---- Spin buttons global listeners (pointer events — no double-fire) ----
+document.addEventListener('pointerdown', function(e) {
+  const btn = e.target.closest('.spin-btn');
+  if (!btn) return;
+  const id = btn.dataset.spinId;
+  const delta = parseFloat(btn.dataset.spinDelta);
+  if (id && !isNaN(delta)) {
+    e.preventDefault();
+    spinStart(id, delta);
+    btn.setPointerCapture(e.pointerId);
+  }
+});
+document.addEventListener('pointerup', function(e) {
+  spinStop();
+});
+document.addEventListener('pointerleave', function(e) {
+  if (spinId && e.target.closest('.spin-btn')) spinStop();
+});
+document.addEventListener('pointercancel', function(e) {
+  if (e.target.closest('.spin-btn')) spinStop();
+});
 
 // ---- Slide global listeners ----
 document.addEventListener('touchmove', function(e) {
