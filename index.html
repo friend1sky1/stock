@@ -538,8 +538,8 @@ function calculate() {
   const tQty = parseNum('tQty');
   const tPrice2 = parseNum('tPrice2');
 
-  if (!costPrice || !holdQty || !tPrice1 || !tQty || !tPrice2) {
-    alert('请填写所有数字');
+  if (!tPrice1 || !tQty || !tPrice2) {
+    alert('请填写卖出价、操作数量和预期接回价');
     return;
   }
 
@@ -606,12 +606,19 @@ function calculate() {
     pctEl.textContent = '--';
   }
 
-  // New cost basis — 4 decimals
-  const remainingQty = holdQty;
-  const totalCostBefore = costPrice * holdQty;
-  const totalCostAfter = totalCostBefore - diff;
-  const newCostPrice = totalCostAfter / remainingQty;
-  document.getElementById('newCost').textContent = fmtMoney4(newCostPrice) + ' 元';
+  // New cost basis — only if position info provided
+  if (costPrice && holdQty) {
+    const totalCostBefore = costPrice * holdQty;
+    const totalCostAfter = totalCostBefore - diff;
+    const newCostPrice = totalCostAfter / holdQty;
+    document.getElementById('newCost').textContent = fmtMoney4(newCostPrice) + ' 元';
+    document.getElementById('newCost').style.display = '';
+    document.querySelector('.new-cost .label').style.display = '';
+  } else {
+    document.getElementById('newCost').textContent = '';
+    document.getElementById('newCost').style.display = 'none';
+    document.querySelector('.new-cost .label').style.display = 'none';
+  }
 
   // Show result
   const resultCard = document.getElementById('resultCard');
