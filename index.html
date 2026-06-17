@@ -295,7 +295,7 @@ html, body {
         </div>
         <div class="input-row">
           <label>持仓数量</label>
-          <input type="text" id="holdQty" placeholder="1000" data-auto="true" oninput="autoPad(this)" maxlength="8" inputmode="numeric" pattern="[0-9]*" value="1000">
+          <input type="number" id="holdQty" placeholder="1000" step="1" value="1000">
           <span class="unit">股</span>
         </div>
       </div>
@@ -320,7 +320,7 @@ html, body {
       </div>
       <div class="input-row">
         <label>操作数量</label>
-        <input type="text" id="tQty" placeholder="500" data-auto="true" oninput="autoPad(this)" maxlength="8" inputmode="numeric" pattern="[0-9]*" value="500">
+        <input type="number" id="tQty" placeholder="500" step="1" value="500">
         <span class="unit">股</span>
       </div>
       <div class="input-row">
@@ -409,17 +409,6 @@ function toggleFold(cardId) {
     foldEl.classList.add('hidden');
     if (arrowEl) arrowEl.classList.remove('open');
   }
-}
-
-// ---- Auto-pad: number × 100, digits only ----
-function autoPad(el) {
-  if (el.dataset.auto !== 'true') return;
-  let raw = el.value.replace(/\D/g, '');
-  if (raw === '') { el.dataset.raw = ''; return; }
-  raw = raw.replace(/^0+/, '');
-  if (raw === '') raw = '0';
-  el.dataset.raw = raw;
-  el.value = parseInt(raw) * 100;
 }
 
 // ---- Spin button ----
@@ -544,11 +533,9 @@ function fmtMoney4(v) {
 
 function calculate() {
   const costPrice = parseNum('costPrice');
-  const holdQtyVal = document.getElementById('holdQty').value.replace(/\D/g, '');
-  const holdQty = parseInt(holdQtyVal) || 0;
+  const holdQty = parseNum('holdQty');
   const tPrice1 = parseNum('tPrice1');
-  const tQtyVal = document.getElementById('tQty').value.replace(/\D/g, '');
-  const tQty = parseInt(tQtyVal) || 0;
+  const tQty = parseNum('tQty');
   const tPrice2 = parseNum('tPrice2');
 
   if (!costPrice || !holdQty || !tPrice1 || !tQty || !tPrice2) {
