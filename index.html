@@ -461,13 +461,14 @@ function onOpenPriceChange() {
   }
 }
 
-// ---- Ref price: tPrice2 = tPrice1 × 99% ----
+// ---- Ref price: 倒T=99%, 正T=101% ----
 function updateRefPrice() {
   const t1 = parseFloat(document.getElementById('tPrice1').value);
   if (!isNaN(t1) && t1 > 0) {
     const t2 = document.getElementById('tPrice2');
     if (!t2.value || t2.dataset.autoSet === 'true') {
-      t2.value = (t1 * 0.99).toFixed(2);
+      const ratio = currentMode === 'reverse' ? 0.99 : 1.01;
+      t2.value = (t1 * ratio).toFixed(2);
       t2.dataset.autoSet = 'true';
     }
   }
@@ -499,10 +500,10 @@ function setMode(mode) {
     document.getElementById('opTitle').textContent = '正 T 操 作';
     document.getElementById('expectLabel').textContent = '预期卖出价';
     document.getElementById('tPrice1').placeholder = '先买价格';
-    document.getElementById('tPrice2').placeholder = '预期卖出价';
+    document.getElementById('tPrice2').placeholder = '卖出价=买入价×1.01';
     document.getElementById('op1Label').textContent = '买入支出';
     document.getElementById('op2Label').textContent = '卖出收入';
-    document.getElementById('refTag').textContent = '99%参考';
+    document.getElementById('refTag').textContent = '1.01倍';
   }
   updateRefPrice();
   document.getElementById('resultCard').classList.remove('show');
