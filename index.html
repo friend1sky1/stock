@@ -229,6 +229,25 @@ html, body {
 .copy-btn:active { background: var(--gold-light); color: var(--gold); }
 .copy-btn.copied { color: var(--loss); border-color: var(--loss); }
 
+/* Highlight row for key input (e.g. 卖出价 in reverse-T) */
+.input-row.key-row {
+  background: var(--profit-bg);
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin: 0 -6px 6px;
+}
+.input-row.key-row input {
+  border-color: var(--profit);
+  background: #FFF;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--profit);
+}
+.input-row.key-row label {
+  font-weight: 700;
+  color: var(--profit);
+}
+
 .result-detail {
   display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px;
 }
@@ -309,7 +328,7 @@ html, body {
         <input type="number" id="openPrice" placeholder="今日开盘价" step="0.001" onchange="onOpenPriceChange()">
         <span class="unit">元</span>
       </div>
-      <div class="input-row">
+      <div class="input-row key-row" id="tPrice1Row">
         <label id="tPrice1Label">卖出价</label>
         <input type="number" id="tPrice1" placeholder="先卖价格" step="0.001" oninput="onSellPriceInput()">
         <span class="unit">元</span>
@@ -479,6 +498,7 @@ function setMode(mode) {
     document.querySelectorAll('.mode-btn')[0].classList.add('active');
     document.getElementById('opTitle').textContent = '倒 T 操 作';
     document.getElementById('expectLabel').textContent = '预期接回价';
+    document.getElementById('tPrice1Row').classList.add('key-row');
     document.getElementById('tPrice1Label').textContent = '卖出价';
     document.getElementById('tPrice1').placeholder = '先卖价格';
     document.getElementById('tPrice2').placeholder = '接回价=卖出价×99%';
@@ -488,6 +508,7 @@ function setMode(mode) {
   } else {
     document.querySelectorAll('.mode-btn')[1].classList.add('active');
     document.getElementById('opTitle').textContent = '正 T 操 作';
+    document.getElementById('tPrice1Row').classList.remove('key-row');
     document.getElementById('expectLabel').textContent = '预期卖出价';
     document.getElementById('tPrice1Label').textContent = '买入价';
     document.getElementById('tPrice1').placeholder = '先买价格';
