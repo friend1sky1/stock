@@ -624,13 +624,15 @@ function loadData() {
     if (!s.tPrice2) s.tPrice2 = 9.9;
   });
 
-  // If no stocks, create default
+  // If no stocks, create default portfolio
   if (portfolio.length === 0) {
-    portfolio.push({
-      id: 's1', name: '持仓1',
-      costPrice: 10, holdQty: 1000,
-      mode: 'reverse', openPrice: 10, tPrice1: 10, tQty: 1000, tPrice2: 9.9
-    });
+    portfolio.push(
+      { id: 's1', name: '云铝股份', costPrice: 28.6633, holdQty: 1000, mode: 'reverse', openPrice: 28.6633, tPrice1: 28.66, tQty: 1000, tPrice2: 28.37 },
+      { id: 's2', name: '今世缘',   costPrice: 27.1638, holdQty: 500,  mode: 'reverse', openPrice: 27.1638, tPrice1: 27.16, tQty: 500,  tPrice2: 26.88 },
+      { id: 's3', name: '金种子酒', costPrice: 10.6796, holdQty: 1500, mode: 'reverse', openPrice: 10.6796, tPrice1: 10.68, tQty: 1500, tPrice2: 10.57 },
+      { id: 's4', name: '中国石油', costPrice: 10.6007, holdQty: 1000, mode: 'reverse', openPrice: 10.6007, tPrice1: 10.60, tQty: 1000, tPrice2: 10.49 },
+      { id: 's5', name: '黄河旋风', costPrice: 9.275,  holdQty: 500,  mode: 'reverse', openPrice: 9.275,  tPrice1: 9.28,  tQty: 500,  tPrice2: 9.19 }
+    );
   }
 
   const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
