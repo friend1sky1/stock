@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>清理缓存</title>
+<style>
+  body { font-family: sans-serif; background: #FBF6F0; text-align: center; padding: 40px 20px; }
+  h2 { color: #CC0000; }
+  .msg { color: #3D2E2E; margin: 16px 0; }
+</style>
+</head>
+<body>
+  <h2>✅ 旧数据已清除</h2>
+  <p class="msg">正在跳转到做T计算器...</p>
+<script>
+localStorage.removeItem('tcalc_portfolio_v2');
+localStorage.removeItem('tcalc_history_v2');
+localStorage.removeItem('tcalc_prefs_v2');
+// Also clear old keys
+localStorage.removeItem('tcalc_portfolio');
+localStorage.removeItem('tcalc_history');
+localStorage.removeItem('tcalc_prefs');
+setTimeout(function() { location.href = 'https://t.ai-zhihui.cn'; }, 800);
+</script>
+</body>
+</html>
