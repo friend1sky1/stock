@@ -57,6 +57,59 @@ html, body {
   letter-spacing: 3px;
 }
 
+/* ──── Stock Tab Bar ──── */
+.stock-tab-bar {
+  flex-shrink: 0; display: flex; gap: 6px;
+  margin-bottom: 6px; overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.stock-tab-bar::-webkit-scrollbar { display: none; }
+.stock-tab {
+  flex-shrink: 0; padding: 6px 14px;
+  border-radius: 20px; border: 1.5px solid var(--border);
+  background: var(--card); font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+  color: var(--text-secondary); white-space: nowrap;
+  font-family: inherit;
+  position: relative;
+}
+.stock-tab.active {
+  border-color: var(--profit); background: var(--profit-bg); color: var(--profit);
+}
+.stock-tab .del-stock {
+  display: none; position: absolute; top: -6px; right: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--text-muted); color: #FFF; font-size: 0.6rem;
+  line-height: 18px; text-align: center; border: none; cursor: pointer;
+}
+.stock-tab.editing .del-stock { display: block; }
+.stock-tab .del-stock:hover { background: var(--profit); }
+.add-stock-btn {
+  flex-shrink: 0; width: 36px; height: 36px;
+  border-radius: 50%; border: 1.5px dashed var(--border);
+  background: transparent; font-size: 1.1rem; color: var(--text-muted);
+  cursor: pointer; transition: all var(--transition);
+  display: flex; align-items: center; justify-content: center;
+  font-family: inherit; line-height: 1;
+}
+.add-stock-btn:active { border-color: var(--profit); color: var(--profit); }
+
+/* ──── Position Snapshot Row ──── */
+.pos-snapshot {
+  flex-shrink: 0; display: flex; gap: 8px; margin-bottom: 6px;
+  font-size: 0.72rem; color: var(--text-secondary);
+  background: var(--card); border-radius: 8px;
+  padding: 5px 10px; box-shadow: var(--shadow-sm);
+  align-items: center; justify-content: center; flex-wrap: wrap;
+}
+.pos-snapshot .snap-item { white-space: nowrap; }
+.pos-snapshot .snap-val { font-weight: 700; color: var(--text); }
+.pos-snapshot .snap-cost { color: var(--profit); }
+.pos-snapshot .snap-val.profit { color: var(--profit); }
+.pos-snapshot .snap-val.loss { color: var(--loss); }
+
 /* Mode Toggle */
 .mode-toggle {
   flex-shrink: 0; display: flex; gap: 6px; margin-bottom: 6px;
@@ -101,10 +154,6 @@ html, body {
   grid-template-columns: 84px 30px 1fr 30px 28px;
   gap: 6px; margin-bottom: 6px;
 }
-.input-row.no-spin {
-  grid-template-columns: 84px 30px 1fr 30px 28px;
-}
-.input-row.no-spin .spin-btn { visibility: hidden; }
 .input-row:last-child { margin-bottom: 0; }
 .input-row label {
   font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap;
@@ -124,6 +173,9 @@ html, body {
   outline: none; border-color: var(--profit); background: #FFF;
   box-shadow: var(--shadow-focus);
 }
+.input-row input:disabled {
+  opacity: 0.4; background: #F5F5F5;
+}
 .input-row .unit {
   font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; min-width: 20px; text-align: right;
 }
@@ -139,12 +191,36 @@ html, body {
   -webkit-user-select: none;
 }
 .spin-btn:active { background: var(--profit-bg); color: var(--profit); border-color: var(--profit); }
-.spin-btns { display: flex; gap: 2px; flex-shrink: 0; }
+.spin-btn:disabled { opacity: 0.3; pointer-events: none; }
 
-/* Ref tag row — standalone */
+/* Highlight row for key input */
+.input-row.key-row {
+  background: var(--profit-bg);
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin: 0 -6px 6px;
+}
+.input-row.key-row input {
+  border-color: var(--profit);
+  background: #FFF;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--profit);
+  touch-action: none;
+}
+.input-row.key-row label {
+  font-weight: 700;
+  color: var(--profit);
+}
+.input-row.key-row input.sliding {
+  background: #FFF5F5;
+  border-color: #CC0008;
+}
+
+/* Ref tag row */
 #refTagRow {
   margin-top: 2px; margin-bottom: 0;
-  padding-left: 88px; /* align with input after label (84px min + 4px gap) */
+  padding-left: 88px;
   gap: 8px;
   display: flex; align-items: center;
 }
@@ -188,9 +264,6 @@ html, body {
 }
 .fee-row input:focus {
   outline: none; border-color: var(--gold);
-}
-.fee-row .unit-pct {
-  font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0;
 }
 .fee-row .desc {
   font-size: 0.72rem; color: var(--text-muted); margin-left: 2px;
@@ -256,30 +329,6 @@ html, body {
 .copy-btn:active { background: var(--gold-light); color: var(--gold); }
 .copy-btn.copied { color: var(--loss); border-color: var(--loss); }
 
-/* Highlight row for key input (e.g. 卖出价 in reverse-T) */
-.input-row.key-row {
-  background: var(--profit-bg);
-  border-radius: 8px;
-  padding: 4px 6px;
-  margin: 0 -6px 6px;
-}
-.input-row.key-row input {
-  border-color: var(--profit);
-  background: #FFF;
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--profit);
-  touch-action: none; /* prevent scroll when sliding on input */
-}
-.input-row.key-row label {
-  font-weight: 700;
-  color: var(--profit);
-}
-.input-row.key-row input.sliding {
-  background: #FFF5F5;
-  border-color: #CC0008;
-}
-
 .result-detail {
   display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px;
 }
@@ -307,6 +356,48 @@ html, body {
   font-size: 0.55rem; color: var(--text-muted);
 }
 
+/* ──── Stock Edit Modal ──── */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.3); z-index: 100;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: var(--card); border-radius: var(--radius);
+  padding: 20px; width: 300px; max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+.modal-box h3 {
+  font-size: 1rem; font-weight: 700; color: var(--profit);
+  margin-bottom: 12px; font-family: 'Noto Serif SC', serif;
+}
+.modal-box .field { margin-bottom: 10px; }
+.modal-box .field label {
+  display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 3px;
+}
+.modal-box .field input {
+  width: 100%; padding: 8px 10px; font-size: 0.9rem;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-family: inherit;
+}
+.modal-box .field input:focus {
+  outline: none; border-color: var(--profit);
+}
+.modal-actions {
+  display: flex; gap: 8px; margin-top: 14px;
+}
+.modal-actions button {
+  flex: 1; padding: 8px; border-radius: 8px; border: none;
+  font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.modal-actions .btn-save {
+  background: var(--profit); color: #FFF;
+}
+.modal-actions .btn-cancel {
+  background: var(--bg); color: var(--text-secondary);
+}
+
 @media (min-width: 440px) {
   .app {
     margin-top: 12px;
@@ -324,14 +415,20 @@ html, body {
     <h1>做T计算器</h1>
   </div>
 
+  <!-- Stock Tab Bar -->
+  <div class="stock-tab-bar" id="stockTabBar"></div>
+
+  <!-- Position Snapshot -->
+  <div class="pos-snapshot" id="posSnapshot"></div>
+
   <!-- Mode Toggle -->
   <div class="mode-toggle">
-    <button class="mode-btn active" onclick="setMode('reverse')">倒T · 高抛低吸</button>
-    <button class="mode-btn" onclick="setMode('normal')">正T · 先买后卖</button>
+    <button class="mode-btn active" id="modeReverse" onclick="setMode('reverse')">倒T · 高抛低吸</button>
+    <button class="mode-btn" id="modeNormal" onclick="setMode('normal')">正T · 先买后卖</button>
   </div>
 
   <div class="scroll-area" id="scrollArea">
-    <!-- Position Card — folded by default -->
+    <!-- Position Card -->
     <div class="input-card" id="posCard">
       <h2 onclick="toggleFold('posCard')">
         <span class="icon">📊</span>持 仓 信 息
@@ -451,76 +548,357 @@ html, body {
       </div>
     </div>
   </div>
+</div>
 
-
+<!-- Stock Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">新增持仓</h3>
+    <div class="field">
+      <label>股票名称</label>
+      <input type="text" id="modalName" placeholder="如：云铝股份" maxlength="8">
+    </div>
+    <div class="field">
+      <label>成本价（元）</label>
+      <input type="text" inputmode="decimal" id="modalCost" placeholder="10.00">
+    </div>
+    <div class="field">
+      <label>持仓数量（股）</label>
+      <input type="text" inputmode="numeric" id="modalQty" placeholder="1000">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" onclick="saveStock()">保存</button>
+    </div>
+  </div>
 </div>
 
 <script>
+// ========== DATA ENGINE ==========
+const STORAGE_KEY_PORTFOLIO = 'tcalc_portfolio_v2';
+const STORAGE_KEY_HISTORY = 'tcalc_history_v2';
+const STORAGE_KEY_PREFS = 'tcalc_prefs_v2';
+const MAX_HISTORY_PER_STOCK = 20;
+
+let portfolio = [];       // [{ id, name, costPrice, holdQty, mode, openPrice, tPrice1, tQty, tPrice2 }]
+let currentStockIndex = 0;
 let currentMode = 'reverse';
-let spinTimer = null;
-let spinId = null;
-let spinDelta = 0;
+let editingStockId = null;
 
-// ---- 滑动微调（通用） ----
-// 功能：手指/鼠标在输入框上左右滑动实时调节数值
-// 触发：touchstart + touchmove | mousedown + mousemove
-// 边界：由各输入框的 getBounds 回调决定；松手后触发 onChange 回调
-let slideState = null; // { inputEl, startX, lastVal, pixelAccum, getBounds, onChange, step }
-const SLIDE_PIXEL_STEP = 5;      // 每5px触发一次步进
+function saveAll() {
+  // Save all form values into current stock object
+  if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
+    const s = portfolio[currentStockIndex];
+    s.costPrice = parseFloat(document.getElementById('costPrice').value) || s.costPrice;
+    s.holdQty = parseInt(document.getElementById('holdQty').value, 10) || s.holdQty;
+    s.mode = currentMode;
+    s.openPrice = parseFloat(document.getElementById('openPrice').value) || s.openPrice;
+    s.tPrice1 = parseFloat(document.getElementById('tPrice1').value) || s.tPrice1;
+    s.tQty = parseInt(document.getElementById('tQty').value, 10) || s.tQty;
+    s.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || s.tPrice2;
+  }
+  localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+  localStorage.setItem(STORAGE_KEY_PREFS, JSON.stringify({
+    currentStockIndex: currentStockIndex,
+    currentMode: currentMode,
+    posFolded: document.getElementById('posFold').classList.contains('hidden'),
+  }));
+}
 
-// 卖出价边界（倒T模式）：开盘价 ±10%
+function saveDebounced() {
+  clearTimeout(window._saveTimeout);
+  window._saveTimeout = setTimeout(saveAll, 500);
+}
+
+function loadData() {
+  const rawP = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
+  if (rawP) {
+    try { portfolio = JSON.parse(rawP); } catch(e) { portfolio = []; }
+  }
+  // Ensure every stock has default fields
+  portfolio.forEach(s => {
+    if (!s.mode) s.mode = 'reverse';
+    if (!s.openPrice) s.openPrice = 10;
+    if (!s.tPrice1) s.tPrice1 = 10;
+    if (!s.tQty) s.tQty = 1000;
+    if (!s.tPrice2) s.tPrice2 = 9.9;
+  });
+
+  // If no stocks, create default
+  if (portfolio.length === 0) {
+    portfolio.push({
+      id: 's1', name: '持仓1',
+      costPrice: 10, holdQty: 1000,
+      mode: 'reverse', openPrice: 10, tPrice1: 10, tQty: 1000, tPrice2: 9.9
+    });
+  }
+
+  const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
+  let prefs = {};
+  if (rawPrefs) {
+    try { prefs = JSON.parse(rawPrefs); } catch(e) {}
+  }
+  currentStockIndex = (typeof prefs.currentStockIndex === 'number' && prefs.currentStockIndex < portfolio.length)
+    ? prefs.currentStockIndex : 0;
+  currentMode = prefs.currentMode || 'reverse';
+}
+
+// Update snapshot row
+function updateSnapshot() {
+  if (portfolio.length === 0 || currentStockIndex >= portfolio.length) {
+    document.getElementById('posSnapshot').innerHTML = '<span style="color:var(--text-muted)">暂无持仓</span>';
+    return;
+  }
+  const s = portfolio[currentStockIndex];
+  const cost = parseFloat(document.getElementById('costPrice').value) || s.costPrice;
+  const qty = parseInt(document.getElementById('holdQty').value, 10) || s.holdQty;
+  const name = s.name;
+  document.getElementById('posSnapshot').innerHTML =
+    '<span class="snap-item">📌 <b>' + escapeHtml(name) + '</b></span>' +
+    '<span class="snap-item">成本 <span class="snap-val snap-cost">' + fmtMoney4(cost) + '</span></span>' +
+    '<span class="snap-item">持仓 <span class="snap-val">' + qty + '股</span></span>';
+}
+
+// Build tab bar
+function buildTabBar() {
+  const bar = document.getElementById('stockTabBar');
+  let html = '';
+  portfolio.forEach((s, i) => {
+    const activeCls = (i === currentStockIndex) ? ' active' : '';
+    html += '<span class="stock-tab' + activeCls + '" onclick="switchStock(' + i + ')" data-idx="' + i + '">'
+      + escapeHtml(s.name)
+      + '<span class="del-stock" onclick="event.stopPropagation();deleteStockConfirm(' + i + ')">✕</span>'
+      + '</span>';
+  });
+  html += '<button class="add-stock-btn" onclick="openAddModal()" title="新增持仓">+</button>';
+  bar.innerHTML = html;
+}
+
+// Switch stock
+function switchStock(idx) {
+  if (idx === currentStockIndex) return;
+  saveAll();
+  currentStockIndex = idx;
+  loadStockIntoForm();
+  buildTabBar();
+  updateSnapshot();
+  saveAll();
+}
+
+// Load stock data into form
+function loadStockIntoForm() {
+  if (portfolio.length === 0 || currentStockIndex >= portfolio.length) return;
+  const s = portfolio[currentStockIndex];
+  document.getElementById('costPrice').value = s.costPrice;
+  document.getElementById('holdQty').value = s.holdQty;
+  document.getElementById('openPrice').value = s.openPrice;
+  document.getElementById('tPrice1').value = s.tPrice1;
+  document.getElementById('tQty').value = s.tQty;
+  document.getElementById('tPrice2').value = s.tPrice2;
+  document.getElementById('tPrice2').dataset.autoSet = 'false';
+  setMode(s.mode || 'reverse');
+  document.getElementById('resultCard').classList.remove('show');
+  checkHoldQtySufficient();
+}
+
+// ──── Modal operations ────
+function openAddModal() {
+  editingStockId = null;
+  document.getElementById('modalTitle').textContent = '新增持仓';
+  document.getElementById('modalName').value = '';
+  document.getElementById('modalCost').value = '';
+  document.getElementById('modalQty').value = '';
+  document.getElementById('editModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
+}
+
+function openEditModal(idx, name, cost, qty) {
+  editingStockId = portfolio[idx].id;
+  document.getElementById('modalTitle').textContent = '编辑持仓';
+  document.getElementById('modalName').value = name;
+  document.getElementById('modalCost').value = cost;
+  document.getElementById('modalQty').value = qty;
+  document.getElementById('editModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('show');
+}
+
+function saveStock() {
+  const name = document.getElementById('modalName').value.trim();
+  const cost = parseFloat(document.getElementById('modalCost').value);
+  const qty = parseInt(document.getElementById('modalQty').value, 10);
+
+  if (!name) { alert('请输入股票名称'); return; }
+  if (isNaN(cost) || cost <= 0) { alert('请输入有效的成本价'); return; }
+  if (isNaN(qty) || qty < 100) { alert('持仓数量至少100股'); return; }
+
+  if (editingStockId) {
+    // Edit existing
+    const idx = portfolio.findIndex(s => s.id === editingStockId);
+    if (idx >= 0) {
+      portfolio[idx].name = name;
+      portfolio[idx].costPrice = cost;
+      portfolio[idx].holdQty = qty;
+    }
+  } else {
+    // Add new
+    const id = 's' + Date.now();
+    portfolio.push({
+      id, name,
+      costPrice: cost, holdQty: qty,
+      mode: 'reverse', openPrice: cost, tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost
+    });
+    currentStockIndex = portfolio.length - 1;
+  }
+
+  buildTabBar();
+  loadStockIntoForm();
+  updateSnapshot();
+  saveAll();
+  closeModal();
+}
+
+function deleteStockConfirm(idx) {
+  if (portfolio.length <= 1) {
+    alert('至少保留一只持仓');
+    return;
+  }
+  if (!confirm('确定删除「' + portfolio[idx].name + '」？')) return;
+  // Remove from portfolio
+  portfolio.splice(idx, 1);
+  // Remove its history
+  const stockId = portfolio[idx] ? portfolio[idx].id : '';
+  if (currentStockIndex >= portfolio.length) currentStockIndex = portfolio.length - 1;
+  if (currentStockIndex < 0) currentStockIndex = 0;
+  buildTabBar();
+  loadStockIntoForm();
+  updateSnapshot();
+  saveAll();
+}
+
+// ──── Snapshot interactions ────
+// Double-click snapshot to edit
+document.getElementById('posSnapshot').addEventListener('dblclick', function() {
+  if (portfolio.length === 0 || currentStockIndex >= portfolio.length) return;
+  const s = portfolio[currentStockIndex];
+  openEditModal(currentStockIndex, s.name, s.costPrice, s.holdQty);
+});
+
+// Long-press tabs to enter edit mode
+let tabLongPressTimer = null;
+document.getElementById('stockTabBar').addEventListener('pointerdown', function(e) {
+  const tab = e.target.closest('.stock-tab');
+  if (!tab) return;
+  const idx = parseInt(tab.dataset.idx);
+  if (isNaN(idx)) return;
+  tabLongPressTimer = setTimeout(function() {
+    // Enter editing mode on all tabs
+    document.querySelectorAll('.stock-tab').forEach(t => t.classList.add('editing'));
+    setTimeout(function() {
+      document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('editing'));
+    }, 3000);
+  }, 600);
+});
+document.getElementById('stockTabBar').addEventListener('pointerup', function() {
+  clearTimeout(tabLongPressTimer);
+});
+document.getElementById('stockTabBar').addEventListener('pointerleave', function() {
+  clearTimeout(tabLongPressTimer);
+});
+
+function openEditModal(idx, name, cost, qty) {
+  editingStockId = portfolio[idx].id;
+  document.getElementById('modalTitle').textContent = '编辑持仓';
+  document.getElementById('modalName').value = name;
+  document.getElementById('modalCost').value = cost;
+  document.getElementById('modalQty').value = qty;
+  document.getElementById('editModal').classList.add('show');
+  setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
+}
+
+// Also support clicking tab cell area for edit when in editing mode
+// (long-press goes into editing mode, then click delete)
+document.getElementById('stockTabBar').addEventListener('click', function(e) {
+  const delBtn = e.target.closest('.del-stock');
+  if (!delBtn) return;
+  const tab = delBtn.closest('.stock-tab');
+  if (!tab) return;
+  const idx = parseInt(tab.dataset.idx);
+  if (isNaN(idx)) return;
+  deleteStockConfirm(idx);
+});
+
+// ──── Modal keyboard ────
+document.getElementById('editModal').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); saveStock(); }
+  if (e.key === 'Escape') closeModal();
+});
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ──── Auto-save on input change ────
+['costPrice','holdQty','openPrice','tPrice1','tQty','tPrice2'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', function() {
+    saveDebounced();
+    updateSnapshot();
+  });
+  el.addEventListener('change', function() {
+    saveDebounced();
+    updateSnapshot();
+  });
+});
+
+// ──── Auto-save on mode switch ────
+const origSetMode = setMode;
+// (we override below)
+
+// ──── Auto-save on beforeunload ────
+window.addEventListener('beforeunload', function() { saveAll(); });
+window.addEventListener('pagehide', function() { saveAll(); });
+
+// ========== Sliding & Spin (same as v4) ==========
+let slideState = null;
+const SLIDE_PIXEL_STEP = 5;
+
 function sellPriceBounds() {
   const openP = parseFloat(document.getElementById('openPrice').value);
   if (isNaN(openP) || openP <= 0) return { min: 0.01, max: 99999 };
   return { min: Math.round(openP * 0.9 * 100) / 100, max: Math.round(openP * 1.1 * 100) / 100 };
 }
 
-// 买入价/接回价边界：开盘价 ±10%
-function buybackPriceBounds() {
-  return sellPriceBounds();
-}
+function buybackPriceBounds() { return sellPriceBounds(); }
+function holdQtyBounds() { return { min: 100, max: 999999 }; }
 
-// 持仓数量边界
-function holdQtyBounds() {
-  return { min: 100, max: 999999 };
-}
-
-// 操作股数边界
 function tQtyBounds() {
   const min = 100;
   let max = 10000;
   if (currentMode === 'reverse') {
     const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
     max = Math.min(10000, Math.floor(holdQty / 100) * 100);
-    if (max < 100) {
-      // 底仓不足，外部应已禁用
-      max = 100;
-    }
+    if (max < 100) max = 100;
   }
   return { min, max };
 }
 
-// 开盘价边界：温和范围，不严格限制
-function openPriceBounds() {
-  return { min: 0.01, max: 99999 };
-}
+function openPriceBounds() { return { min: 0.01, max: 99999 }; }
 
 function slideStart(e, el, getBounds, onChange, step) {
   step = step || 0.01;
   const pos = e.touches ? e.touches[0] : e;
   slideState = {
-    inputEl: el,
-    startX: pos.clientX,
-    lastVal: parseFloat(el.value) || 0,
-    pixelAccum: 0,
+    inputEl: el, startX: pos.clientX,
+    lastVal: parseFloat(el.value) || 0, pixelAccum: 0,
     getBounds: getBounds || function() { return { min: 0.01, max: 99999 }; },
-    onChange: onChange || function() {},
-    step: step,
-    moved: false
+    onChange: onChange || function() {}, step: step, moved: false
   };
   el.style.cursor = 'ew-resize';
   el.classList.add('sliding');
-  // Don't preventDefault here — allow click-to-focus
 }
 
 function slideMove(e) {
@@ -529,10 +907,9 @@ function slideMove(e) {
   const dx = pos.clientX - slideState.startX;
   slideState.pixelAccum += dx;
   slideState.startX = pos.clientX;
-
   const steps = Math.floor(Math.abs(slideState.pixelAccum) / SLIDE_PIXEL_STEP);
   if (steps > 0) {
-    e.preventDefault(); // Only block default when actually sliding
+    e.preventDefault();
     slideState.moved = true;
     const sign = slideState.pixelAccum > 0 ? 1 : -1;
     slideState.pixelAccum -= sign * steps * SLIDE_PIXEL_STEP;
@@ -544,6 +921,7 @@ function slideMove(e) {
     slideState.lastVal = newVal;
     slideState.inputEl.value = (s >= 1) ? Math.round(newVal).toString() : newVal.toFixed(2);
     slideState.onChange(newVal);
+    saveDebounced();
   }
   e.preventDefault();
 }
@@ -555,21 +933,11 @@ function slideEnd() {
   slideState = null;
 }
 
-// ---- Fold toggle ----
-function toggleFold(cardId) {
-  const foldEl = document.getElementById(cardId === 'posCard' ? 'posFold' : cardId + 'Fold');
-  const arrowEl = document.getElementById(cardId === 'posCard' ? 'posArrow' : cardId + 'Arrow');
-  const isHidden = foldEl.classList.contains('hidden');
-  if (isHidden) {
-    foldEl.classList.remove('hidden');
-    if (arrowEl) arrowEl.classList.add('open');
-  } else {
-    foldEl.classList.add('hidden');
-    if (arrowEl) arrowEl.classList.remove('open');
-  }
-}
+// ──── Spin buttons ────
+let spinTimer = null;
+let spinId = null;
+let spinDelta = 0;
 
-// ---- Spin buttons (pointer events — no double-fire) ----
 function spinStart(id, delta) {
   spinStop();
   spinId = id;
@@ -589,12 +957,13 @@ function applySpin() {
   const el = document.getElementById(spinId);
   let val = parseFloat(el.value) || 0;
   if (spinId === 'tQty' || spinId === 'holdQty') {
-    // 股数步进100
     val = Math.round(val + spinDelta);
     const bounds = spinId === 'tQty' ? tQtyBounds() : holdQtyBounds();
     if (val < bounds.min) val = bounds.min;
     if (val > bounds.max) val = bounds.max;
     el.value = Math.round(val).toString();
+    saveDebounced();
+    updateSnapshot();
     return;
   }
   val = Math.round((val + spinDelta) * 100) / 100;
@@ -603,64 +972,74 @@ function applySpin() {
   el.value = val.toFixed(2);
   if (spinId === 'tPrice1') updateRefPrice();
   if (spinId === 'tPrice2') document.getElementById('tPrice2').dataset.autoSet = 'false';
+  saveDebounced();
 }
 
-// ---- 持仓数量校验 ----
+// ──── position qty change ────
 function onHoldQtyChange() {
   const el = document.getElementById('holdQty');
   let val = parseInt(el.value, 10);
-  if (isNaN(val) || val < 1) { el.value = '100'; return; }
+  if (isNaN(val) || val < 1) { el.value = '100'; val = 100; }
   val = Math.round(val / 100) * 100;
   const bounds = holdQtyBounds();
   if (val < bounds.min) val = bounds.min;
   if (val > bounds.max) val = bounds.max;
   el.value = val.toString();
-  // 同步操作股数：取持仓数量和10000中较小值
   const tQty = document.getElementById('tQty');
   const tMax = Math.floor(Math.min(val, 10000) / 100) * 100;
   tQty.value = tMax >= 100 ? tMax.toString() : '100';
-  // 持仓变化后重新检查操作股数上限
   if (currentMode === 'reverse') checkHoldQtySufficient();
+  saveDebounced();
+  updateSnapshot();
 }
 
-// ---- 操作股数校验 ----
 function onTQtyChange() {
   const el = document.getElementById('tQty');
   let val = parseInt(el.value, 10);
-  if (isNaN(val) || val < 1) { el.value = '100'; return; }
-  // Round to nearest 100
+  if (isNaN(val) || val < 1) { el.value = '100'; val = 100; }
   val = Math.round(val / 100) * 100;
   const bounds = tQtyBounds();
   if (val < bounds.min) val = bounds.min;
   if (val > bounds.max) val = bounds.max;
   el.value = val.toString();
-  // Check底仓不足
-  if (currentMode === 'reverse') {
-    checkHoldQtySufficient();
-  }
+  if (currentMode === 'reverse') checkHoldQtySufficient();
+  saveDebounced();
 }
 
 function checkHoldQtySufficient() {
   const el = document.getElementById('tQty');
   const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
+  const spinBtns = el.parentElement.querySelectorAll('.spin-btn');
   if (holdQty < 100) {
     el.value = '';
     el.placeholder = '底仓不足，无法操作';
     el.disabled = true;
+    spinBtns.forEach(b => b.disabled = true);
   } else {
     el.disabled = false;
     el.placeholder = '1000';
+    spinBtns.forEach(b => b.disabled = false);
   }
 }
 
-// ---- Open price -> sync sell price ----
-function onOpenPriceChange() {
-  syncPricesFromOpen();
+// ──── Fold ────
+function toggleFold(cardId) {
+  const foldEl = document.getElementById(cardId === 'posCard' ? 'posFold' : cardId + 'Fold');
+  const arrowEl = document.getElementById(cardId === 'posCard' ? 'posArrow' : cardId + 'Arrow');
+  const isHidden = foldEl.classList.contains('hidden');
+  if (isHidden) {
+    foldEl.classList.remove('hidden');
+    if (arrowEl) arrowEl.classList.add('open');
+  } else {
+    foldEl.classList.add('hidden');
+    if (arrowEl) arrowEl.classList.remove('open');
+  }
+  saveDebounced();
 }
 
-function onSlideOpenPrice(newVal) {
-  syncPricesFromOpen();
-}
+// ──── Open price sync ────
+function onOpenPriceChange() { syncPricesFromOpen(); saveDebounced(); }
+function onSlideOpenPrice(newVal) { syncPricesFromOpen(); saveDebounced(); }
 
 function syncPricesFromOpen() {
   const openP = parseFloat(document.getElementById('openPrice').value);
@@ -670,7 +1049,7 @@ function syncPricesFromOpen() {
   }
 }
 
-// ---- Ref price: 倒T默认99%, 正T=101% ----
+// ──── Ref price ────
 function applyRatio(ratio) {
   const t1 = parseFloat(document.getElementById('tPrice1').value);
   if (!isNaN(t1) && t1 > 0) {
@@ -680,6 +1059,7 @@ function applyRatio(ratio) {
     document.getElementById('refTag99').classList.toggle('active', ratio === 0.99);
     document.getElementById('refTag995').classList.toggle('active', ratio === 0.995);
     if (document.getElementById('refTag101')) document.getElementById('refTag101').classList.toggle('active', ratio === 1.01);
+    saveDebounced();
   }
 }
 
@@ -695,20 +1075,18 @@ function updateRefPrice() {
   }
 }
 
-function onSellPriceInput() {
-  updateRefPrice();
-}
-
+function onSellPriceInput() { updateRefPrice(); saveDebounced(); }
 function onBuybackInput() {
   document.getElementById('tPrice2').dataset.autoSet = 'false';
+  saveDebounced();
 }
 
-// ---- Mode switch ----
+// ──── Mode switch (with auto-save) ────
 function setMode(mode) {
   currentMode = mode;
-  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('modeReverse').classList.toggle('active', mode === 'reverse');
+  document.getElementById('modeNormal').classList.toggle('active', mode === 'normal');
   if (mode === 'reverse') {
-    document.querySelectorAll('.mode-btn')[0].classList.add('active');
     document.getElementById('opTitle').textContent = '倒 T 操 作';
     document.getElementById('expectLabel').textContent = '预期接回价';
     document.getElementById('tPrice1Row').classList.add('key-row');
@@ -721,11 +1099,11 @@ function setMode(mode) {
     document.getElementById('refTag995').style.display = '';
     document.getElementById('refTag101').style.display = 'none';
   } else {
-    document.querySelectorAll('.mode-btn')[1].classList.add('active');
     document.getElementById('opTitle').textContent = '正 T 操 作';
     document.getElementById('expectLabel').textContent = '预期卖出价';
     document.getElementById('tPrice1Label').textContent = '买入价';
     document.getElementById('tPrice1').placeholder = '先买价格';
+    document.getElementById('tPrice1Row').classList.add('key-row');
     document.getElementById('tPrice2').placeholder = '';
     document.getElementById('op1Label').textContent = '买入支出';
     document.getElementById('op2Label').textContent = '卖出收入';
@@ -736,28 +1114,24 @@ function setMode(mode) {
   updateRefPrice();
   checkHoldQtySufficient();
   document.getElementById('resultCard').classList.remove('show');
+  saveDebounced();
 }
 
-// ---- Calculation ----
+// ──── Calculation ────
 function parseNum(id) {
   const v = parseFloat(document.getElementById(id).value);
   return isNaN(v) ? 0 : v;
 }
 
 function calcFee(amount, isSell) {
-  let commRate = 0.01854 / 100; // 中信证券实际佣金率 万1.854
+  let commRate = 0.01854 / 100;
   let comm = amount * commRate;
-  let minComm = 5; // fixed at 5 yuan, minimum commission
+  let minComm = 5;
   if (comm > 0 && comm < minComm) comm = minComm;
-
-  // Stamp tax (sell only) — fixed 0.05%
   let stampRate = 0.05 / 100;
   let stamp = isSell ? amount * stampRate : 0;
-
-  // Transfer fee (both sides) — fixed 0.001%
   let transRate = 0.001 / 100;
   let trans = amount * transRate;
-
   return { comm, stamp, trans, total: comm + stamp + trans };
 }
 
@@ -772,38 +1146,36 @@ function fmtMoney4(v) {
 }
 
 function calculate() {
-  const costPrice = parseNum('costPrice');
-  const holdQty = parseNum('holdQty');
   const tPrice1 = parseNum('tPrice1');
   const tQty = parseNum('tQty');
   const tPrice2 = parseNum('tPrice2');
 
   if (!tPrice1 || !tQty || !tPrice2) {
-    alert('请填写卖出价、操作数量和预期接回价');
+    alert('请填写卖出/买入价、操作数量和预期价');
     return;
   }
 
+  const costPrice = parseNum('costPrice');
+  const holdQty = parseNum('holdQty');
   let amount1, amount2, fee1, fee2, netOp1, netOp2, diff;
 
   if (currentMode === 'reverse') {
-    // 倒T: 先卖后买
     amount1 = tPrice1 * tQty;
     fee1 = calcFee(amount1, true);
     amount2 = tPrice2 * tQty;
     fee2 = calcFee(amount2, false);
-    netOp1 = amount1 - fee1.total;  // money received from sell
-    netOp2 = amount2 + fee2.total;  // money spent on buy
+    netOp1 = amount1 - fee1.total;
+    netOp2 = amount2 + fee2.total;
     diff = netOp1 - netOp2;
     document.getElementById('op1Val').textContent = '+' + fmtMoney(netOp1);
     document.getElementById('op2Val').textContent = '-' + fmtMoney(netOp2);
   } else {
-    // 正T: 先买后卖
     amount1 = tPrice1 * tQty;
     fee1 = calcFee(amount1, false);
     amount2 = tPrice2 * tQty;
     fee2 = calcFee(amount2, true);
-    netOp1 = amount1 + fee1.total;  // money spent on buy
-    netOp2 = amount2 - fee2.total;  // money received from sell
+    netOp1 = amount1 + fee1.total;
+    netOp2 = amount2 - fee2.total;
     diff = netOp2 - netOp1;
     document.getElementById('op1Val').textContent = '-' + fmtMoney(netOp1);
     document.getElementById('op2Val').textContent = '+' + fmtMoney(netOp2);
@@ -820,7 +1192,6 @@ function calculate() {
   document.getElementById('taxDetail').textContent =
     '印花税 ' + fmtMoney(fee1.stamp + fee2.stamp) + ' + 过户费 ' + fmtMoney(fee1.trans + fee2.trans);
 
-  // Big result — profit=red, loss=green (A股 convention)
   const bigEl = document.getElementById('resultBig');
   if (diff >= 0) {
     bigEl.textContent = '+' + fmtMoney(diff) + ' 元';
@@ -830,23 +1201,17 @@ function calculate() {
     bigEl.className = 'value loss';
   }
 
-  // Profit percentage
-  const investCapital = (amount1 + fee1.total); // actual money out
+  const investCapital = (amount1 + fee1.total);
   const pctEl = document.getElementById('resultPct');
   if (investCapital > 0) {
     const pct = (diff / investCapital * 100);
     const sign = pct >= 0 ? '+' : '';
     pctEl.textContent = sign + pct.toFixed(2) + '%';
-    if (diff >= 0) {
-      pctEl.style.color = 'var(--profit)';
-    } else {
-      pctEl.style.color = 'var(--loss)';
-    }
+    pctEl.style.color = diff >= 0 ? 'var(--profit)' : 'var(--loss)';
   } else {
     pctEl.textContent = '--';
   }
 
-  // New cost basis — only if position info provided
   if (costPrice && holdQty) {
     const totalCostBefore = costPrice * holdQty;
     const totalCostAfter = totalCostBefore - diff;
@@ -860,18 +1225,39 @@ function calculate() {
     document.querySelector('.new-cost .label').style.display = 'none';
   }
 
-  // Show result
+  // Show result + scroll
   const resultCard = document.getElementById('resultCard');
   resultCard.classList.add('show');
   document.getElementById('copyBtn').classList.remove('copied');
   document.getElementById('copyBtn').textContent = '复制';
   resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Save result to history (预留，第二期激活)
+  saveHistoryEntry({
+    mode: currentMode, stockName: portfolio[currentStockIndex] ? portfolio[currentStockIndex].name : '',
+    tPrice1, tQty, tPrice2, diff, feeTotal,
+    timestamp: new Date().toISOString()
+  });
+  saveAll();
 }
 
-// ---- Copy result ----
+// ──── History (reserved for phase 2) ────
+function saveHistoryEntry(entry) {
+  // Phase 2 will render these; for now just store
+  const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
+  let history = [];
+  if (raw) { try { history = JSON.parse(raw); } catch(e) {} }
+  history.unshift(entry);
+  if (history.length > 100) history = history.slice(0, 100);
+  localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+}
+
+// ──── Copy ────
 function copyResult() {
   const lines = [];
+  const stockName = portfolio[currentStockIndex] ? portfolio[currentStockIndex].name : '';
   lines.push('=== 做T预估结果 ===');
+  lines.push('股票：' + stockName);
   lines.push('模式：' + (currentMode === 'reverse' ? '倒T（高抛低吸）' : '正T（先买后卖）'));
   lines.push(document.getElementById('op1Label').textContent + '：' + document.getElementById('op1Val').textContent);
   lines.push(document.getElementById('op2Label').textContent + '：' + document.getElementById('op2Val').textContent);
@@ -883,14 +1269,13 @@ function copyResult() {
 
   const text = lines.join('\n');
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => {
+    navigator.clipboard.writeText(text).then(function() {
       const btn = document.getElementById('copyBtn');
       btn.textContent = '已复制 ✓';
       btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+      setTimeout(function() { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
     });
   } else {
-    // Fallback
     const ta = document.createElement('textarea');
     ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
     document.body.appendChild(ta); ta.select();
@@ -899,11 +1284,17 @@ function copyResult() {
     const btn = document.getElementById('copyBtn');
     btn.textContent = '已复制 ✓';
     btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+    setTimeout(function() { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
   }
 }
 
-// ---- Spin buttons global listeners (pointer events — no double-fire) ----
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ──── Spin buttons global listeners ────
 document.addEventListener('pointerdown', function(e) {
   const btn = e.target.closest('.spin-btn');
   if (!btn) return;
@@ -915,40 +1306,42 @@ document.addEventListener('pointerdown', function(e) {
     btn.setPointerCapture(e.pointerId);
   }
 });
-document.addEventListener('pointerup', function(e) {
-  spinStop();
-});
-document.addEventListener('pointerleave', function(e) {
-  if (spinId && e.target.closest('.spin-btn')) spinStop();
-});
-document.addEventListener('pointercancel', function(e) {
-  if (e.target.closest('.spin-btn')) spinStop();
-});
+document.addEventListener('pointerup', function(e) { spinStop(); });
+document.addEventListener('pointercancel', function(e) { spinStop(); });
 
-// ---- Slide global listeners ----
+// ──── Slide global listeners ────
 document.addEventListener('touchmove', function(e) {
   if (slideState) slideMove(e);
 }, { passive: false });
-document.addEventListener('touchend', function(e) {
-  slideEnd();
-});
-document.addEventListener('mousemove', function(e) {
-  if (slideState) slideMove(e);
-});
-document.addEventListener('mouseup', function(e) {
-  slideEnd();
-});
+document.addEventListener('touchend', function(e) { slideEnd(); });
+document.addEventListener('mousemove', function(e) { if (slideState) slideMove(e); });
+document.addEventListener('mouseup', function(e) { slideEnd(); });
 
-// ---- Keyboard shortcuts ----
+// ──── Keyboard shortcuts ────
 document.addEventListener('keydown', function(e) {
-  if (e.target.tagName === 'INPUT') return; // don't interfere with typing
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    calculate();
-  }
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Enter') { e.preventDefault(); calculate(); }
   if (e.key === 'b' || e.key === 'B') { setMode('normal'); }
   if (e.key === 's' || e.key === 'S') { setMode('reverse'); }
 });
+
+// ──── Init ────
+loadData();
+buildTabBar();
+loadStockIntoForm();
+updateSnapshot();
+
+// Apply saved fold state
+const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
+if (rawPrefs) {
+  try {
+    const prefs = JSON.parse(rawPrefs);
+    if (prefs.posFolded) {
+      document.getElementById('posFold').classList.add('hidden');
+      document.getElementById('posArrow').classList.remove('open');
+    }
+  } catch(e) {}
+}
 </script>
 </body>
 </html>
