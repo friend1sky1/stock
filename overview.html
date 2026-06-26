@@ -64,7 +64,7 @@ html, body {
   box-shadow: var(--shadow-card); overflow: hidden;
   margin-bottom: 8px;
 }
-table.overview { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.overview { width: 100%; border-collapse: collapse; table-layout: fixed; border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 table.overview thead th {
   font-size: 0.68rem; font-weight: 700; color: var(--text-secondary);
   padding: 8px 4px 6px; text-align: center;
@@ -78,9 +78,11 @@ table.overview tbody td {
   vertical-align: middle;
 }
 table.overview tbody tr:last-child td { border-bottom: none; }
+table.overview th:first-child { border-radius: var(--radius) 0 0 0; }
+table.overview th:last-child { border-radius: 0 var(--radius) 0 0; }
 
 /* Column widths */
-th.col-no  { width: 30px; }
+th.col-no  { width: 42px; }
 th.col-name { width: 64px; }
 th.col-qty { width: 50px; }
 th.col-cost { width: 72px; }
@@ -115,7 +117,7 @@ td.val-pl.loss, td.val-pct.loss { color: var(--loss); }
 
 /* Summary row */
 tfoot td {
-  padding: 8px 4px; font-weight: 700; font-size: 0.8rem;
+  padding: 8px 4px; font-weight: 700; font-size: 0.8rem; text-align: center;
   background: var(--bg); border-top: 2px solid var(--border) !important;
 }
 tfoot td.profit { color: var(--profit); }
@@ -163,6 +165,9 @@ tfoot td.loss { color: var(--loss); }
 .links a { color: var(--gold); text-decoration: none; }
 
 /* Mobile tweaks */
+@media (min-width: 768px) {
+  .app { max-width: 640px; transform: scale(1.35); transform-origin: top center; padding-top: 120px; }
+}
 @media (max-width: 400px) {
   table.overview thead th { font-size: 0.62rem; padding: 6px 2px 4px; }
   table.overview tbody td { font-size: 0.72rem; padding: 5px 2px; }
@@ -181,7 +186,7 @@ tfoot td.loss { color: var(--loss); }
   <table class="overview table-card" id="overviewTable">
     <thead>
       <tr>
-        <th class="col-no">#</th>
+        <th class="col-no">序号</th>
         <th class="col-name">股票</th>
         <th class="col-qty">持仓</th>
         <th class="col-cost">成本</th>
@@ -321,7 +326,7 @@ function updateDateLabel() {
   if (latest) {
     label.textContent = '数据更新：' + latest;
   } else {
-    label.textContent = '请在下表中输入现价';
+    label.textContent = '数据更新：--';
   }
 }
 
