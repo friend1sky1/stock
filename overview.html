@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>持仓总览</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --profit:      #E60012;
+  --profit-bg:   #FEF0F0;
+  --loss:        #2D8A4E;
+  --loss-bg:     #EEF7F0;
+  --gold:        #D4A843;
+  --gold-light:  #FAF4E5;
+  --bg:          #FBF6F0;
+  --card:        #FFFFFF;
+  --text:        #3D2E2E;
+  --text-secondary: #8B7870;
+  --text-muted:  #B8A8A0;
+  --border:      #E8DCD0;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.04);
+  --shadow-card: 0 2px 12px rgba(0,0,0,0.05);
+  --radius:      12px;
+  --transition:  0.15s ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  height: 100%; overflow-x: hidden;
+  font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.app {
+  display: flex; flex-direction: column;
+  min-height: 100vh; min-height: 100dvh;
+  max-width: 540px; margin: 0 auto;
+  padding: 12px 14px 16px;
+}
+
+/* Header */
+.header {
+  text-align: center; padding: 4px 0 8px;
+}
+.header h1 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 1.2rem; font-weight: 700; color: var(--profit);
+  letter-spacing: 3px;
+}
+.header .date-row {
+  font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;
+}
+
+/* Table */
+.table-card {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow-card); overflow: hidden;
+  margin-bottom: 8px;
+}
+table.overview { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.overview thead th {
+  font-size: 0.68rem; font-weight: 700; color: var(--text-secondary);
+  padding: 8px 4px 6px; text-align: center;
+  background: var(--bg); border-bottom: 1.5px solid var(--border);
+  font-family: 'Noto Serif SC', serif; letter-spacing: 1px;
+  white-space: nowrap;
+}
+table.overview tbody td {
+  padding: 6px 4px; text-align: center; font-size: 0.78rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+table.overview tbody tr:last-child td { border-bottom: none; }
+
+/* Column widths */
+th.col-no  { width: 30px; }
+th.col-name { width: 64px; }
+th.col-qty { width: 50px; }
+th.col-cost { width: 72px; }
+th.col-price { width: 68px; }
+th.col-mkt  { width: 72px; }
+th.col-pl   { width: 72px; }
+th.col-pct  { width: 62px; }
+
+/* Price input */
+td.price-cell { padding: 2px 2px; }
+td.price-cell input {
+  width: 100%; max-width: 60px;
+  padding: 5px 4px; font-size: 0.78rem; font-weight: 600;
+  border: 1.5px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); text-align: center;
+  transition: all var(--transition);
+  font-family: inherit; -webkit-appearance: none;
+  -webkit-user-select: text; user-select: text;
+}
+td.price-cell input:focus {
+  outline: none; border-color: var(--profit); background: #FFF;
+  box-shadow: 0 0 0 2px rgba(230,0,18,0.06);
+}
+td.price-cell input.dirty { border-color: var(--gold); background: var(--gold-light); }
+
+/* Values */
+td.val-qty, td.val-cost { font-weight: 500; color: var(--text); }
+td.val-mkt { font-weight: 600; color: var(--text); }
+td.val-pl, td.val-pct { font-weight: 700; }
+td.val-pl.profit, td.val-pct.profit { color: var(--profit); }
+td.val-pl.loss, td.val-pct.loss { color: var(--loss); }
+
+/* Summary row */
+tfoot td {
+  padding: 8px 4px; font-weight: 700; font-size: 0.8rem;
+  background: var(--bg); border-top: 2px solid var(--border) !important;
+}
+tfoot td.profit { color: var(--profit); }
+tfoot td.loss { color: var(--loss); }
+
+/* Action bar */
+.action-bar {
+  display: flex; gap: 8px; margin-bottom: 16px;
+}
+.btn {
+  flex: 1; padding: 10px;
+  border: none; border-radius: 10px;
+  font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  letter-spacing: 2px; transition: all var(--transition);
+  font-family: 'Noto Serif SC', serif;
+}
+.btn:active { transform: scale(0.98); }
+.btn-save {
+  background: linear-gradient(135deg, var(--profit), #B8000E);
+  color: #FFF;
+}
+.btn-save:disabled {
+  background: var(--text-muted); opacity: 0.5; cursor: not-allowed;
+}
+.btn-save.saved {
+  background: var(--loss);
+}
+
+/* Toast */
+.toast {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: #FFF; padding: 10px 24px;
+  border-radius: 20px; font-size: 0.82rem; font-weight: 600;
+  z-index: 200; opacity: 0; transition: opacity 0.25s;
+  pointer-events: none; letter-spacing: 1px;
+}
+.toast.show { opacity: 1; }
+.toast.success { background: var(--loss); }
+.toast.error { background: var(--profit); }
+
+/* Links */
+.links {
+  text-align: center; font-size: 0.65rem; color: var(--text-muted);
+}
+.links a { color: var(--gold); text-decoration: none; }
+
+/* Mobile tweaks */
+@media (max-width: 400px) {
+  table.overview thead th { font-size: 0.62rem; padding: 6px 2px 4px; }
+  table.overview tbody td { font-size: 0.72rem; padding: 5px 2px; }
+  td.price-cell input { max-width: 52px; font-size: 0.72rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1>📊 持仓总览</h1>
+    <div class="date-row" id="dateLabel">数据更新：--</div>
+  </div>
+
+  <table class="overview table-card" id="overviewTable">
+    <thead>
+      <tr>
+        <th class="col-no">#</th>
+        <th class="col-name">股票</th>
+        <th class="col-qty">持仓</th>
+        <th class="col-cost">成本</th>
+        <th class="col-price">现价</th>
+        <th class="col-mkt">市值</th>
+        <th class="col-pl">盈亏</th>
+        <th class="col-pct">盈亏%</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+    <tfoot id="tableFoot"></tfoot>
+  </table>
+
+  <div class="action-bar">
+    <button class="btn btn-save" id="btnSave" onclick="saveAll()" disabled>💾 保存更新</button>
+  </div>
+
+  <div class="links">
+    <a href="index.html">← 返回做T计算器</a>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ========== DATA ==========
+const STORAGE_KEY = 'tcalc_overview_v1';
+
+// Hardcoded portfolio — mirrors the T calculator defaults
+const portfolio = [
+  { id: 's1', name: '云铝股份',  costPrice: 28.6633, holdQty: 1000, price: null, date: '', time: '' },
+  { id: 's2', name: '今世缘',    costPrice: 25.6083, holdQty: 1000, price: null, date: '', time: '' },
+  { id: 's3', name: '中国石油',  costPrice: 11.8910, holdQty: 500,  price: null, date: '', time: '' },
+  { id: 's4', name: '金种子酒',  costPrice: 10.6276, holdQty: 1500, price: null, date: '', time: '' },
+  { id: 's5', name: '黄河旋风',  costPrice: 9.2750,  holdQty: 500,  price: null, date: '', time: '' },
+];
+
+let dirty = false;
+
+// ========== INIT ==========
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved) && saved.length === 5) {
+        for (let i = 0; i < 5; i++) {
+          if (saved[i].price != null) portfolio[i].price = parseFloat(saved[i].price);
+          portfolio[i].date = saved[i].date || '';
+          portfolio[i].time = saved[i].time || '';
+        }
+      }
+    } catch(e) {}
+  }
+}
+
+function fmtMoney(v) {
+  if (v == null || isNaN(v)) return '--';
+  if (Math.abs(v) < 0.005) return '0.00';
+  return v.toFixed(2);
+}
+
+function fmtMoney4(v) {
+  if (v == null || isNaN(v)) return '--';
+  if (Math.abs(v) < 0.00005) return '0.0000';
+  return v.toFixed(4);
+}
+
+function fmtPct(v) {
+  if (v == null || isNaN(v)) return '--';
+  const sign = v >= 0 ? '+' : '';
+  return sign + v.toFixed(2) + '%';
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  let html = '';
+  let totalMkt = 0, totalPL = 0;
+
+  portfolio.forEach((s, i) => {
+    const cost = s.costPrice;
+    const qty  = s.holdQty;
+    const price = s.price;
+    const mkt = (price != null) ? (price * qty) : null;
+    const pl  = (price != null) ? ((price - cost) * qty) : null;
+    const pct = (price != null) ? ((price - cost) / cost * 100) : null;
+
+    if (mkt  != null) totalMkt += mkt;
+    if (pl   != null) totalPL  += pl;
+
+    const plCls  = (pl  != null) ? (pl  >= 0 ? 'profit' : 'loss') : '';
+    const pctCls = (pct != null) ? (pct >= 0 ? 'profit' : 'loss') : '';
+
+    html += '<tr>';
+    html += '<td class="col-no" style="color:var(--text-muted)">' + (i + 1) + '</td>';
+    html += '<td class="col-name" style="font-weight:700">' + s.name + '</td>';
+    html += '<td class="val-qty">' + qty.toLocaleString() + '</td>';
+    html += '<td class="val-cost">' + fmtMoney4(cost) + '</td>';
+    html += '<td class="price-cell"><input type="text" inputmode="decimal" id="price_' + i + '"'
+      + ' placeholder="输入" value="' + (price != null ? price.toFixed(2) : '') + '"'
+      + ' oninput="onPriceInput(' + i + ', this)"'
+      + ' class="' + (s.price == null ? '' : '') + '"></td>';
+    html += '<td class="val-mkt">' + (mkt != null ? (mkt / 10000).toFixed(2) + '万' : '--') + '</td>';
+    html += '<td class="val-pl ' + plCls + '">' + (pl != null ? (pl >= 0 ? '+' : '') + fmtMoney(pl) : '--') + '</td>';
+    html += '<td class="val-pct ' + pctCls + '">' + fmtPct(pct) + '</td>';
+    html += '</tr>';
+  });
+
+  tbody.innerHTML = html;
+
+  // Footer
+  const foot = document.getElementById('tableFoot');
+  const totalPlCls = totalPL >= 0 ? 'profit' : 'loss';
+  const totalPct = (totalMkt > 0) ? (totalPL / (totalMkt - totalPL) * 100) : null;
+  foot.innerHTML =
+    '<tr>'
+    + '<td colspan="2" style="text-align:left;padding-left:8px">合计</td>'
+    + '<td>' + portfolio.reduce((a,s)=>a+s.holdQty,0).toLocaleString() + '股</td>'
+    + '<td>--</td>'
+    + '<td>--</td>'
+    + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(2) + '万' : '--') + '</td>'
+    + '<td class="' + totalPlCls + '">' + (totalPL >= 0 ? '+' : '') + fmtMoney(totalPL) + '</td>'
+    + '<td class="' + totalPlCls + '">' + (totalPct != null ? (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%' : '--') + '</td>'
+    + '</tr>';
+
+  updateDateLabel();
+}
+
+function updateDateLabel() {
+  // Find most recent date from portfolio
+  let latest = '';
+  portfolio.forEach(s => {
+    if (s.date && s.date > latest) latest = s.date;
+    else if (s.date === latest && s.time > latest) latest = s.date;
+  });
+  const label = document.getElementById('dateLabel');
+  if (latest) {
+    label.textContent = '数据更新：' + latest;
+  } else {
+    label.textContent = '请在下表中输入现价';
+  }
+}
+
+function onPriceInput(idx, el) {
+  const raw = el.value.trim();
+  const num = parseFloat(raw);
+  if (!isNaN(num) && num > 0) {
+    portfolio[idx].price = num;
+    el.classList.remove('dirty');
+  } else if (raw === '') {
+    portfolio[idx].price = null;
+    el.classList.add('dirty');
+  } else {
+    el.classList.add('dirty');
+    return;
+  }
+  dirty = true;
+  document.getElementById('btnSave').disabled = false;
+  document.getElementById('btnSave').textContent = '💾 保存更新';
+  document.getElementById('btnSave').classList.remove('saved');
+  renderTable();
+}
+
+function saveAll() {
+  const now = new Date();
+  const dateStr = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0');
+  const timeStr = String(now.getHours()).padStart(2, '0') + ':' +
+    String(now.getMinutes()).padStart(2, '0');
+
+  portfolio.forEach(s => {
+    if (s.price != null) {
+      s.date = dateStr;
+      s.time = timeStr;
+    }
+  });
+
+  // Save to localStorage
+  const toSave = portfolio.map(s => ({
+    id: s.id, name: s.name, costPrice: s.costPrice, holdQty: s.holdQty,
+    price: s.price, date: s.date, time: s.time
+  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+
+  // Update UI
+  dirty = false;
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  btn.textContent = '✓ 已保存';
+  btn.classList.add('saved');
+  updateDateLabel();
+
+  showToast('已保存到本地 · ' + dateStr + ' ' + timeStr, 'success');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || '') + ' show';
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => { t.classList.remove('show'); }, 2000);
+}
+
+// ========== BOOT ==========
+loadData();
+renderTable();
+
+// Mark inputs that already have values
+portfolio.forEach((s, i) => {
+  if (s.price == null) {
+    const el = document.getElementById('price_' + i);
+    if (el) el.classList.toggle('dirty', s.price == null && s.date === '');
+  }
+});
+</script>
+</body>
+</html>
