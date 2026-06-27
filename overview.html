@@ -64,7 +64,7 @@ html, body {
   box-shadow: var(--shadow-card); overflow: hidden;
   margin-bottom: 6px;
 }
-table.overview { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.overview { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #333; border-radius: var(--radius); overflow: hidden; }
 table.overview thead th {
   font-size: 0.68rem; font-weight: 700; color: var(--text-secondary);
   padding: 6px 4px 4px; text-align: center;
@@ -161,6 +161,15 @@ tfoot td.loss { color: var(--loss); }
   text-align: center; font-size: 0.65rem; color: var(--text-muted);
 }
 .links a { color: var(--gold); text-decoration: none; }
+
+/* Desktop scale-up */
+@media (min-width: 768px) {
+  .app {
+    transform: scale(1.15);
+    transform-origin: top center;
+    margin-bottom: 0;
+  }
+}
 
 /* Mobile tweaks */
 @media (max-width: 400px) {
