@@ -945,11 +945,14 @@ function spinStart(id, delta) {
   spinId = id;
   spinDelta = delta;
   applySpin();
-  spinTimer = setInterval(applySpin, 120);
+  // 首次重复延迟 300ms，之后每 120ms 连续触发
+  spinTimer = setTimeout(function() {
+    spinTimer = setInterval(function() { applySpin(); }, 120);
+  }, 300);
 }
 
 function spinStop() {
-  if (spinTimer) { clearInterval(spinTimer); spinTimer = null; }
+  if (spinTimer) { clearInterval(spinTimer); clearTimeout(spinTimer); spinTimer = null; }
   spinId = null;
   spinDelta = 0;
 }
