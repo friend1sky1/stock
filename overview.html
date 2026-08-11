@@ -107,7 +107,8 @@ td.price-cell input:focus {
 td.price-cell input.dirty { border-color: var(--gold); background: var(--gold-light); }
 
 /* Values */
-td.val-qty, td.val-cost { font-weight: 500; color: var(--text); }
+td.val-qty { font-weight: 500; color: var(--text); }
+td.val-cost { font-weight: 700; font-size: 0.92rem; color: var(--text); }
 td.val-mkt { font-weight: 600; color: var(--text); }
 td.val-pl, td.val-pct { font-weight: 700; }
 td.val-pl.profit, td.val-pct.profit { color: var(--profit); }
@@ -292,9 +293,9 @@ function renderTable() {
       + ' placeholder="输入" value="' + (price != null ? price.toFixed(2) : '') + '"'
       + ' oninput="onPriceInput(' + i + ', this)"'
       + ' class="' + (s.price == null ? '' : '') + '"></td>';
-    html += '<td class="val-mkt">' + (mkt != null ? (mkt / 10000).toFixed(2) + '万' : '--') + '</td>';
-    html += '<td class="val-pl ' + plCls + '">' + (pl != null ? (pl >= 0 ? '+' : '') + fmtMoney(pl) : '--') + '</td>';
-    html += '<td class="val-pct ' + pctCls + '">' + fmtPct(pct) + '</td>';
+    html += '<td class="val-mkt" id="mkt_' + i + '">' + (mkt != null ? (mkt / 10000).toFixed(2) + '万' : '--') + '</td>';
+    html += '<td class="val-pl ' + plCls + '" id="pl_' + i + '">' + (pl != null ? (pl >= 0 ? '+' : '') + fmtMoney(pl) : '--') + '</td>';
+    html += '<td class="val-pct ' + pctCls + '" id="pct_' + i + '">' + fmtPct(pct) + '</td>';
     html += '</tr>';
   });
 
@@ -350,7 +351,55 @@ function onPriceInput(idx, el) {
   document.getElementById('btnSave').disabled = false;
   document.getElementById('btnSave').textContent = '💾 保存更新';
   document.getElementById('btnSave').classList.remove('saved');
-  renderTable();
+  // 只更新受影响单元格，不重建整个表格，避免输入框丢失焦点
+  updateRow(idx);
+  updateFoot();
+}
+
+function updateRow(idx) {
+  const s = portfolio[idx];
+  const qty  = s.holdQty;
+  const price = s.price;
+  const mkt = (price != null) ? (price * qty) : null;
+  const pl  = (price != null) ? ((price - s.costPrice) * qty) : null;
+  const pct = (price != null) ? ((price - s.costPrice) / s.costPrice * 100) : null;
+
+  const mktEl  = document.getElementById('mkt_' + idx);
+  const plEl   = document.getElementById('pl_' + idx);
+  const pctEl  = document.getElementById('pct_' + idx);
+  if (!mktEl || !plEl || !pctEl) return;
+
+  mktEl.textContent = (mkt != null ? (mkt / 10000).toFixed(2) + '万' : '--');
+
+  const plCls  = (pl  != null) ? (pl  >= 0 ? 'profit' : 'loss') : '';
+  const pctCls = (pct != null) ? (pct >= 0 ? 'profit' : 'loss') : '';
+  plEl.className = 'val-pl ' + plCls;
+  pctEl.className = 'val-pct ' + pctCls;
+  plEl.textContent = (pl != null ? (pl >= 0 ? '+' : '') + fmtMoney(pl) : '--');
+  pctEl.textContent = fmtPct(pct);
+}
+
+function updateFoot() {
+  let totalMkt = 0, totalPL = 0;
+  portfolio.forEach(s => {
+    if (s.price != null) {
+      totalMkt += s.price * s.holdQty;
+      totalPL  += (s.price - s.costPrice) * s.holdQty;
+    }
+  });
+  const foot = document.getElementById('tableFoot');
+  const totalPlCls = totalPL >= 0 ? 'profit' : 'loss';
+  const totalPct = (totalMkt > 0) ? (totalPL / (totalMkt - totalPL) * 100) : null;
+  foot.innerHTML =
+    '<tr>'
+    + '<td colspan="2" style="text-align:left;padding-left:8px">合计</td>'
+    + '<td>' + portfolio.reduce((a,s)=>a+s.holdQty,0).toLocaleString() + '股</td>'
+    + '<td>--</td>'
+    + '<td>--</td>'
+    + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(2) + '万' : '--') + '</td>'
+    + '<td class="' + totalPlCls + '">' + (totalPL >= 0 ? '+' : '') + fmtMoney(totalPL) + '</td>'
+    + '<td class="' + totalPlCls + '">' + (totalPct != null ? (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%' : '--') + '</td>'
+    + '</tr>';
 }
 
 function saveAll() {
