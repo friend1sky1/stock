@@ -222,10 +222,9 @@ const STORAGE_KEY = 'tcalc_overview_v1';
 
 // Hardcoded portfolio — mirrors the T calculator defaults
 const portfolio = [
-  { id: 's1', name: '洪都航空',  costPrice: 30.4028, holdQty: 4000, price: 26.7000, date: '', time: '' },
-  { id: 's2', name: '维远股份',  costPrice: 15.5713, holdQty: 6000, price: 12.8600, date: '', time: '' },
-  { id: 's3', name: 'TCL科技',   costPrice: 4.9617,  holdQty: 8000, price: 4.8100,  date: '', time: '' },
-  { id: 's4', name: '京东方A',   costPrice: 7.6288,  holdQty: 6400, price: 5.9000,  date: '', time: '' },
+  { id: 's1', name: '洪都航空',  costPrice: 30.4028, holdQty: 4000, price: 29.1400, date: '', time: '' },
+  { id: 's2', name: '维远股份',  costPrice: 15.5713, holdQty: 6000, price: 12.7900, date: '', time: '' },
+  { id: 's3', name: '京东方A',   costPrice: 8.6212,  holdQty: 4000, price: 5.9000,  date: '', time: '' },
 ];
 
 let dirty = false;
@@ -236,8 +235,8 @@ function loadData() {
   if (raw) {
     try {
       const saved = JSON.parse(raw);
-      if (Array.isArray(saved) && saved.length === 5) {
-        for (let i = 0; i < 5; i++) {
+      if (Array.isArray(saved) && saved.length === portfolio.length) {
+        for (let i = 0; i < portfolio.length; i++) {
           if (saved[i].price != null) portfolio[i].price = parseFloat(saved[i].price);
           portfolio[i].date = saved[i].date || '';
           portfolio[i].time = saved[i].time || '';
