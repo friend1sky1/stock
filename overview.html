@@ -73,42 +73,43 @@ table.overview thead th {
   white-space: nowrap;
 }
 table.overview tbody td {
-  padding: 5px 4px; text-align: center; font-size: 0.78rem;
+  padding: 3px 3px; text-align: center; font-size: 0.78rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 table.overview tbody tr:last-child td { border-bottom: none; }
 
 /* Column widths */
-th.col-no  { width: 30px; }
-th.col-name { width: 64px; }
-th.col-qty { width: 50px; }
-th.col-cost { width: 72px; }
-th.col-price { width: 68px; }
-th.col-mkt  { width: 72px; }
-th.col-pl   { width: 72px; }
-th.col-pct  { width: 62px; }
+th.col-no  { width: 26px; }
+th.col-name { width: 60px; }
+th.col-qty { width: 58px; }
+th.col-cost { width: 68px; }
+th.col-price { width: 66px; }
+th.col-mkt  { width: 70px; }
+th.col-pl   { width: 70px; }
+th.col-pct  { width: 58px; }
 
-/* Price input */
-td.price-cell { padding: 2px 2px; }
-td.price-cell input {
-  width: 100%; max-width: 60px;
-  padding: 5px 4px; font-size: 0.78rem; font-weight: 600;
+/* Editable cells (qty / cost / price) */
+td.edit-cell { padding: 2px 2px; }
+td.edit-cell input {
+  width: 100%; max-width: 100%;
+  padding: 5px 3px; font-size: 0.78rem; font-weight: 600;
   border: 1.5px solid var(--border); border-radius: 6px;
   background: var(--bg); color: var(--text); text-align: center;
   transition: all var(--transition);
   font-family: inherit; -webkit-appearance: none;
   -webkit-user-select: text; user-select: text;
+  font-variant-numeric: tabular-nums;
 }
-td.price-cell input:focus {
+td.edit-cell input:focus {
   outline: none; border-color: var(--profit); background: #FFF;
   box-shadow: 0 0 0 2px rgba(230,0,18,0.06);
 }
-td.price-cell input.dirty { border-color: var(--gold); background: var(--gold-light); }
+td.edit-cell input.dirty { border-color: var(--gold); background: var(--gold-light); }
 
 /* Values */
 td.val-qty { font-weight: 500; color: var(--text); }
-td.val-cost { font-weight: 700; font-size: 0.92rem; color: var(--text); }
+td.val-cost { font-weight: 700; font-size: 0.82rem; color: var(--text); }
 td.val-mkt { font-weight: 600; color: var(--text); }
 td.val-pl, td.val-pct { font-weight: 700; }
 td.val-pl.profit, td.val-pct.profit { color: var(--profit); }
@@ -163,10 +164,10 @@ tfoot td.loss { color: var(--loss); }
 }
 .links a { color: var(--gold); text-decoration: none; }
 
-/* Desktop scale-up */
+/* Desktop scale-up to 120% */
 @media (min-width: 768px) {
   .app {
-    transform: scale(1.15);
+    transform: scale(1.20);
     transform-origin: top center;
     margin-bottom: 0;
   }
@@ -174,9 +175,9 @@ tfoot td.loss { color: var(--loss); }
 
 /* Mobile tweaks */
 @media (max-width: 400px) {
-  table.overview thead th { font-size: 0.62rem; padding: 6px 2px 4px; }
-  table.overview tbody td { font-size: 0.72rem; padding: 5px 2px; }
-  td.price-cell input { max-width: 52px; font-size: 0.72rem; }
+  table.overview thead th { font-size: 0.62rem; padding: 6px 1px 4px; }
+  table.overview tbody td { font-size: 0.72rem; padding: 3px 1px; }
+  td.edit-cell input { font-size: 0.7rem; padding: 5px 1px; }
 }
 </style>
 </head>
@@ -237,7 +238,9 @@ function loadData() {
       const saved = JSON.parse(raw);
       if (Array.isArray(saved) && saved.length === portfolio.length) {
         for (let i = 0; i < portfolio.length; i++) {
-          if (saved[i].price != null) portfolio[i].price = parseFloat(saved[i].price);
+          if (saved[i].price != null && saved[i].price !== '') portfolio[i].price = parseFloat(saved[i].price);
+          if (saved[i].costPrice != null && saved[i].costPrice !== '') portfolio[i].costPrice = parseFloat(saved[i].costPrice);
+          if (saved[i].holdQty != null && saved[i].holdQty !== '') portfolio[i].holdQty = parseFloat(saved[i].holdQty);
           portfolio[i].date = saved[i].date || '';
           portfolio[i].time = saved[i].time || '';
         }
@@ -264,141 +267,181 @@ function fmtPct(v) {
   return sign + v.toFixed(2) + '%';
 }
 
+function calcRow(s) {
+  const cost = s.costPrice;
+  const qty  = s.holdQty;
+  const price = s.price;
+  const costOk = (cost != null && !isNaN(cost) && cost > 0);
+  const qtyOk  = (qty != null && !isNaN(qty) && qty > 0);
+  const priceOk = (price != null && !isNaN(price) && price > 0);
+  const mkt = (priceOk && qtyOk) ? (price * qty) : null;
+  const pl  = (priceOk && qtyOk && costOk) ? ((price - cost) * qty) : null;
+  const pct = (priceOk && costOk) ? ((price - cost) / cost * 100) : null;
+  return { costOk, qtyOk, priceOk, mkt, pl, pct };
+}
+
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   let html = '';
-  let totalMkt = 0, totalPL = 0;
 
   portfolio.forEach((s, i) => {
-    const cost = s.costPrice;
-    const qty  = s.holdQty;
-    const price = s.price;
-    const mkt = (price != null) ? (price * qty) : null;
-    const pl  = (price != null) ? ((price - cost) * qty) : null;
-    const pct = (price != null) ? ((price - cost) / cost * 100) : null;
-
-    if (mkt  != null) totalMkt += mkt;
-    if (pl   != null) totalPL  += pl;
-
-    const plCls  = (pl  != null) ? (pl  >= 0 ? 'profit' : 'loss') : '';
-    const pctCls = (pct != null) ? (pct >= 0 ? 'profit' : 'loss') : '';
+    const r = calcRow(s);
+    const plCls  = (r.pl  != null) ? (r.pl  >= 0 ? 'profit' : 'loss') : '';
+    const pctCls = (r.pct != null) ? (r.pct >= 0 ? 'profit' : 'loss') : '';
 
     html += '<tr>';
     html += '<td class="col-no" style="color:var(--text-muted)">' + (i + 1) + '</td>';
-    html += '<td class="col-name" style="font-weight:700">' + s.name + '</td>';
-    html += '<td class="val-qty">' + qty.toLocaleString() + '</td>';
-    html += '<td class="val-cost">' + fmtMoney4(cost) + '</td>';
-    html += '<td class="price-cell"><input type="text" inputmode="decimal" id="price_' + i + '"'
-      + ' placeholder="输入" value="' + (price != null ? price.toFixed(2) : '') + '"'
-      + ' oninput="onPriceInput(' + i + ', this)"'
-      + ' class="' + (s.price == null ? '' : '') + '"></td>';
-    html += '<td class="val-mkt" id="mkt_' + i + '">' + (mkt != null ? (mkt / 10000).toFixed(2) + '万' : '--') + '</td>';
-    html += '<td class="val-pl ' + plCls + '" id="pl_' + i + '">' + (pl != null ? (pl >= 0 ? '+' : '') + fmtMoney(pl) : '--') + '</td>';
-    html += '<td class="val-pct ' + pctCls + '" id="pct_' + i + '">' + fmtPct(pct) + '</td>';
+    html += '<td class="col-name" style="font-weight:700;white-space:nowrap">' + s.name + '</td>';
+    // 持仓输入
+    html += '<td class="edit-cell"><input type="text" inputmode="numeric" id="qty_' + i + '"'
+      + ' placeholder="数量" value="' + (r.qtyOk ? s.holdQty : '') + '"'
+      + ' oninput="onQtyInput(' + i + ', this)"></td>';
+    // 成本输入
+    html += '<td class="edit-cell"><input type="text" inputmode="decimal" id="cost_' + i + '"'
+      + ' placeholder="成本" value="' + (r.costOk ? s.costPrice : '') + '"'
+      + ' oninput="onCostInput(' + i + ', this)"></td>';
+    // 现价输入
+    html += '<td class="edit-cell"><input type="text" inputmode="decimal" id="price_' + i + '"'
+      + ' placeholder="现价" value="' + (r.priceOk ? s.price : '') + '"'
+      + ' oninput="onPriceInput(' + i + ', this)"></td>';
+    // 市值 / 盈亏 / 盈亏%
+    html += '<td class="val-mkt" id="mkt_' + i + '">' + (r.mkt != null ? (r.mkt / 10000).toFixed(2) + '万' : '--') + '</td>';
+    html += '<td class="val-pl ' + plCls + '" id="pl_' + i + '">' + (r.pl != null ? (r.pl >= 0 ? '+' : '') + fmtMoney(r.pl) : '--') + '</td>';
+    html += '<td class="val-pct ' + pctCls + '" id="pct_' + i + '">' + fmtPct(r.pct) + '</td>';
     html += '</tr>';
   });
 
   tbody.innerHTML = html;
+  updateFoot();
+  updateDateLabel();
+}
 
-  // Footer
+function updateFoot() {
+  let totalMkt = 0, totalPL = 0, totalCost = 0, totalQty = 0;
+  let costBg = 0; // 已参与盈亏计算的成本基数
+  portfolio.forEach(s => {
+    const r = calcRow(s);
+    if (r.mkt != null) totalMkt += r.mkt;
+    if (r.pl  != null) totalPL  += r.pl;
+    if (r.costOk && r.qtyOk) totalCost += s.costPrice * s.holdQty;
+    if (r.qtyOk) totalQty += s.holdQty;
+  });
   const foot = document.getElementById('tableFoot');
   const totalPlCls = totalPL >= 0 ? 'profit' : 'loss';
-  const totalPct = (totalMkt > 0) ? (totalPL / (totalMkt - totalPL) * 100) : null;
+  // 总盈亏率 = 总盈亏 / 总成本
+  const totalCostBasis = portfolio.reduce((a, s) => {
+    const r = calcRow(s);
+    return a + (r.costOk && r.qtyOk ? s.costPrice * s.holdQty : 0);
+  }, 0);
+  const totalPct = (totalCostBasis > 0) ? (totalPL / totalCostBasis * 100) : null;
   foot.innerHTML =
     '<tr>'
     + '<td colspan="2" style="text-align:left;padding-left:8px">合计</td>'
-    + '<td>' + portfolio.reduce((a,s)=>a+s.holdQty,0).toLocaleString() + '股</td>'
-    + '<td>--</td>'
+    + '<td>' + totalQty.toLocaleString() + '股</td>'
+    + '<td>' + (totalCostBasis > 0 ? (totalCostBasis / 10000).toFixed(2) + '万' : '--') + '</td>'
     + '<td>--</td>'
     + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(2) + '万' : '--') + '</td>'
     + '<td class="' + totalPlCls + '">' + (totalPL >= 0 ? '+' : '') + fmtMoney(totalPL) + '</td>'
     + '<td class="' + totalPlCls + '">' + (totalPct != null ? (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%' : '--') + '</td>'
     + '</tr>';
-
-  updateDateLabel();
-}
-
-function updateDateLabel() {
-  // Find most recent date from portfolio
-  let latest = '';
-  portfolio.forEach(s => {
-    if (s.date && s.date > latest) latest = s.date;
-    else if (s.date === latest && s.time > latest) latest = s.date;
-  });
-  const label = document.getElementById('dateLabel');
-  if (latest) {
-    label.textContent = '数据更新：' + latest;
-  } else {
-    label.textContent = '请在下表中输入现价';
-  }
-}
-
-function onPriceInput(idx, el) {
-  const raw = el.value.trim();
-  const num = parseFloat(raw);
-  if (!isNaN(num) && num > 0) {
-    portfolio[idx].price = num;
-    el.classList.remove('dirty');
-  } else if (raw === '') {
-    portfolio[idx].price = null;
-    el.classList.add('dirty');
-  } else {
-    el.classList.add('dirty');
-    return;
-  }
-  dirty = true;
-  document.getElementById('btnSave').disabled = false;
-  document.getElementById('btnSave').textContent = '💾 保存更新';
-  document.getElementById('btnSave').classList.remove('saved');
-  // 只更新受影响单元格，不重建整个表格，避免输入框丢失焦点
-  updateRow(idx);
-  updateFoot();
 }
 
 function updateRow(idx) {
   const s = portfolio[idx];
-  const qty  = s.holdQty;
-  const price = s.price;
-  const mkt = (price != null) ? (price * qty) : null;
-  const pl  = (price != null) ? ((price - s.costPrice) * qty) : null;
-  const pct = (price != null) ? ((price - s.costPrice) / s.costPrice * 100) : null;
-
-  const mktEl  = document.getElementById('mkt_' + idx);
-  const plEl   = document.getElementById('pl_' + idx);
-  const pctEl  = document.getElementById('pct_' + idx);
+  const r = calcRow(s);
+  const mktEl = document.getElementById('mkt_' + idx);
+  const plEl  = document.getElementById('pl_' + idx);
+  const pctEl = document.getElementById('pct_' + idx);
   if (!mktEl || !plEl || !pctEl) return;
 
-  mktEl.textContent = (mkt != null ? (mkt / 10000).toFixed(2) + '万' : '--');
+  mktEl.textContent = (r.mkt != null ? (r.mkt / 10000).toFixed(2) + '万' : '--');
 
-  const plCls  = (pl  != null) ? (pl  >= 0 ? 'profit' : 'loss') : '';
-  const pctCls = (pct != null) ? (pct >= 0 ? 'profit' : 'loss') : '';
+  const plCls  = (r.pl  != null) ? (r.pl  >= 0 ? 'profit' : 'loss') : '';
+  const pctCls = (r.pct != null) ? (r.pct >= 0 ? 'profit' : 'loss') : '';
   plEl.className = 'val-pl ' + plCls;
   pctEl.className = 'val-pct ' + pctCls;
-  plEl.textContent = (pl != null ? (pl >= 0 ? '+' : '') + fmtMoney(pl) : '--');
-  pctEl.textContent = fmtPct(pct);
+  plEl.textContent = (r.pl != null ? (r.pl >= 0 ? '+' : '') + fmtMoney(r.pl) : '--');
+  pctEl.textContent = fmtPct(r.pct);
 }
 
-function updateFoot() {
-  let totalMkt = 0, totalPL = 0;
+// ========== INPUT HANDLERS ==========
+function setDirtyFlag() {
+  dirty = true;
+  const btn = document.getElementById('btnSave');
+  btn.disabled = false;
+  btn.textContent = '💾 保存更新';
+  btn.classList.remove('saved');
+}
+
+// 通用：解析输入为数字；空字符串→null；非法→保持原值并返回 false
+function parseInput(el, raw) {
+  if (raw === '') {
+    el.classList.remove('dirty');
+    return null;
+  }
+  const num = parseFloat(raw);
+  if (isNaN(num) || num < 0) {
+    el.classList.add('dirty');
+    return undefined; // 非法：不改动原值，仅标红提示
+  }
+  el.classList.remove('dirty');
+  return num;
+}
+
+function onQtyInput(idx, el) {
+  const raw = el.value.trim();
+  const num = parseInput(el, raw);
+  if (num === undefined) { setDirtyFlag(); return; } // 非法输入，保持旧值
+  if (num === null) { portfolio[idx].holdQty = null; }
+  else { portfolio[idx].holdQty = num; }
+  setDirtyFlag();
+  updateRow(idx);
+  updateFoot();
+}
+
+function onCostInput(idx, el) {
+  const raw = el.value.trim();
+  const num = parseInput(el, raw);
+  if (num === undefined) { setDirtyFlag(); return; }
+  if (num === null) { portfolio[idx].costPrice = null; }
+  else { portfolio[idx].costPrice = num; }
+  setDirtyFlag();
+  updateRow(idx);
+  updateFoot();
+}
+
+function onPriceInput(idx, el) {
+  const raw = el.value.trim();
+  const num = parseInput(el, raw);
+  if (num === undefined) { setDirtyFlag(); return; }
+  if (num === null) { portfolio[idx].price = null; }
+  else { portfolio[idx].price = num; }
+  setDirtyFlag();
+  updateRow(idx);
+  updateFoot();
+}
+
+// ========== DATE / TIME ==========
+function updateDateLabel() {
+  // 找出最新的一条 (date + time) 组合
+  let latestDate = '', latestTime = '';
+  let latestKey = '';
   portfolio.forEach(s => {
-    if (s.price != null) {
-      totalMkt += s.price * s.holdQty;
-      totalPL  += (s.price - s.costPrice) * s.holdQty;
+    if (s.date) {
+      const key = s.date + ' ' + (s.time || '00:00');
+      if (key > latestKey) {
+        latestKey = key;
+        latestDate = s.date;
+        latestTime = s.time || '';
+      }
     }
   });
-  const foot = document.getElementById('tableFoot');
-  const totalPlCls = totalPL >= 0 ? 'profit' : 'loss';
-  const totalPct = (totalMkt > 0) ? (totalPL / (totalMkt - totalPL) * 100) : null;
-  foot.innerHTML =
-    '<tr>'
-    + '<td colspan="2" style="text-align:left;padding-left:8px">合计</td>'
-    + '<td>' + portfolio.reduce((a,s)=>a+s.holdQty,0).toLocaleString() + '股</td>'
-    + '<td>--</td>'
-    + '<td>--</td>'
-    + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(2) + '万' : '--') + '</td>'
-    + '<td class="' + totalPlCls + '">' + (totalPL >= 0 ? '+' : '') + fmtMoney(totalPL) + '</td>'
-    + '<td class="' + totalPlCls + '">' + (totalPct != null ? (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%' : '--') + '</td>'
-    + '</tr>';
+  const label = document.getElementById('dateLabel');
+  if (latestDate) {
+    label.textContent = '数据更新：' + latestDate + (latestTime ? ' ' + latestTime : '');
+  } else {
+    label.textContent = '请在下表输入现价';
+  }
 }
 
 function saveAll() {
@@ -410,10 +453,8 @@ function saveAll() {
     String(now.getMinutes()).padStart(2, '0');
 
   portfolio.forEach(s => {
-    if (s.price != null) {
-      s.date = dateStr;
-      s.time = timeStr;
-    }
+    s.date = dateStr;
+    s.time = timeStr;
   });
 
   // Save to localStorage
@@ -445,14 +486,6 @@ function showToast(msg, type) {
 // ========== BOOT ==========
 loadData();
 renderTable();
-
-// Mark inputs that already have values
-portfolio.forEach((s, i) => {
-  if (s.price == null) {
-    const el = document.getElementById('price_' + i);
-    if (el) el.classList.toggle('dirty', s.price == null && s.date === '');
-  }
-});
 </script>
 </body>
 </html>
