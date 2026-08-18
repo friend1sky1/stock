@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --profit:      #E60012;
@@ -410,9 +411,52 @@ html, body {
 </head>
 <body>
 
-<div class="app">
-  <div class="header">
+<!-- Supabase Config -->
+<script>
+const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
+</script>
+
+<!-- Login Overlay -->
+<div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+  <div style="width:100%;max-width:360px;padding:20px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <h1 style="font-family:'Noto Serif SC',serif;font-size:1.5rem;font-weight:700;color:var(--profit);letter-spacing:3px;margin-bottom:6px;">做T计算器</h1>
+      <p style="font-size:0.82rem;color:var(--text-secondary);">登录后数据云端同步</p>
+    </div>
+    <div id="authLoginView">
+      <div style="margin-bottom:12px;">
+        <input id="authEmail" type="email" placeholder="邮箱" autocomplete="email"
+          style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <div style="margin-bottom:16px;position:relative;">
+        <input id="authPassword" type="password" placeholder="密码" autocomplete="current-password"
+          style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button onclick="doLogin()" id="loginBtn"
+        style="width:100%;padding:12px;border:none;border-radius:var(--radius);background:var(--profit);color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:10px;">
+        登录
+      </button>
+      <button onclick="doSignup()" id="signupBtn"
+        style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text-secondary);font-size:0.85rem;cursor:pointer;margin-bottom:10px;">
+        注册新账号
+      </button>
+      <div style="text-align:center;margin-top:12px;">
+        <a href="#" onclick="doMagicLink();return false;" style="font-size:0.8rem;color:var(--text-muted);text-decoration:underline;">用魔法链接登录（免密码）</a>
+      </div>
+    </div>
+    <div id="authMsg" style="margin-top:12px;font-size:0.82rem;text-align:center;min-height:20px;"></div>
+  </div>
+</div>
+
+<div class="app" style="display:none;">
+  <div class="header" style="position:relative;">
     <h1>做T计算器</h1>
+    <div id="userEmail" style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;"></div>
+    <a href="#" onclick="doLogout();return false;" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">退出</a>
   </div>
 
   <!-- Stock Tab Bar -->
@@ -574,6 +618,91 @@ html, body {
 </div>
 
 <script>
+// ========== SUPABASE INIT ==========
+const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
+let _user = null;  // 当前登录用户
+
+// ========== AUTH FUNCTIONS ==========
+const AUTH_KEY = 'tcalc_user_v1';
+
+function showAuth() {
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.querySelector('.app').style.display = 'none';
+}
+function hideAuth() {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.querySelector('.app').style.display = 'flex';
+}
+function setAuthMsg(msg, isError) {
+  const el = document.getElementById('authMsg');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--profit)' : 'var(--loss, #2D8A4E)';
+}
+
+async function doLogin() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { setAuthMsg('请输入邮箱和密码', true); return; }
+  document.getElementById('loginBtn').disabled = true;
+  setAuthMsg('登录中...', false);
+  const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+  document.getElementById('loginBtn').disabled = false;
+  if (error) { setAuthMsg(error.message, true); return; }
+  _user = data.user;
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
+  hideAuth();
+  await initApp();
+}
+
+async function doSignup() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { setAuthMsg('请输入邮箱和密码', true); return; }
+  if (password.length < 6) { setAuthMsg('密码至少6位', true); return; }
+  document.getElementById('signupBtn').disabled = true;
+  setAuthMsg('注册中...', false);
+  const { data, error } = await _supabase.auth.signUp({ email, password });
+  document.getElementById('signupBtn').disabled = false;
+  if (error) { setAuthMsg(error.message, true); return; }
+  if (data.user && !data.session) {
+    setAuthMsg('注册成功！请查收邮箱确认链接，然后登录。', false);
+  } else {
+    _user = data.user;
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
+    hideAuth();
+    await initApp();
+  }
+}
+
+async function doMagicLink() {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) { setAuthMsg('请输入邮箱', true); return; }
+  setAuthMsg('发送中...', false);
+  const { error } = await _supabase.auth.signInWithOtp({ email });
+  if (error) { setAuthMsg(error.message, true); return; }
+  setAuthMsg('✅ 魔法链接已发送到邮箱，请点击链接登录', false);
+}
+
+async function doLogout() {
+  await _supabase.auth.signOut();
+  _user = null;
+  localStorage.removeItem(AUTH_KEY);
+  showAuth();
+}
+
+async function checkSession() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (session?.user) {
+    _user = session.user;
+    hideAuth();
+    await initApp();
+  } else {
+    showAuth();
+  }
+}
+
 // ========== DATA ENGINE ==========
 const STORAGE_KEY_PORTFOLIO = 'tcalc_portfolio_v2';
 const STORAGE_KEY_HISTORY = 'tcalc_history_v2';
@@ -597,12 +726,43 @@ function saveAll() {
     s.tQty = parseInt(document.getElementById('tQty').value, 10) || s.tQty;
     s.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || s.tPrice2;
   }
+  // 本地备份
   localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
   localStorage.setItem(STORAGE_KEY_PREFS, JSON.stringify({
     currentStockIndex: currentStockIndex,
     currentMode: currentMode,
     posFolded: document.getElementById('posFold').classList.contains('hidden'),
   }));
+  // 云端同步（防抖）
+  _syncToSupabase();
+}
+
+let _syncTimer = null;
+function _syncToSupabase() {
+  if (!_user) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async () => {
+    if (!_user) return;
+    try {
+      // 先删除该用户所有旧数据，再全量写入
+      await _supabase.from('stocks').delete().eq('user_id', _user.id);
+      if (portfolio.length > 0) {
+        const rows = portfolio.map((s, i) => ({
+          user_id: _user.id,
+          name: s.name,
+          cost_price: s.costPrice,
+          hold_qty: s.holdQty,
+          open_price: s.openPrice,
+          t_price1: s.tPrice1,
+          t_qty: s.tQty,
+          t_price2: s.tPrice2,
+          mode: s.mode || 'reverse',
+          sort_order: i,
+        }));
+        await _supabase.from('stocks').insert(rows);
+      }
+    } catch(e) { console.error('Sync failed:', e); }
+  }, 800);
 }
 
 function saveDebounced() {
@@ -610,12 +770,35 @@ function saveDebounced() {
   window._saveTimeout = setTimeout(saveAll, 500);
 }
 
+async function loadDataFromCloud() {
+  if (!_user) return false;
+  try {
+    const { data, error } = await _supabase.from('stocks')
+      .select('*')
+      .eq('user_id', _user.id)
+      .order('sort_order');
+    if (error || !data || data.length === 0) return false;
+    portfolio = data.map(row => ({
+      id: row.id,
+      name: row.name,
+      costPrice: parseFloat(row.cost_price) || 0,
+      holdQty: parseInt(row.hold_qty) || 0,
+      openPrice: parseFloat(row.open_price) || 10,
+      tPrice1: parseFloat(row.t_price1) || 10,
+      tQty: parseInt(row.t_qty) || 1000,
+      tPrice2: parseFloat(row.t_price2) || 9.9,
+      mode: row.mode || 'reverse',
+    }));
+    return true;
+  } catch(e) { console.error('Load from cloud failed:', e); return false; }
+}
+
 function loadData() {
+  // 本地同步读取（先用localStorage保证速度）
   const rawP = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
   if (rawP) {
     try { portfolio = JSON.parse(rawP); } catch(e) { portfolio = []; }
   }
-  // Ensure every stock has default fields
   portfolio.forEach(s => {
     if (!s.mode) s.mode = 'reverse';
     if (!s.openPrice) s.openPrice = 10;
@@ -623,15 +806,6 @@ function loadData() {
     if (!s.tQty) s.tQty = 1000;
     if (!s.tPrice2) s.tPrice2 = 9.9;
   });
-
-  // If no stocks, create default portfolio
-  if (portfolio.length === 0) {
-    portfolio.push(
-      { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, mode: 'reverse', openPrice: 28.9500, tPrice1: 28.95, tQty: 4000, tPrice2: 28.50 },
-      { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, mode: 'reverse', openPrice: 12.7200, tPrice1: 12.72, tQty: 6000, tPrice2: 12.50 },
-      { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, mode: 'reverse', openPrice: 6.0000,  tPrice1: 6.00,  tQty: 4000, tPrice2: 5.88 }
-    );
-  }
 
   const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
   let prefs = {};
@@ -641,6 +815,33 @@ function loadData() {
   currentStockIndex = (typeof prefs.currentStockIndex === 'number' && prefs.currentStockIndex < portfolio.length)
     ? prefs.currentStockIndex : 0;
   currentMode = prefs.currentMode || 'reverse';
+}
+
+async function loadDataAsync() {
+  if (!_user) return;
+  const cloudOk = await loadDataFromCloud();
+  if (cloudOk) {
+    // 云端数据优先，更新本地缓存
+    localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+    if (portfolio.length > 0 && currentStockIndex >= portfolio.length) currentStockIndex = 0;
+    loadStockIntoForm();
+    buildTabBar();
+    updateSnapshot();
+  } else if (portfolio.length === 0) {
+    // 云端无数据且本地无数据，创建默认持仓
+    await createDefaultPortfolio();
+  }
+}
+
+async function createDefaultPortfolio() {
+  portfolio = [
+    { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, mode: 'reverse', openPrice: 28.95, tPrice1: 28.95, tQty: 4000, tPrice2: 28.50 },
+    { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, mode: 'reverse', openPrice: 12.72, tPrice1: 12.72, tQty: 6000, tPrice2: 12.50 },
+    { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, mode: 'reverse', openPrice: 6.00,  tPrice1: 6.00,  tQty: 4000, tPrice2: 5.88 }
+  ];
+  currentStockIndex = 0;
+  currentMode = 'reverse';
+  _syncToSupabase();
 }
 
 // Update snapshot row
@@ -1329,22 +1530,71 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ──── Init ────
-loadData();
-buildTabBar();
-loadStockIntoForm();
-updateSnapshot();
-
-// Apply saved fold state
-const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
-if (rawPrefs) {
-  try {
-    const prefs = JSON.parse(rawPrefs);
-    if (prefs.posFolded) {
-      document.getElementById('posFold').classList.add('hidden');
-      document.getElementById('posArrow').classList.remove('open');
-    }
-  } catch(e) {}
+function initApp() {
+  loadData();
+  buildTabBar();
+  loadStockIntoForm();
+  updateSnapshot();
+  // 显示用户邮箱
+  if (_user && _user.email) {
+    document.getElementById('userEmail').textContent = _user.email;
+  }
+  // Apply saved fold state
+  const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
+  if (rawPrefs) {
+    try {
+      const prefs = JSON.parse(rawPrefs);
+      if (prefs.posFolded) {
+        document.getElementById('posFold').classList.add('hidden');
+        document.getElementById('posArrow').classList.remove('open');
+      }
+    } catch(e) {}
+  }
+  // 异步从云端加载最新数据
+  loadDataAsync();
 }
+
+// 全局：同步失败重试计数
+let _syncRetries = 0;
+_syncToSupabase = function() {
+  if (!_user) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async () => {
+    if (!_user) return;
+    try {
+      await _supabase.from('stocks').delete().eq('user_id', _user.id);
+      if (portfolio.length > 0) {
+        const rows = portfolio.map((s, i) => ({
+          user_id: _user.id,
+          name: s.name,
+          cost_price: s.costPrice,
+          hold_qty: s.holdQty,
+          open_price: s.openPrice,
+          t_price1: s.tPrice1,
+          t_qty: s.tQty,
+          t_price2: s.tPrice2,
+          mode: s.mode || 'reverse',
+          sort_order: i,
+        }));
+        await _supabase.from('stocks').insert(rows);
+      }
+      _syncRetries = 0;
+    } catch(e) {
+      console.error('Sync failed:', e);
+      if (_syncRetries < 3) { _syncRetries++; setTimeout(_syncToSupabase, 2000); }
+    }
+  }, 800);
+};
+
+// 页面加载完成后检查登录状态
+(async function() {
+  if (!_supabase) {
+    document.getElementById('authMsg').textContent = 'Supabase加载失败，请刷新';
+    document.getElementById('authMsg').style.color = 'var(--profit)';
+    return;
+  }
+  await checkSession();
+})();
 </script>
 </body>
 </html>

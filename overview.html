@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --profit:      #E60012;
@@ -183,10 +184,49 @@ tfoot td.loss { color: var(--loss); }
 </head>
 <body>
 
-<div class="app">
-  <div class="header">
+<!-- Supabase Config -->
+<script>
+const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
+</script>
+
+<!-- Login Overlay -->
+<div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+  <div style="width:100%;max-width:360px;padding:20px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <h1 style="font-family:'Noto Serif SC',serif;font-size:1.5rem;font-weight:700;color:var(--profit);letter-spacing:3px;margin-bottom:6px;">持仓总览</h1>
+      <p style="font-size:0.82rem;color:var(--text-secondary);">登录后查看你的持仓数据</p>
+    </div>
+    <div id="authLoginView">
+      <div style="margin-bottom:12px;">
+        <input id="authEmail" type="email" placeholder="邮箱" autocomplete="email"
+          style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <div style="margin-bottom:16px;">
+        <input id="authPassword" type="password" placeholder="密码" autocomplete="current-password"
+          style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button onclick="doLogin()" id="loginBtn"
+        style="width:100%;padding:12px;border:none;border-radius:var(--radius);background:var(--profit);color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:10px;">
+        登录
+      </button>
+      <button onclick="doSignup()" id="signupBtn"
+        style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text-secondary);font-size:0.85rem;cursor:pointer;">
+        注册新账号
+      </button>
+    </div>
+    <div id="authMsg" style="margin-top:12px;font-size:0.82rem;text-align:center;min-height:20px;"></div>
+  </div>
+</div>
+
+<div class="app" style="display:none;">
+  <div class="header" style="position:relative;">
     <h1>📊 持仓总览</h1>
     <div class="date-row" id="dateLabel">数据更新：--</div>
+    <a href="#" onclick="doLogout();return false;" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">退出</a>
   </div>
 
   <table class="overview table-card" id="overviewTable">
@@ -218,34 +258,137 @@ tfoot td.loss { color: var(--loss); }
 </div>
 
 <script>
+// ========== SUPABASE INIT ==========
+const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
+let _user = null;
+const AUTH_KEY = 'tcalc_user_v1';
+
+// ========== AUTH ==========
+function showAuth() {
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.querySelector('.app').style.display = 'none';
+}
+function hideAuth() {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.querySelector('.app').style.display = 'flex';
+}
+function setAuthMsg(msg, isError) {
+  const el = document.getElementById('authMsg');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--profit)' : 'var(--loss, #2D8A4E)';
+}
+async function doLogin() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { setAuthMsg('请输入邮箱和密码', true); return; }
+  document.getElementById('loginBtn').disabled = true;
+  setAuthMsg('登录中...', false);
+  const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+  document.getElementById('loginBtn').disabled = false;
+  if (error) { setAuthMsg(error.message, true); return; }
+  _user = data.user;
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
+  hideAuth();
+  await initApp();
+}
+async function doSignup() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { setAuthMsg('请输入邮箱和密码', true); return; }
+  if (password.length < 6) { setAuthMsg('密码至少6位', true); return; }
+  document.getElementById('signupBtn').disabled = true;
+  setAuthMsg('注册中...', false);
+  const { data, error } = await _supabase.auth.signUp({ email, password });
+  document.getElementById('signupBtn').disabled = false;
+  if (error) { setAuthMsg(error.message, true); return; }
+  if (data.user && !data.session) {
+    setAuthMsg('注册成功！请查收邮箱确认链接，然后登录。', false);
+  } else {
+    _user = data.user;
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
+    hideAuth();
+    await initApp();
+  }
+}
+async function doLogout() {
+  await _supabase.auth.signOut();
+  _user = null;
+  localStorage.removeItem(AUTH_KEY);
+  showAuth();
+}
+async function checkSession() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (session?.user) {
+    _user = session.user;
+    hideAuth();
+    await initApp();
+  } else {
+    showAuth();
+  }
+}
+
 // ========== DATA ==========
 const STORAGE_KEY = 'tcalc_overview_v1';
-
-// Hardcoded portfolio — mirrors the T calculator defaults
-const portfolio = [
-  { id: 's1', name: '洪都航空',  costPrice: 30.4028, holdQty: 4000, price: 28.9500, date: '', time: '' },
-  { id: 's2', name: '维远股份',  costPrice: 15.5713, holdQty: 6000, price: 12.7200, date: '', time: '' },
-  { id: 's3', name: '京东方A',   costPrice: 8.6212,  holdQty: 4000, price: 6.0000,  date: '', time: '' },
-];
-
+let portfolio = [];
 let dirty = false;
 
-// ========== INIT ==========
+async function loadDataFromCloud() {
+  if (!_user) return false;
+  try {
+    const { data, error } = await _supabase.from('stocks')
+      .select('*')
+      .eq('user_id', _user.id)
+      .order('sort_order');
+    if (error || !data || data.length === 0) return false;
+    portfolio = data.map(row => ({
+      id: row.id,
+      name: row.name,
+      costPrice: parseFloat(row.cost_price) || 0,
+      holdQty: parseInt(row.hold_qty) || 0,
+      price: parseFloat(row.open_price) || 0,
+      date: '', time: '',
+    }));
+    return true;
+  } catch(e) { console.error('Cloud load failed:', e); return false; }
+}
+
 function loadData() {
+  // 先用本地缓存
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
+  if (raw && portfolio.length > 0) {
     try {
       const saved = JSON.parse(raw);
-      if (Array.isArray(saved) && saved.length === portfolio.length) {
-        for (let i = 0; i < portfolio.length; i++) {
-          if (saved[i].price != null && saved[i].price !== '') portfolio[i].price = parseFloat(saved[i].price);
-          if (saved[i].costPrice != null && saved[i].costPrice !== '') portfolio[i].costPrice = parseFloat(saved[i].costPrice);
-          if (saved[i].holdQty != null && saved[i].holdQty !== '') portfolio[i].holdQty = parseFloat(saved[i].holdQty);
-          portfolio[i].date = saved[i].date || '';
-          portfolio[i].time = saved[i].time || '';
-        }
+      if (Array.isArray(saved)) {
+        saved.forEach((sv, i) => {
+          if (i < portfolio.length) {
+            if (sv.price != null) portfolio[i].price = parseFloat(sv.price);
+            if (sv.costPrice != null) portfolio[i].costPrice = parseFloat(sv.costPrice);
+            if (sv.holdQty != null) portfolio[i].holdQty = parseFloat(sv.holdQty);
+            portfolio[i].date = sv.date || '';
+            portfolio[i].time = sv.time || '';
+          }
+        });
       }
     } catch(e) {}
+  }
+}
+
+async function initApp() {
+  const cloudOk = await loadDataFromCloud();
+  if (!cloudOk && portfolio.length === 0) {
+    // 无云端数据，用默认
+    portfolio = [
+      { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, price: 28.95, date: '', time: '' },
+      { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, price: 12.72, date: '', time: '' },
+      { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, price: 6.00,  date: '', time: '' },
+    ];
+  }
+  loadData();
+  renderTable();
+  if (_user && _user.email) {
+    document.getElementById('dateLabel').textContent += ' · ' + _user.email;
   }
 }
 
@@ -464,6 +607,9 @@ function saveAll() {
   }));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 
+  // Sync to Supabase
+  _syncOverviewToSupabase();
+
   // Update UI
   dirty = false;
   const btn = document.getElementById('btnSave');
@@ -475,6 +621,31 @@ function saveAll() {
   showToast('已保存到本地 · ' + dateStr + ' ' + timeStr, 'success');
 }
 
+let _overviewSyncTimer = null;
+function _syncOverviewToSupabase() {
+  if (!_user) return;
+  clearTimeout(_overviewSyncTimer);
+  _overviewSyncTimer = setTimeout(async () => {
+    if (!_user) return;
+    try {
+      await _supabase.from('stocks').delete().eq('user_id', _user.id);
+      if (portfolio.length > 0) {
+        const rows = portfolio.map((s, i) => ({
+          user_id: _user.id,
+          name: s.name,
+          cost_price: s.costPrice,
+          hold_qty: s.holdQty,
+          open_price: s.price || 0,
+          t_price1: 0, t_qty: 0, t_price2: 0,
+          mode: 'reverse',
+          sort_order: i,
+        }));
+        await _supabase.from('stocks').insert(rows);
+      }
+    } catch(e) { console.error('Overview sync failed:', e); }
+  }, 1000);
+}
+
 function showToast(msg, type) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -484,8 +655,14 @@ function showToast(msg, type) {
 }
 
 // ========== BOOT ==========
-loadData();
-renderTable();
+(async function() {
+  if (!_supabase) {
+    document.getElementById('authMsg').textContent = 'Supabase加载失败，请刷新';
+    document.getElementById('authMsg').style.color = 'var(--profit)';
+    return;
+  }
+  await checkSession();
+})();
 </script>
 </body>
 </html>
