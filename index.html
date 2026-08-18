@@ -784,7 +784,11 @@ async function loadDataFromCloud() {
       .eq('user_id', _user.id)
       .order('sort_order');
     if (error || !data || data.length === 0) return false;
-    portfolio = data.map(row => ({
+    // 按名称去重，保留最后一条
+    const seen = new Map();
+    data.forEach(row => { seen.set(row.name, row); });
+    const deduped = Array.from(seen.values());
+    portfolio = deduped.map(row => ({
       id: row.id,
       name: row.name,
       costPrice: parseFloat(row.cost_price) || 0,
@@ -795,6 +799,11 @@ async function loadDataFromCloud() {
       tPrice2: parseFloat(row.t_price2) || 9.9,
       mode: row.mode || 'reverse',
     }));
+    // 如果有重复被去除了，同步清理云端
+    if (deduped.length < data.length) {
+      localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
+      _syncToSupabase();
+    }
     return true;
   } catch(e) { console.error('Load from cloud failed:', e); return false; }
 }
