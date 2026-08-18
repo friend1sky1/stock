@@ -827,14 +827,22 @@ async function loadDataAsync() {
   if (!_user) return;
   const cloudOk = await loadDataFromCloud();
   if (cloudOk) {
-    // 云端数据优先，更新本地缓存
+    // 云端数据优先，完全覆盖本地
+    portfolio = portfolio; // loadDataFromCloud已更新portfolio
     localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
     if (portfolio.length > 0 && currentStockIndex >= portfolio.length) currentStockIndex = 0;
     loadStockIntoForm();
     buildTabBar();
     updateSnapshot();
+  } else {
+    // 云端无数据，清空本地（新用户应该是空的）
+    portfolio = [];
+    currentStockIndex = 0;
+    localStorage.removeItem(STORAGE_KEY_PORTFOLIO);
+    loadStockIntoForm();
+    buildTabBar();
+    updateSnapshot();
   }
-  // 不再自动创建默认持仓，新用户从空开始
 }
 
 async function createDefaultPortfolio() {
@@ -1535,7 +1543,10 @@ document.addEventListener('keydown', function(e) {
 
 // ──── Init ────
 function initApp() {
-  loadData();
+  // 不先从localStorage加载，让loadDataAsync从云端统一加载
+  // 如果云端加载失败，再从localStorage加载
+  portfolio = [];
+  currentStockIndex = 0;
   buildTabBar();
   loadStockIntoForm();
   updateSnapshot();
@@ -1543,19 +1554,18 @@ function initApp() {
   if (_user && _user.email) {
     document.getElementById('userEmail').textContent = _user.email;
   }
-  // Apply saved fold state
-  const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
-  if (rawPrefs) {
-    try {
-      const prefs = JSON.parse(rawPrefs);
-      if (prefs.posFolded) {
-        document.getElementById('posFold').classList.add('hidden');
-        document.getElementById('posArrow').classList.remove('open');
-      }
-    } catch(e) {}
-  }
   // 异步从云端加载最新数据
-  loadDataAsync();
+  loadDataAsync().then(() => {
+    // 云端加载完成后，如果还是空的，再尝试localStorage（兼容离线）
+    if (portfolio.length === 0) {
+      loadData();
+      if (portfolio.length > 0) {
+        buildTabBar();
+        loadStockIntoForm();
+        updateSnapshot();
+      }
+    }
+  });
 }
 
 // 全局：同步失败重试计数
@@ -1567,8 +1577,13 @@ _syncToSupabase = function() {
     if (!_user) return;
     try {
       await _supabase.from('stocks').delete().eq('user_id', _user.id);
-      if (portfolio.length > 0) {
-        const rows = portfolio.map((s, i) => ({
+      // 按名称去重，保留最后一个（最新的）
+      const seen = new Map();
+      portfolio.forEach(s => { seen.set(s.name, s); });
+      const deduped = Array.from(seen.values());
+      portfolio = deduped; // 更新本地数组
+      if (deduped.length > 0) {
+        const rows = deduped.map((s, i) => ({
           user_id: _user.id,
           name: s.name,
           cost_price: s.costPrice,
