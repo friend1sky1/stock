@@ -663,7 +663,10 @@ async function doSignup() {
   if (password.length < 6) { setAuthMsg('密码至少6位', true); return; }
   document.getElementById('signupBtn').disabled = true;
   setAuthMsg('注册中...', false);
-  const { data, error } = await _supabase.auth.signUp({ email, password });
+  const { data, error } = await _supabase.auth.signUp({
+    email, password,
+    options: { emailRedirectTo: 'https://t.ai-zhihui.cn' }
+  });
   document.getElementById('signupBtn').disabled = false;
   if (error) { setAuthMsg(error.message, true); return; }
   if (data.user && !data.session) {
@@ -680,9 +683,12 @@ async function doMagicLink() {
   const email = document.getElementById('authEmail').value.trim();
   if (!email) { setAuthMsg('请输入邮箱', true); return; }
   setAuthMsg('发送中...', false);
-  const { error } = await _supabase.auth.signInWithOtp({ email });
+  const { error } = await _supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: 'https://t.ai-zhihui.cn' }
+  });
   if (error) { setAuthMsg(error.message, true); return; }
-  setAuthMsg('✅ 魔法链接已发送到邮箱，请点击链接登录', false);
+  setAuthMsg('✅ 登录链接已发送到邮箱，请点击链接登录', false);
 }
 
 async function doLogout() {

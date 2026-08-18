@@ -300,7 +300,10 @@ async function doSignup() {
   if (password.length < 6) { setAuthMsg('密码至少6位', true); return; }
   document.getElementById('signupBtn').disabled = true;
   setAuthMsg('注册中...', false);
-  const { data, error } = await _supabase.auth.signUp({ email, password });
+  const { data, error } = await _supabase.auth.signUp({
+    email, password,
+    options: { emailRedirectTo: 'https://t.ai-zhihui.cn' }
+  });
   document.getElementById('signupBtn').disabled = false;
   if (error) { setAuthMsg(error.message, true); return; }
   if (data.user && !data.session) {
