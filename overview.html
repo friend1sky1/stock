@@ -380,18 +380,20 @@ function loadData() {
 
 async function initApp() {
   const cloudOk = await loadDataFromCloud();
-  if (!cloudOk && portfolio.length === 0) {
-    // 无云端数据，用默认
-    portfolio = [
-      { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, price: 28.95, date: '', time: '' },
-      { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, price: 12.72, date: '', time: '' },
-      { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, price: 6.00,  date: '', time: '' },
-    ];
+  if (cloudOk) {
+    // 云端数据优先，更新本地缓存
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolio.map(s => ({
+      id: s.id, name: s.name, costPrice: s.costPrice, holdQty: s.holdQty,
+      price: s.price, date: s.date, time: s.time
+    }))));
+  } else {
+    // 云端无数据，清空显示
+    portfolio = [];
+    localStorage.removeItem(STORAGE_KEY);
   }
-  loadData();
   renderTable();
   if (_user && _user.email) {
-    document.getElementById('dateLabel').textContent += ' · ' + _user.email;
+    document.getElementById('dateLabel').textContent = '数据更新：-- · ' + _user.email;
   }
 }
 
