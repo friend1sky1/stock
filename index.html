@@ -833,10 +833,8 @@ async function loadDataAsync() {
     loadStockIntoForm();
     buildTabBar();
     updateSnapshot();
-  } else if (portfolio.length === 0) {
-    // 云端无数据且本地无数据，创建默认持仓
-    await createDefaultPortfolio();
   }
+  // 不再自动创建默认持仓，新用户从空开始
 }
 
 async function createDefaultPortfolio() {
