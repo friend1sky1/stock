@@ -645,7 +645,14 @@ async function refreshPrices() {
 
     if (updated > 0) {
       // 更新所有行的显示
-      portfolio.forEach((s, i) => updateRow(i));
+      portfolio.forEach((s, i) => {
+        updateRow(i);
+        // 同步更新价格输入框
+        const priceEl = document.getElementById('price_' + i);
+        if (priceEl && s.price != null && !isNaN(s.price) && s.price > 0) {
+          priceEl.value = s.price;
+        }
+      });
       updateFoot();
       setDirtyFlag();
       const now = new Date();
