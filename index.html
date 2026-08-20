@@ -938,68 +938,86 @@ function onTabDragEnd(e) {
   });
 }
 
-// ──── Touch Drag for Mobile ────
-let _touchDragIdx = null, _touchDragEl = null, _touchStartX = 0, _touchMoved = false;
-function initTabTouchDrag() {
+// ──── Unified Tab Gesture (drag + long-press) ────
+// Desktop: HTML5 drag-and-drop (ondragstart/ondragover/ondrop)
+// Mobile: touch events unified — move>8px = drag reorder, hold 600ms without move = edit mode
+let _tabGestureIdx = null, _tabGestureX = 0, _tabGestureMoved = false, _tabGestureTimer = null;
+function initTabGesture() {
   const bar = document.getElementById('stockTabBar');
   bar.addEventListener('touchstart', function(e) {
     const tab = e.target.closest('.stock-tab');
     if (!tab) return;
     const idx = parseInt(tab.dataset.idx);
     if (isNaN(idx)) return;
-    _touchDragIdx = idx;
-    _touchDragEl = tab;
-    _touchStartX = e.touches[0].clientX;
-    _touchMoved = false;
+    _tabGestureIdx = idx;
+    _tabGestureX = e.touches[0].clientX;
+    _tabGestureMoved = false;
+    // Start long-press timer (enter edit mode if no movement)
+    clearTimeout(_tabGestureTimer);
+    _tabGestureTimer = setTimeout(function() {
+      if (!_tabGestureMoved) {
+        _tabGestureIdx = null;
+        document.querySelectorAll('.stock-tab').forEach(t => t.classList.add('editing'));
+        setTimeout(function() {
+          document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('editing'));
+        }, 3000);
+      }
+    }, 600);
   }, { passive: true });
   bar.addEventListener('touchmove', function(e) {
-    if (_touchDragIdx === null) return;
-    const dx = Math.abs(e.touches[0].clientX - _touchStartX);
-    if (dx > 8) _touchMoved = true;
-    if (!_touchMoved) return;
-    e.preventDefault();
-    // Find which tab we're over
+    if (_tabGestureIdx === null) return;
+    const dx = Math.abs(e.touches[0].clientX - _tabGestureX);
+    if (dx > 8) {
+      _tabGestureMoved = true;
+      clearTimeout(_tabGestureTimer); // Cancel long-press, start drag
+    }
+    if (!_tabGestureMoved) return;
+    e.preventDefault(); // Only preventDefault when actually dragging
     const tabs = bar.querySelectorAll('.stock-tab');
     const touchX = e.touches[0].clientX;
-    let hoverIdx = _touchDragIdx;
+    let hoverIdx = _tabGestureIdx;
     tabs.forEach((t, i) => {
       const r = t.getBoundingClientRect();
       if (touchX >= r.left && touchX <= r.right) hoverIdx = i;
     });
-    tabs.forEach((t, i) => t.classList.toggle('drag-over', i === hoverIdx && i !== _touchDragIdx));
+    tabs.forEach((t, i) => t.classList.toggle('drag-over', i === hoverIdx && i !== _tabGestureIdx));
   }, { passive: false });
   bar.addEventListener('touchend', function(e) {
-    if (_touchDragIdx === null) return;
-    // Find drop target
-    const tabs = bar.querySelectorAll('.stock-tab');
-    let dropIdx = _touchDragIdx;
-    if (_touchMoved && e.changedTouches.length > 0) {
+    clearTimeout(_tabGestureTimer);
+    if (_tabGestureIdx === null) return;
+    if (_tabGestureMoved && e.changedTouches && e.changedTouches.length > 0) {
+      const tabs = bar.querySelectorAll('.stock-tab');
+      let dropIdx = _tabGestureIdx;
       const touchX = e.changedTouches[0].clientX;
       tabs.forEach((t, i) => {
         const r = t.getBoundingClientRect();
         if (touchX >= r.left && touchX <= r.right) dropIdx = i;
       });
+      tabs.forEach(t => t.classList.remove('dragging', 'drag-over'));
+      if (dropIdx !== _tabGestureIdx) {
+        const item = portfolio.splice(_tabGestureIdx, 1)[0];
+        portfolio.splice(dropIdx, 0, item);
+        if (currentStockIndex === _tabGestureIdx) currentStockIndex = dropIdx;
+        else if (_tabGestureIdx < currentStockIndex && dropIdx >= currentStockIndex) currentStockIndex--;
+        else if (_tabGestureIdx > currentStockIndex && dropIdx <= currentStockIndex) currentStockIndex++;
+        buildTabBar();
+        saveAll();
+      }
     }
-    tabs.forEach(t => t.classList.remove('dragging', 'drag-over'));
-    if (_touchMoved && dropIdx !== _touchDragIdx) {
-      const item = portfolio.splice(_touchDragIdx, 1)[0];
-      portfolio.splice(dropIdx, 0, item);
-      if (currentStockIndex === _touchDragIdx) currentStockIndex = dropIdx;
-      else if (_touchDragIdx < currentStockIndex && dropIdx >= currentStockIndex) currentStockIndex--;
-      else if (_touchDragIdx > currentStockIndex && dropIdx <= currentStockIndex) currentStockIndex++;
-      buildTabBar();
-      saveAll();
-    }
-    _touchDragIdx = null;
-    _touchDragEl = null;
-    _touchMoved = false;
+    _tabGestureIdx = null;
+    _tabGestureMoved = false;
+  });
+  bar.addEventListener('touchcancel', function() {
+    clearTimeout(_tabGestureTimer);
+    _tabGestureIdx = null;
+    _tabGestureMoved = false;
+    document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('drag-over'));
   });
 }
-// Init touch drag on load
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initTabTouchDrag);
+  document.addEventListener('DOMContentLoaded', initTabGesture);
 } else {
-  initTabTouchDrag();
+  initTabGesture();
 }
 
 // Switch stock
@@ -1115,27 +1133,7 @@ document.getElementById('posSnapshot').addEventListener('dblclick', function() {
   openEditModal(currentStockIndex, s.name, s.costPrice, s.holdQty);
 });
 
-// Long-press tabs to enter edit mode
-let tabLongPressTimer = null;
-document.getElementById('stockTabBar').addEventListener('pointerdown', function(e) {
-  const tab = e.target.closest('.stock-tab');
-  if (!tab) return;
-  const idx = parseInt(tab.dataset.idx);
-  if (isNaN(idx)) return;
-  tabLongPressTimer = setTimeout(function() {
-    // Enter editing mode on all tabs
-    document.querySelectorAll('.stock-tab').forEach(t => t.classList.add('editing'));
-    setTimeout(function() {
-      document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('editing'));
-    }, 3000);
-  }, 600);
-});
-document.getElementById('stockTabBar').addEventListener('pointerup', function() {
-  clearTimeout(tabLongPressTimer);
-});
-document.getElementById('stockTabBar').addEventListener('pointerleave', function() {
-  clearTimeout(tabLongPressTimer);
-});
+// Long-press tabs to enter edit mode — now handled by unified touch gesture (initTabGesture)
 
 function openEditModal(idx, name, cost, qty) {
   editingStockId = portfolio[idx].id;
