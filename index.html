@@ -884,14 +884,12 @@ function updateSnapshot() {
 }
 
 // Build tab bar
-let _dragIdx = null;
-let _justDropped = false; // 防止 drop 后 click 误触 switchStock
 function buildTabBar() {
   const bar = document.getElementById('stockTabBar');
   let html = '';
   portfolio.forEach((s, i) => {
     const activeCls = (i === currentStockIndex) ? ' active' : '';
-    html += '<span class="stock-tab' + activeCls + '" onclick="switchStock(' + i + ')" data-idx="' + i + '" draggable="true" ondragstart="onTabDragStart(event,' + i + ')" ondragover="onTabDragOver(event,' + i + ')" ondragleave="onTabDragLeave(event)" ondrop="onTabDrop(event,' + i + ')" ondragend="onTabDragEnd(event)">'
+    html += '<span class="stock-tab' + activeCls + '" data-idx="' + i + '">'
       + escapeHtml(s.name)
       + '<span class="del-stock" onclick="event.stopPropagation();deleteStockConfirm(' + i + ')">✕</span>'
       + '</span>';
@@ -900,129 +898,96 @@ function buildTabBar() {
   bar.innerHTML = html;
 }
 
-// ──── Tab Drag & Drop ────
-function onTabDragStart(e, idx) {
-  _dragIdx = idx;
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', idx);
-  setTimeout(() => e.target.classList.add('dragging'), 0);
-}
-function onTabDragOver(e, idx) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  if (idx !== _dragIdx) e.currentTarget.classList.add('drag-over');
-}
-function onTabDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-function onTabDrop(e, idx) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if (_dragIdx === null || _dragIdx === idx) return;
-  const fromIdx = _dragIdx;
-  const item = portfolio.splice(fromIdx, 1)[0];
-  portfolio.splice(idx, 0, item);
-  // 同步调整 currentStockIndex
-  if (currentStockIndex === fromIdx) {
-    currentStockIndex = idx;
-  } else if (fromIdx < currentStockIndex && idx >= currentStockIndex) {
-    currentStockIndex--;
-  } else if (fromIdx > currentStockIndex && idx <= currentStockIndex) {
-    currentStockIndex++;
-  }
-  buildTabBar();
-  saveAll();
-  // 防止紧接着的 click 事件触发 switchStock 覆盖排序
-  _justDropped = true;
-  setTimeout(() => { _justDropped = false; }, 300);
-}
-function onTabDragEnd(e) {
-  _dragIdx = null;
-  document.querySelectorAll('.stock-tab').forEach(t => {
-    t.classList.remove('dragging', 'drag-over');
-  });
-}
-
-// ──── Unified Tab Gesture (drag + long-press) ────
-// Desktop: HTML5 drag-and-drop (ondragstart/ondragover/ondrop)
-// Mobile: touch events unified — move>8px = drag reorder, hold 600ms without move = edit mode
-let _tabGestureIdx = null, _tabGestureX = 0, _tabGestureMoved = false, _tabGestureTimer = null;
-function initTabGesture() {
+// ──── Tab Drag (Pointer Events, desktop+mobile unified) ────
+let _dragState = null; // { fromIdx, startX, moved, longPressTimer }
+function initTabDrag() {
   const bar = document.getElementById('stockTabBar');
-  bar.addEventListener('touchstart', function(e) {
+
+  bar.addEventListener('pointerdown', function(e) {
+    if (e.button && e.button !== 0) return; // only left click
     const tab = e.target.closest('.stock-tab');
     if (!tab) return;
     const idx = parseInt(tab.dataset.idx);
     if (isNaN(idx)) return;
-    _tabGestureIdx = idx;
-    _tabGestureX = e.touches[0].clientX;
-    _tabGestureMoved = false;
-    // Start long-press timer (enter edit mode if no movement)
-    clearTimeout(_tabGestureTimer);
-    _tabGestureTimer = setTimeout(function() {
-      if (!_tabGestureMoved) {
-        _tabGestureIdx = null;
+    e.preventDefault(); // prevent text selection
+    _dragState = { fromIdx: idx, startX: e.clientX, moved: false, longPressTimer: null };
+    // Long-press timer for edit mode
+    _dragState.longPressTimer = setTimeout(function() {
+      if (_dragState && !_dragState.moved) {
+        _dragState = null;
         document.querySelectorAll('.stock-tab').forEach(t => t.classList.add('editing'));
-        setTimeout(function() {
-          document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('editing'));
-        }, 3000);
+        setTimeout(() => document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('editing')), 3000);
       }
     }, 600);
-  }, { passive: true });
-  bar.addEventListener('touchmove', function(e) {
-    if (_tabGestureIdx === null) return;
-    const dx = Math.abs(e.touches[0].clientX - _tabGestureX);
-    if (dx > 8) {
-      _tabGestureMoved = true;
-      clearTimeout(_tabGestureTimer); // Cancel long-press, start drag
-    }
-    if (!_tabGestureMoved) return;
-    e.preventDefault(); // Only preventDefault when actually dragging
-    const tabs = bar.querySelectorAll('.stock-tab');
-    const touchX = e.touches[0].clientX;
-    let hoverIdx = _tabGestureIdx;
-    tabs.forEach((t, i) => {
-      const r = t.getBoundingClientRect();
-      if (touchX >= r.left && touchX <= r.right) hoverIdx = i;
-    });
-    tabs.forEach((t, i) => t.classList.toggle('drag-over', i === hoverIdx && i !== _tabGestureIdx));
-  }, { passive: false });
-  bar.addEventListener('touchend', function(e) {
-    clearTimeout(_tabGestureTimer);
-    if (_tabGestureIdx === null) return;
-    if (_tabGestureMoved && e.changedTouches && e.changedTouches.length > 0) {
-      const tabs = bar.querySelectorAll('.stock-tab');
-      let dropIdx = _tabGestureIdx;
-      const touchX = e.changedTouches[0].clientX;
-      tabs.forEach((t, i) => {
-        const r = t.getBoundingClientRect();
-        if (touchX >= r.left && touchX <= r.right) dropIdx = i;
-      });
-      tabs.forEach(t => t.classList.remove('dragging', 'drag-over'));
-      if (dropIdx !== _tabGestureIdx) {
-        const item = portfolio.splice(_tabGestureIdx, 1)[0];
-        portfolio.splice(dropIdx, 0, item);
-        if (currentStockIndex === _tabGestureIdx) currentStockIndex = dropIdx;
-        else if (_tabGestureIdx < currentStockIndex && dropIdx >= currentStockIndex) currentStockIndex--;
-        else if (_tabGestureIdx > currentStockIndex && dropIdx <= currentStockIndex) currentStockIndex++;
-        buildTabBar();
-        saveAll();
-      }
-    }
-    _tabGestureIdx = null;
-    _tabGestureMoved = false;
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
   });
-  bar.addEventListener('touchcancel', function() {
-    clearTimeout(_tabGestureTimer);
-    _tabGestureIdx = null;
-    _tabGestureMoved = false;
-    document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('drag-over'));
+
+  // Click on tab to switch (delegated)
+  bar.addEventListener('click', function(e) {
+    if (e.target.closest('.del-stock')) return;
+    const tab = e.target.closest('.stock-tab');
+    if (!tab) return;
+    const idx = parseInt(tab.dataset.idx);
+    if (isNaN(idx)) return;
+    switchStock(idx);
   });
 }
+
+function onPointerMove(e) {
+  if (!_dragState) return;
+  const dx = Math.abs(e.clientX - _dragState.startX);
+  if (dx > 6) {
+    _dragState.moved = true;
+    clearTimeout(_dragState.longPressTimer);
+  }
+  if (!_dragState.moved) return;
+  // Highlight drop target
+  const bar = document.getElementById('stockTabBar');
+  const tabs = bar.querySelectorAll('.stock-tab');
+  let hoverIdx = _dragState.fromIdx;
+  tabs.forEach((t, i) => {
+    const r = t.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right) hoverIdx = i;
+  });
+  tabs.forEach((t, i) => t.classList.toggle('drag-over', i === hoverIdx && i !== _dragState.fromIdx));
+}
+
+function onPointerUp(e) {
+  document.removeEventListener('pointermove', onPointerMove);
+  document.removeEventListener('pointerup', onPointerUp);
+  if (!_dragState) return;
+  clearTimeout(_dragState.longPressTimer);
+  const bar = document.getElementById('stockTabBar');
+  const tabs = bar.querySelectorAll('.stock-tab');
+
+  if (_dragState.moved) {
+    // Find drop target
+    let dropIdx = _dragState.fromIdx;
+    tabs.forEach((t, i) => {
+      const r = t.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right) dropIdx = i;
+    });
+    tabs.forEach(t => t.classList.remove('drag-over'));
+    if (dropIdx !== _dragState.fromIdx) {
+      const fromIdx = _dragState.fromIdx;
+      const item = portfolio.splice(fromIdx, 1)[0];
+      portfolio.splice(dropIdx, 0, item);
+      if (currentStockIndex === fromIdx) currentStockIndex = dropIdx;
+      else if (fromIdx < currentStockIndex && dropIdx >= currentStockIndex) currentStockIndex--;
+      else if (fromIdx > currentStockIndex && dropIdx <= currentStockIndex) currentStockIndex++;
+      buildTabBar();
+      saveAll();
+    }
+  }
+  _dragState = null;
+}
+
+// Init on load
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initTabGesture);
+  document.addEventListener('DOMContentLoaded', initTabDrag);
 } else {
-  initTabGesture();
+  initTabDrag();
 }
 
 // Switch stock
