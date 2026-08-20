@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据恢复工具</title>
+<style>
+body { font-family: system-ui; max-width: 500px; margin: 40px auto; padding: 20px; }
+.btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 8px 0; }
+.btn-primary { background: #E60012; color: #fff; }
+.btn:disabled { background: #ccc; cursor: not-allowed; }
+#status { margin-top: 16px; padding: 12px; border-radius: 8px; background: #f5f5f5; white-space: pre-wrap; }
+.ok { background: #e6f7e6; }
+.err { background: #fde8e8; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<h2>🔄 持仓数据恢复工具</h2>
+<p>登录小雨账号后，点击恢复按钮。</p>
+<button class="btn btn-primary" id="btnLogin" onclick="doLogin()">1. 登录小雨账号</button>
+<button class="btn btn-primary" id="btnRestore" onclick="doRestore()" disabled>2. 恢复持仓数据</button>
+<div id="status">等待操作...</div>
+
+<script>
+const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let user = null;
+
+const STOCKS_DATA = [
+  { name: '洪都航空', costPrice: 30.40, holdQty: 4000, code: 'sh600316' },
+  { name: '维远股份', costPrice: 15.57, holdQty: 6000, code: 'sz002470' },
+  { name: '京东方A', costPrice: 8.62, holdQty: 4000, code: 'sz000725' },
+];
+
+function log(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent += '\n' + msg;
+  el.className = cls || '';
+}
+
+async function doLogin() {
+  const email = prompt('请输入小雨的邮箱:');
+  if (!email) return;
+  log('正在发送登录链接到 ' + email + '...');
+  const { error } = await sb.auth.signInWithOtp({ email });
+  if (error) { log('❌ ' + error.message, 'err'); return; }
+  log('✅ 登录链接已发送到邮箱，请查收邮件并点击链接完成登录。\n登录后回来点"恢复"按钮。');
+}
+
+async function doRestore() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.user) { log('❌ 请先登录', 'err'); return; }
+  user = session.user;
+  log('正在恢复数据... 用户: ' + user.email);
+
+  try {
+    // 先清除旧数据
+    await sb.from('stocks').delete().eq('user_id', user.id);
+    // 插入恢复数据
+    const rows = STOCKS_DATA.map((s, i) => ({
+      user_id: user.id,
+      name: s.name,
+      code: s.code || '',
+      cost_price: s.costPrice,
+      hold_qty: s.holdQty,
+      open_price: 0,
+      t_price1: 0,
+      t_qty: 0,
+      t_price2: 0,
+      mode: 'reverse',
+      sort_order: i,
+    }));
+    const { error } = await sb.from('stocks').insert(rows);
+    if (error) throw error;
+    log('✅ 恢复成功！共 ' + rows.length + ' 只股票：\n' + rows.map(s => '  ' + s.name + ' | 成本' + s.cost_price + ' | ' + s.hold_qty + '股').join('\n'), 'ok');
+    document.getElementById('btnRestore').disabled = true;
+  } catch(e) {
+    log('❌ 恢复失败: ' + e.message, 'err');
+  }
+}
+
+// 检查是否已登录
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    user = session.user;
+    log('已登录: ' + user.email);
+    document.getElementById('btnRestore').disabled = false;
+    document.getElementById('btnLogin').textContent = '1. 已登录 (' + user.email + ')';
+  }
+})();
+</script>
+</body>
+</html>
