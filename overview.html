@@ -449,7 +449,7 @@ function calcRow(s) {
   return { costOk, qtyOk, priceOk, mkt, pl, pct };
 }
 
-let _ovDragIdx = null;
+let _ovDragState = null; // { fromIdx, startY, moved }
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   let html = '';
@@ -459,8 +459,8 @@ function renderTable() {
     const plCls  = (r.pl  != null) ? (r.pl  >= 0 ? 'profit' : 'loss') : '';
     const pctCls = (r.pct != null) ? (r.pct >= 0 ? 'profit' : 'loss') : '';
 
-    html += '<tr draggable="false" data-idx="' + i + '">';
-    html += '<td class="col-no" style="color:var(--text-muted)" onmousedown="onOvRowDragStart(event,' + i + ')" ontouchstart="onOvRowTouchStart(event,' + i + ')">' + (i + 1) + '</td>';
+    html += '<tr data-idx="' + i + '">';
+    html += '<td class="col-no" style="color:var(--text-muted)">' + (i + 1) + '</td>';
     html += '<td class="col-name" style="font-weight:700;white-space:nowrap">' + s.name + '</td>';
     // 持仓输入
     html += '<td class="edit-cell"><input type="text" inputmode="numeric" id="qty_' + i + '"'
@@ -535,100 +535,65 @@ function updateRow(idx) {
 }
 
 // ========== DRAG REORDER (序号列) ==========
-function onOvRowDragStart(e, idx) {
-  _ovDragIdx = idx;
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', idx);
-  const row = e.target.closest('tr');
-  setTimeout(() => row && row.classList.add('dragging'), 0);
-}
-function initOvRowDrag() {
+// ──── Row Drag (Pointer Events) ────
+function initOvDrag() {
   const tbody = document.getElementById('tableBody');
-  tbody.addEventListener('dragover', function(e) {
+
+  tbody.addEventListener('pointerdown', function(e) {
+    if (e.button && e.button !== 0) return;
+    const td = e.target.closest('td.col-no');
+    if (!td) return;
+    const row = td.closest('tr');
+    if (!row) return;
+    const idx = parseInt(row.dataset.idx);
+    if (isNaN(idx)) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const row = e.target.closest('tr');
-    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
-    if (row) row.classList.add('drag-over');
-  });
-  tbody.addEventListener('dragleave', function(e) {
-    const row = e.target.closest('tr');
-    if (row) row.classList.remove('drag-over');
-  });
-  tbody.addEventListener('drop', function(e) {
-    e.preventDefault();
-    const row = e.target.closest('tr');
-    if (row) row.classList.remove('drag-over');
-    if (_ovDragIdx === null) return;
-    const dropIdx = parseInt(row.dataset.idx);
-    if (isNaN(dropIdx) || dropIdx === _ovDragIdx) return;
-    const item = portfolio.splice(_ovDragIdx, 1)[0];
-    portfolio.splice(dropIdx, 0, item);
-    _ovDragIdx = null;
-    renderTable();
-    dirty = true;
-    saveAll();
-  });
-  tbody.addEventListener('dragend', function() {
-    _ovDragIdx = null;
-    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('dragging', 'drag-over'));
+    _ovDragState = { fromIdx: idx, startY: e.clientY, moved: false };
+    document.addEventListener('pointermove', onOvPointerMove);
+    document.addEventListener('pointerup', onOvPointerUp);
   });
 }
 
-// Touch drag for mobile
-let _ovTouchIdx = null, _ovTouchMoved = false, _ovTouchStartY = 0;
-function onOvRowTouchStart(e, idx) {
-  if (!e.touches || e.touches.length === 0) return;
-  _ovTouchIdx = idx;
-  _ovTouchMoved = false;
-  _ovTouchStartY = e.touches[0].clientY;
-}
-function initOvTouchDrag() {
+function onOvPointerMove(e) {
+  if (!_ovDragState) return;
+  const dy = Math.abs(e.clientY - _ovDragState.startY);
+  if (dy > 6) _ovDragState.moved = true;
+  if (!_ovDragState.moved) return;
   const tbody = document.getElementById('tableBody');
-  tbody.addEventListener('touchmove', function(e) {
-    if (_ovTouchIdx === null || !e.touches || e.touches.length === 0) return;
-    const dy = Math.abs(e.touches[0].clientY - _ovTouchStartY);
-    if (dy > 8) _ovTouchMoved = true;
-    if (!_ovTouchMoved) return;
-    e.preventDefault(); // Only when actively dragging
-    const touchY = e.touches[0].clientY;
-    const rows = tbody.querySelectorAll('tr');
-    rows.forEach(r => r.classList.remove('drag-over'));
-    rows.forEach((r) => {
+  const rows = tbody.querySelectorAll('tr');
+  const mouseY = e.clientY;
+  rows.forEach(r => r.classList.remove('drag-over'));
+  rows.forEach((r) => {
+    const rect = r.getBoundingClientRect();
+    if (mouseY >= rect.top && mouseY <= rect.bottom) r.classList.add('drag-over');
+  });
+}
+
+function onOvPointerUp(e) {
+  document.removeEventListener('pointermove', onOvPointerMove);
+  document.removeEventListener('pointerup', onOvPointerUp);
+  if (!_ovDragState) return;
+  const tbody = document.getElementById('tableBody');
+  const rows = tbody.querySelectorAll('tr');
+
+  if (_ovDragState.moved) {
+    let dropIdx = _ovDragState.fromIdx;
+    rows.forEach((r, i) => {
       const rect = r.getBoundingClientRect();
-      if (touchY >= rect.top && touchY <= rect.bottom) {
-        r.classList.add('drag-over');
-      }
+      if (e.clientY >= rect.top && e.clientY <= rect.bottom) dropIdx = i;
     });
-  }, { passive: false });
-  tbody.addEventListener('touchend', function(e) {
-    if (_ovTouchIdx === null) return;
-    let dropIdx = _ovTouchIdx;
-    if (_ovTouchMoved && e.changedTouches && e.changedTouches.length > 0) {
-      const touchY = e.changedTouches[0].clientY;
-      const rows = tbody.querySelectorAll('tr');
-      rows.forEach((r, i) => {
-        const rect = r.getBoundingClientRect();
-        if (touchY >= rect.top && touchY <= rect.bottom) dropIdx = i;
-      });
-    }
-    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('dragging', 'drag-over'));
-    if (_ovTouchMoved && dropIdx !== _ovTouchIdx) {
-      const item = portfolio.splice(_ovTouchIdx, 1)[0];
+    rows.forEach(r => r.classList.remove('drag-over'));
+    if (dropIdx !== _ovDragState.fromIdx) {
+      const item = portfolio.splice(_ovDragState.fromIdx, 1)[0];
       portfolio.splice(dropIdx, 0, item);
       renderTable();
       dirty = true;
       saveAll();
     }
-    _ovTouchIdx = null;
-    _ovTouchMoved = false;
-  });
-  tbody.addEventListener('touchcancel', function() {
-    _ovTouchIdx = null;
-    _ovTouchMoved = false;
-    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
-  });
+  }
+  _ovDragState = null;
 }
+
 
 // ========== INPUT HANDLERS ==========
 function setDirtyFlag() {
@@ -875,8 +840,7 @@ function showToast(msg, type) {
     return;
   }
   await checkSession();
-  initOvRowDrag();
-  initOvTouchDrag();
+  initOvDrag();
 })();
 </script>
 </body>
