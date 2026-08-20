@@ -890,14 +890,7 @@ function buildTabBar() {
   let html = '';
   portfolio.forEach((s, i) => {
     const activeCls = (i === currentStockIndex) ? ' active' : '';
-    html += '<span class="stock-tab' + activeCls + '" onclick="switchStock(' + i + ')" data-idx="' + i + '"
-      draggable="true"
-      ondragstart="onTabDragStart(event,' + i + ')"
-      ondragover="onTabDragOver(event,' + i + ')"
-      ondragleave="onTabDragLeave(event)"
-      ondrop="onTabDrop(event,' + i + ')"
-      ondragend="onTabDragEnd(event)"
-      >'
+    html += '<span class="stock-tab' + activeCls + '" onclick="switchStock(' + i + ')" data-idx="' + i + '" draggable="true" ondragstart="onTabDragStart(event,' + i + ')" ondragover="onTabDragOver(event,' + i + ')" ondragleave="onTabDragLeave(event)" ondrop="onTabDrop(event,' + i + ')" ondragend="onTabDragEnd(event)">'
       + escapeHtml(s.name)
       + '<span class="del-stock" onclick="event.stopPropagation();deleteStockConfirm(' + i + ')">✕</span>'
       + '</span>';
