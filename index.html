@@ -908,7 +908,7 @@ function initTabDrag() {
     if (!tab) return;
     const idx = parseInt(tab.dataset.idx);
     if (isNaN(idx)) return;
-    _dragState = { fromIdx: idx, startX: e.clientX, moved: false, longPressTimer: null, clone: null, ghost: null };
+    _dragState = { fromIdx: idx, startX: e.clientX, startY: e.clientY, moved: false, longPressTimer: null, clone: null, ghost: null };
     _dragState.longPressTimer = setTimeout(function() {
       if (_dragState && !_dragState.moved) {
         _dragState = null;
@@ -919,20 +919,23 @@ function initTabDrag() {
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
   });
+  // 点击删除按钮（del-stock）
   bar.addEventListener('click', function(e) {
-    if (e.target.closest('.del-stock')) return;
-    const tab = e.target.closest('.stock-tab');
+    const delBtn = e.target.closest('.del-stock');
+    if (!delBtn) return;
+    const tab = delBtn.closest('.stock-tab');
     if (!tab) return;
     const idx = parseInt(tab.dataset.idx);
     if (isNaN(idx)) return;
-    switchStock(idx);
+    deleteStockConfirm(idx);
   });
 }
 
 function onPointerMove(e) {
   if (!_dragState) return;
   const dx = Math.abs(e.clientX - _dragState.startX);
-  if (dx > 6 && !_dragState.moved) {
+  const dy = Math.abs(e.clientY - _dragState.startY);
+  if ((dx > 6 || dy > 6) && !_dragState.moved) {
     _dragState.moved = true;
     clearTimeout(_dragState.longPressTimer);
     // 阻止默认行为（防止拖拽时选中文本）
@@ -983,7 +986,14 @@ function onPointerUp(e) {
   document.removeEventListener('pointerup', onPointerUp);
   if (!_dragState) return;
   clearTimeout(_dragState.longPressTimer);
-  if (_dragState.moved && _dragState.clone) {
+  // 【单击：moved=false，切换股票】
+  if (!_dragState.moved) {
+    const fromIdx = _dragState.fromIdx;
+    _dragState = null;
+    if (fromIdx !== currentStockIndex) switchStock(fromIdx);
+    return;
+  }
+  if (_dragState.clone) {
     // 根据幽灵位置确定最终索引
     const bar = document.getElementById('stockTabBar');
     const tabs = Array.from(bar.querySelectorAll('.stock-tab'));
@@ -1029,7 +1039,6 @@ if (document.readyState === 'loading') {
 
 // Switch stock
 function switchStock(idx) {
-  if (_justDropped) return; // 拖拽刚完成，忽略 click
   if (idx === currentStockIndex) return;
   saveAll();
   currentStockIndex = idx;
@@ -1153,17 +1162,7 @@ function openEditModal(idx, name, cost, qty) {
   setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
 }
 
-// Also support clicking tab cell area for edit when in editing mode
-// (long-press goes into editing mode, then click delete)
-document.getElementById('stockTabBar').addEventListener('click', function(e) {
-  const delBtn = e.target.closest('.del-stock');
-  if (!delBtn) return;
-  const tab = delBtn.closest('.stock-tab');
-  if (!tab) return;
-  const idx = parseInt(tab.dataset.idx);
-  if (isNaN(idx)) return;
-  deleteStockConfirm(idx);
-});
+// 删除按钮的 click 委托已统一到 initTabDrag 中，避免重复绑定
 
 // ──── Modal keyboard ────
 document.getElementById('editModal').addEventListener('keydown', function(e) {
