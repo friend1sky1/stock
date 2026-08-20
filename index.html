@@ -908,7 +908,6 @@ function initTabDrag() {
     if (!tab) return;
     const idx = parseInt(tab.dataset.idx);
     if (isNaN(idx)) return;
-    e.preventDefault();
     _dragState = { fromIdx: idx, startX: e.clientX, moved: false, longPressTimer: null, clone: null, ghost: null };
     _dragState.longPressTimer = setTimeout(function() {
       if (_dragState && !_dragState.moved) {
@@ -936,6 +935,8 @@ function onPointerMove(e) {
   if (dx > 6 && !_dragState.moved) {
     _dragState.moved = true;
     clearTimeout(_dragState.longPressTimer);
+    // 阻止默认行为（防止拖拽时选中文本）
+    e.preventDefault();
     // 创建浮动克隆 + 原位变幽灵
     const bar = document.getElementById('stockTabBar');
     const tabs = bar.querySelectorAll('.stock-tab');
