@@ -87,6 +87,8 @@ html, body {
 }
 .stock-tab.editing .del-stock { display: block; }
 .stock-tab .del-stock:hover { background: var(--profit); }
+.stock-tab.dragging { opacity: 0.4; transform: scale(0.95); }
+.stock-tab.drag-over { border-color: var(--gold); background: var(--gold-light); box-shadow: 0 0 0 2px rgba(212,168,67,0.3); }
 .add-stock-btn {
   flex-shrink: 0; width: 36px; height: 36px;
   border-radius: 50%; border: 1.5px dashed var(--border);
@@ -882,18 +884,129 @@ function updateSnapshot() {
 }
 
 // Build tab bar
+let _dragIdx = null;
 function buildTabBar() {
   const bar = document.getElementById('stockTabBar');
   let html = '';
   portfolio.forEach((s, i) => {
     const activeCls = (i === currentStockIndex) ? ' active' : '';
-    html += '<span class="stock-tab' + activeCls + '" onclick="switchStock(' + i + ')" data-idx="' + i + '">'
+    html += '<span class="stock-tab' + activeCls + '" onclick="switchStock(' + i + ')" data-idx="' + i + '"
+      draggable="true"
+      ondragstart="onTabDragStart(event,' + i + ')"
+      ondragover="onTabDragOver(event,' + i + ')"
+      ondragleave="onTabDragLeave(event)"
+      ondrop="onTabDrop(event,' + i + ')"
+      ondragend="onTabDragEnd(event)"
+      >'
       + escapeHtml(s.name)
       + '<span class="del-stock" onclick="event.stopPropagation();deleteStockConfirm(' + i + ')">✕</span>'
       + '</span>';
   });
   html += '<button class="add-stock-btn" onclick="openAddModal()" title="新增持仓">+</button>';
   bar.innerHTML = html;
+}
+
+// ──── Tab Drag & Drop ────
+function onTabDragStart(e, idx) {
+  _dragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', idx);
+  setTimeout(() => e.target.classList.add('dragging'), 0);
+}
+function onTabDragOver(e, idx) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (idx !== _dragIdx) e.currentTarget.classList.add('drag-over');
+}
+function onTabDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function onTabDrop(e, idx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (_dragIdx === null || _dragIdx === idx) return;
+  const item = portfolio.splice(_dragIdx, 1)[0];
+  portfolio.splice(idx, 0, item);
+  // 同步调整 currentStockIndex
+  if (currentStockIndex === _dragIdx) {
+    currentStockIndex = idx;
+  } else if (_dragIdx < currentStockIndex && idx >= currentStockIndex) {
+    currentStockIndex--;
+  } else if (_dragIdx > currentStockIndex && idx <= currentStockIndex) {
+    currentStockIndex++;
+  }
+  buildTabBar();
+  saveAll();
+}
+function onTabDragEnd(e) {
+  _dragIdx = null;
+  document.querySelectorAll('.stock-tab').forEach(t => {
+    t.classList.remove('dragging', 'drag-over');
+  });
+}
+
+// ──── Touch Drag for Mobile ────
+let _touchDragIdx = null, _touchDragEl = null, _touchStartX = 0, _touchMoved = false;
+function initTabTouchDrag() {
+  const bar = document.getElementById('stockTabBar');
+  bar.addEventListener('touchstart', function(e) {
+    const tab = e.target.closest('.stock-tab');
+    if (!tab) return;
+    const idx = parseInt(tab.dataset.idx);
+    if (isNaN(idx)) return;
+    _touchDragIdx = idx;
+    _touchDragEl = tab;
+    _touchStartX = e.touches[0].clientX;
+    _touchMoved = false;
+  }, { passive: true });
+  bar.addEventListener('touchmove', function(e) {
+    if (_touchDragIdx === null) return;
+    const dx = Math.abs(e.touches[0].clientX - _touchStartX);
+    if (dx > 8) _touchMoved = true;
+    if (!_touchMoved) return;
+    e.preventDefault();
+    // Find which tab we're over
+    const tabs = bar.querySelectorAll('.stock-tab');
+    const touchX = e.touches[0].clientX;
+    let hoverIdx = _touchDragIdx;
+    tabs.forEach((t, i) => {
+      const r = t.getBoundingClientRect();
+      if (touchX >= r.left && touchX <= r.right) hoverIdx = i;
+    });
+    tabs.forEach((t, i) => t.classList.toggle('drag-over', i === hoverIdx && i !== _touchDragIdx));
+  }, { passive: false });
+  bar.addEventListener('touchend', function(e) {
+    if (_touchDragIdx === null) return;
+    // Find drop target
+    const tabs = bar.querySelectorAll('.stock-tab');
+    let dropIdx = _touchDragIdx;
+    if (_touchMoved && e.changedTouches.length > 0) {
+      const touchX = e.changedTouches[0].clientX;
+      tabs.forEach((t, i) => {
+        const r = t.getBoundingClientRect();
+        if (touchX >= r.left && touchX <= r.right) dropIdx = i;
+      });
+    }
+    tabs.forEach(t => t.classList.remove('dragging', 'drag-over'));
+    if (_touchMoved && dropIdx !== _touchDragIdx) {
+      const item = portfolio.splice(_touchDragIdx, 1)[0];
+      portfolio.splice(dropIdx, 0, item);
+      if (currentStockIndex === _touchDragIdx) currentStockIndex = dropIdx;
+      else if (_touchDragIdx < currentStockIndex && dropIdx >= currentStockIndex) currentStockIndex--;
+      else if (_touchDragIdx > currentStockIndex && dropIdx <= currentStockIndex) currentStockIndex++;
+      buildTabBar();
+      saveAll();
+    }
+    _touchDragIdx = null;
+    _touchDragEl = null;
+    _touchMoved = false;
+  });
+}
+// Init touch drag on load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initTabTouchDrag);
+} else {
+  initTabTouchDrag();
 }
 
 // Switch stock

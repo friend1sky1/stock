@@ -109,6 +109,12 @@ td.edit-cell input:focus {
 }
 td.edit-cell input.dirty { border-color: var(--gold); background: var(--gold-light); }
 
+/* Drag reorder */
+td.col-no { cursor: grab; user-select: none; -webkit-user-select: none; }
+td.col-no:active { cursor: grabbing; }
+tr.dragging { opacity: 0.35; }
+tr.drag-over td { border-top: 2.5px solid var(--gold) !important; }
+
 /* Values */
 td.val-qty { font-weight: 500; color: var(--text); }
 td.val-cost { font-weight: 700; font-size: 0.82rem; color: var(--text); }
@@ -443,6 +449,7 @@ function calcRow(s) {
   return { costOk, qtyOk, priceOk, mkt, pl, pct };
 }
 
+let _ovDragIdx = null;
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   let html = '';
@@ -452,8 +459,8 @@ function renderTable() {
     const plCls  = (r.pl  != null) ? (r.pl  >= 0 ? 'profit' : 'loss') : '';
     const pctCls = (r.pct != null) ? (r.pct >= 0 ? 'profit' : 'loss') : '';
 
-    html += '<tr>';
-    html += '<td class="col-no" style="color:var(--text-muted)">' + (i + 1) + '</td>';
+    html += '<tr draggable="false" data-idx="' + i + '">';
+    html += '<td class="col-no" style="color:var(--text-muted)" onmousedown="onOvRowDragStart(event,' + i + ')" ontouchstart="onOvRowTouchStart(event,' + i + ')">' + (i + 1) + '</td>';
     html += '<td class="col-name" style="font-weight:700;white-space:nowrap">' + s.name + '</td>';
     // 持仓输入
     html += '<td class="edit-cell"><input type="text" inputmode="numeric" id="qty_' + i + '"'
@@ -525,6 +532,96 @@ function updateRow(idx) {
   pctEl.className = 'val-pct ' + pctCls;
   plEl.textContent = (r.pl != null ? (r.pl >= 0 ? '+' : '') + fmtMoney(r.pl) : '--');
   pctEl.textContent = fmtPct(r.pct);
+}
+
+// ========== DRAG REORDER (序号列) ==========
+function onOvRowDragStart(e, idx) {
+  _ovDragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', idx);
+  const row = e.target.closest('tr');
+  setTimeout(() => row && row.classList.add('dragging'), 0);
+}
+function initOvRowDrag() {
+  const tbody = document.getElementById('tableBody');
+  tbody.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const row = e.target.closest('tr');
+    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+    if (row) row.classList.add('drag-over');
+  });
+  tbody.addEventListener('dragleave', function(e) {
+    const row = e.target.closest('tr');
+    if (row) row.classList.remove('drag-over');
+  });
+  tbody.addEventListener('drop', function(e) {
+    e.preventDefault();
+    const row = e.target.closest('tr');
+    if (row) row.classList.remove('drag-over');
+    if (_ovDragIdx === null) return;
+    const dropIdx = parseInt(row.dataset.idx);
+    if (isNaN(dropIdx) || dropIdx === _ovDragIdx) return;
+    const item = portfolio.splice(_ovDragIdx, 1)[0];
+    portfolio.splice(dropIdx, 0, item);
+    _ovDragIdx = null;
+    renderTable();
+    dirty = true;
+    saveAll();
+  });
+  tbody.addEventListener('dragend', function() {
+    _ovDragIdx = null;
+    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('dragging', 'drag-over'));
+  });
+}
+
+// Touch drag for mobile
+let _ovTouchIdx = null, _ovTouchMoved = false, _ovTouchStartY = 0;
+function onOvRowTouchStart(e, idx) {
+  _ovTouchIdx = idx;
+  _ovTouchMoved = false;
+  _ovTouchStartY = e.touches[0].clientY;
+}
+function initOvTouchDrag() {
+  const tbody = document.getElementById('tableBody');
+  tbody.addEventListener('touchmove', function(e) {
+    if (_ovTouchIdx === null) return;
+    const dy = Math.abs(e.touches[0].clientY - _ovTouchStartY);
+    if (dy > 8) _ovTouchMoved = true;
+    if (!_ovTouchMoved) return;
+    e.preventDefault();
+    const touchY = e.touches[0].clientY;
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(r => r.classList.remove('drag-over'));
+    rows.forEach((r, i) => {
+      const rect = r.getBoundingClientRect();
+      if (touchY >= rect.top && touchY <= rect.bottom) {
+        r.classList.add('drag-over');
+      }
+    });
+  }, { passive: false });
+  tbody.addEventListener('touchend', function(e) {
+    if (_ovTouchIdx === null) return;
+    let dropIdx = _ovTouchIdx;
+    if (_ovTouchMoved && e.changedTouches.length > 0) {
+      const touchY = e.changedTouches[0].clientY;
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach((r, i) => {
+        const rect = r.getBoundingClientRect();
+        if (touchY >= rect.top && touchY <= rect.bottom) dropIdx = i;
+      });
+    }
+    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('dragging', 'drag-over'));
+    if (_ovTouchMoved && dropIdx !== _ovTouchIdx) {
+      const item = portfolio.splice(_ovTouchIdx, 1)[0];
+      portfolio.splice(dropIdx, 0, item);
+      renderTable();
+      dirty = true;
+      saveAll();
+    }
+    _ovTouchIdx = null;
+    _ovTouchMoved = false;
+  });
 }
 
 // ========== INPUT HANDLERS ==========
@@ -772,6 +869,8 @@ function showToast(msg, type) {
     return;
   }
   await checkSession();
+  initOvRowDrag();
+  initOvTouchDrag();
 })();
 </script>
 </body>
