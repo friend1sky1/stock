@@ -885,6 +885,7 @@ function updateSnapshot() {
 
 // Build tab bar
 let _dragIdx = null;
+let _justDropped = false; // 防止 drop 后 click 误触 switchStock
 function buildTabBar() {
   const bar = document.getElementById('stockTabBar');
   let html = '';
@@ -918,18 +919,22 @@ function onTabDrop(e, idx) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if (_dragIdx === null || _dragIdx === idx) return;
-  const item = portfolio.splice(_dragIdx, 1)[0];
+  const fromIdx = _dragIdx;
+  const item = portfolio.splice(fromIdx, 1)[0];
   portfolio.splice(idx, 0, item);
   // 同步调整 currentStockIndex
-  if (currentStockIndex === _dragIdx) {
+  if (currentStockIndex === fromIdx) {
     currentStockIndex = idx;
-  } else if (_dragIdx < currentStockIndex && idx >= currentStockIndex) {
+  } else if (fromIdx < currentStockIndex && idx >= currentStockIndex) {
     currentStockIndex--;
-  } else if (_dragIdx > currentStockIndex && idx <= currentStockIndex) {
+  } else if (fromIdx > currentStockIndex && idx <= currentStockIndex) {
     currentStockIndex++;
   }
   buildTabBar();
   saveAll();
+  // 防止紧接着的 click 事件触发 switchStock 覆盖排序
+  _justDropped = true;
+  setTimeout(() => { _justDropped = false; }, 300);
 }
 function onTabDragEnd(e) {
   _dragIdx = null;
@@ -1022,6 +1027,7 @@ if (document.readyState === 'loading') {
 
 // Switch stock
 function switchStock(idx) {
+  if (_justDropped) return; // 拖拽刚完成，忽略 click
   if (idx === currentStockIndex) return;
   saveAll();
   currentStockIndex = idx;
