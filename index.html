@@ -87,8 +87,8 @@ html, body {
 }
 .stock-tab.editing .del-stock { display: block; }
 .stock-tab .del-stock:hover { background: var(--profit); }
-.stock-tab.dragging { opacity: 0.4; transform: scale(0.95); }
-.stock-tab.drag-over { border-color: var(--gold); background: var(--gold-light); box-shadow: 0 0 0 2px rgba(212,168,67,0.3); }
+.stock-tab.drag-ghost { opacity: 0.25; min-width: 0; width: 0; padding: 0; margin: 0; border-width: 0; overflow: hidden; transition: all 0.25s ease; }
+.drag-clone { position: fixed; z-index: 9999; pointer-events: none; opacity: 0.9; transform: scale(1.06); box-shadow: 0 6px 20px rgba(0,0,0,0.2); border-radius: 20px; transition: none; }
 .add-stock-btn {
   flex-shrink: 0; width: 36px; height: 36px;
   border-radius: 50%; border: 1.5px dashed var(--border);
@@ -899,19 +899,17 @@ function buildTabBar() {
 }
 
 // ──── Tab Drag (Pointer Events, desktop+mobile unified) ────
-let _dragState = null; // { fromIdx, startX, moved, longPressTimer }
+let _dragState = null;
 function initTabDrag() {
   const bar = document.getElementById('stockTabBar');
-
   bar.addEventListener('pointerdown', function(e) {
-    if (e.button && e.button !== 0) return; // only left click
+    if (e.button && e.button !== 0) return;
     const tab = e.target.closest('.stock-tab');
     if (!tab) return;
     const idx = parseInt(tab.dataset.idx);
     if (isNaN(idx)) return;
-    e.preventDefault(); // prevent text selection
-    _dragState = { fromIdx: idx, startX: e.clientX, moved: false, longPressTimer: null };
-    // Long-press timer for edit mode
+    e.preventDefault();
+    _dragState = { fromIdx: idx, startX: e.clientX, moved: false, longPressTimer: null, clone: null, ghost: null };
     _dragState.longPressTimer = setTimeout(function() {
       if (_dragState && !_dragState.moved) {
         _dragState = null;
@@ -922,8 +920,6 @@ function initTabDrag() {
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
   });
-
-  // Click on tab to switch (delegated)
   bar.addEventListener('click', function(e) {
     if (e.target.closest('.del-stock')) return;
     const tab = e.target.closest('.stock-tab');
@@ -937,20 +933,48 @@ function initTabDrag() {
 function onPointerMove(e) {
   if (!_dragState) return;
   const dx = Math.abs(e.clientX - _dragState.startX);
-  if (dx > 6) {
+  if (dx > 6 && !_dragState.moved) {
     _dragState.moved = true;
     clearTimeout(_dragState.longPressTimer);
+    // 创建浮动克隆 + 原位变幽灵
+    const bar = document.getElementById('stockTabBar');
+    const tabs = bar.querySelectorAll('.stock-tab');
+    const origTab = tabs[_dragState.fromIdx];
+    if (origTab) {
+      const clone = origTab.cloneNode(true);
+      clone.className = 'stock-tab drag-clone';
+      clone.style.width = origTab.offsetWidth + 'px';
+      const r = origTab.getBoundingClientRect();
+      clone.style.left = r.left + 'px';
+      clone.style.top = r.top + 'px';
+      document.body.appendChild(clone);
+      _dragState.clone = clone;
+      origTab.classList.add('drag-ghost');
+      _dragState.ghost = origTab;
+    }
   }
   if (!_dragState.moved) return;
-  // Highlight drop target
+  // 移动克隆
+  if (_dragState.clone) {
+    _dragState.clone.style.left = (e.clientX - _dragState.clone.offsetWidth / 2) + 'px';
+    _dragState.clone.style.top = (e.clientY - _dragState.clone.offsetHeight / 2) + 'px';
+  }
+  // 计算悬停位置，移动幽灵到该位置
   const bar = document.getElementById('stockTabBar');
-  const tabs = bar.querySelectorAll('.stock-tab');
-  let hoverIdx = _dragState.fromIdx;
-  tabs.forEach((t, i) => {
+  const tabs = Array.from(bar.querySelectorAll('.stock-tab'));
+  const nonGhost = tabs.filter(t => !t.classList.contains('drag-ghost'));
+  let insertBefore = null;
+  for (const t of nonGhost) {
     const r = t.getBoundingClientRect();
-    if (e.clientX >= r.left && e.clientX <= r.right) hoverIdx = i;
-  });
-  tabs.forEach((t, i) => t.classList.toggle('drag-over', i === hoverIdx && i !== _dragState.fromIdx));
+    if (e.clientX < r.left + r.width / 2) { insertBefore = t; break; }
+  }
+  if (_dragState.ghost) {
+    if (insertBefore) {
+      bar.insertBefore(_dragState.ghost, insertBefore);
+    } else {
+      bar.insertBefore(_dragState.ghost, bar.querySelector('.add-stock-btn'));
+    }
+  }
 }
 
 function onPointerUp(e) {
@@ -958,29 +982,39 @@ function onPointerUp(e) {
   document.removeEventListener('pointerup', onPointerUp);
   if (!_dragState) return;
   clearTimeout(_dragState.longPressTimer);
-  const bar = document.getElementById('stockTabBar');
-  const tabs = bar.querySelectorAll('.stock-tab');
-
-  if (_dragState.moved) {
-    // Find drop target
-    let dropIdx = _dragState.fromIdx;
-    tabs.forEach((t, i) => {
-      const r = t.getBoundingClientRect();
-      if (e.clientX >= r.left && e.clientX <= r.right) dropIdx = i;
-    });
-    tabs.forEach(t => t.classList.remove('drag-over'));
-    if (dropIdx !== _dragState.fromIdx) {
-      const fromIdx = _dragState.fromIdx;
-      const item = portfolio.splice(fromIdx, 1)[0];
-      portfolio.splice(dropIdx, 0, item);
-      if (currentStockIndex === fromIdx) currentStockIndex = dropIdx;
-      else if (fromIdx < currentStockIndex && dropIdx >= currentStockIndex) currentStockIndex--;
-      else if (fromIdx > currentStockIndex && dropIdx <= currentStockIndex) currentStockIndex++;
+  if (_dragState.moved && _dragState.clone) {
+    // 根据幽灵位置确定最终索引
+    const bar = document.getElementById('stockTabBar');
+    const tabs = Array.from(bar.querySelectorAll('.stock-tab'));
+    const dropIdx = tabs.indexOf(_dragState.ghost);
+    const fromIdx = _dragState.fromIdx;
+    // 动画：克隆飞到幽灵位置
+    if (dropIdx >= 0 && _dragState.ghost) {
+      const targetR = _dragState.ghost.getBoundingClientRect();
+      _dragState.clone.style.transition = 'all 0.2s ease';
+      _dragState.clone.style.left = targetR.left + 'px';
+      _dragState.clone.style.top = targetR.top + 'px';
+      _dragState.clone.style.transform = 'scale(1)';
+    }
+    setTimeout(function() {
+      if (_dragState && _dragState.clone) _dragState.clone.remove();
+      if (_dragState && _dragState.ghost) _dragState.ghost.classList.remove('drag-ghost');
+      if (dropIdx >= 0 && dropIdx !== fromIdx) {
+        const item = portfolio.splice(fromIdx, 1)[0];
+        portfolio.splice(dropIdx, 0, item);
+        if (currentStockIndex === fromIdx) currentStockIndex = dropIdx;
+        else if (fromIdx < currentStockIndex && dropIdx >= currentStockIndex) currentStockIndex--;
+        else if (fromIdx > currentStockIndex && dropIdx <= currentStockIndex) currentStockIndex++;
+      }
       buildTabBar();
       saveAll();
-    }
+      _dragState = null;
+    }, 200);
+  } else {
+    if (_dragState.clone) _dragState.clone.remove();
+    if (_dragState.ghost) _dragState.ghost.classList.remove('drag-ghost');
+    _dragState = null;
   }
-  _dragState = null;
 }
 
 // Init on load
