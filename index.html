@@ -1211,11 +1211,10 @@ function holdQtyBounds() { return { min: 100, max: 999999 }; }
 function tQtyBounds() {
   const min = 100;
   let max = 10000;
-  if (currentMode === 'reverse') {
-    const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
-    max = Math.min(10000, Math.floor(holdQty / 100) * 100);
-    if (max < 100) max = 100;
-  }
+  // 正T、倒T统一：操作股数不能超过当前持仓（做T围绕底仓进行）
+  const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
+  max = Math.min(10000, Math.floor(holdQty / 100) * 100);
+  if (max < 100) max = 100;
   return { min, max };
 }
 
@@ -1353,8 +1352,14 @@ function checkHoldQtySufficient() {
     spinBtns.forEach(b => b.disabled = true);
   } else {
     el.disabled = false;
-    el.placeholder = '1000';
     spinBtns.forEach(b => b.disabled = false);
+    // 【钳制】操作股数不能超过持仓（正T/倒T统一）
+    let tQty = parseFloat(el.value) || 0;
+    if (tQty > holdQty) {
+      el.value = Math.floor(holdQty / 100) * 100 + '';
+    }
+    const finalQty = parseFloat(el.value) || holdQty;
+    el.placeholder = finalQty + '';
   }
 }
 
