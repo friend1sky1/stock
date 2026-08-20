@@ -618,8 +618,7 @@ function onOvPointerUp(e) {
       if (_ovDragState && _ovDragState.clone) _ovDragState.clone.remove();
       if (_ovDragState && _ovDragState.ghost) _ovDragState.ghost.classList.remove('drag-ghost');
       if (dropIdx >= 0 && dropIdx !== fromIdx) {
-        // 【关键】先保存当前编辑数据，再重排数组
-        saveAll();
+        // overview 输入直接写 portfolio[idx]，无需先读 form，直接重排
         const item = portfolio.splice(fromIdx, 1)[0];
         portfolio.splice(dropIdx, 0, item);
       }
@@ -805,7 +804,7 @@ function updateDateLabel() {
   }
 }
 
-function saveAll() {
+async function saveAll() {
   const now = new Date();
   const dateStr = now.getFullYear() + '-' +
     String(now.getMonth() + 1).padStart(2, '0') + '-' +
@@ -818,51 +817,65 @@ function saveAll() {
     s.time = timeStr;
   });
 
-  // Save to localStorage
+  // Save to localStorage（同步，立即持久化到本地）
   const toSave = portfolio.map(s => ({
     id: s.id, name: s.name, code: s.code || '', costPrice: s.costPrice, holdQty: s.holdQty,
     price: s.price, date: s.date, time: s.time
   }));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 
-  // Sync to Supabase
-  _syncOverviewToSupabase();
-
-  // Update UI
+  // 更新 UI（先反馈已保存到本地）
   dirty = false;
   const btn = document.getElementById('btnSave');
   btn.disabled = true;
-  btn.textContent = '✓ 已保存';
+  btn.textContent = '⏳ 同步中...';
   btn.classList.add('saved');
   updateDateLabel();
 
-  showToast('已保存到本地 · ' + dateStr + ' ' + timeStr, 'success');
+  // 【关键】立即同步云端，不等防抖
+  const synced = await _syncOverviewToSupabase();
+  if (synced) {
+    btn.textContent = '✓ 已保存';
+    showToast('已保存 · ' + dateStr + ' ' + timeStr, 'success');
+  } else if (_user) {
+    btn.textContent = '⚠️ 同步失败';
+    btn.disabled = false;
+    showToast('本地已存，云端同步失败，请重试', 'error');
+  } else {
+    btn.textContent = '✓ 已保存';
+    showToast('已保存到本地（未登录）', 'success');
+  }
 }
 
-let _overviewSyncTimer = null;
-function _syncOverviewToSupabase() {
-  if (!_user) return;
-  clearTimeout(_overviewSyncTimer);
-  _overviewSyncTimer = setTimeout(async () => {
-    if (!_user) return;
-    try {
-      await _supabase.from('stocks').delete().eq('user_id', _user.id);
-      if (portfolio.length > 0) {
-        const rows = portfolio.map((s, i) => ({
-          user_id: _user.id,
-          name: s.name,
-          code: s.code || '',
-          cost_price: s.costPrice,
-          hold_qty: s.holdQty,
-          open_price: s.price || 0,
-          t_price1: 0, t_qty: 0, t_price2: 0,
-          mode: 'reverse',
-          sort_order: i,
-        }));
-        await _supabase.from('stocks').insert(rows);
-      }
-    } catch(e) { console.error('Overview sync failed:', e); }
-  }, 1000);
+// 返回 true 表示云端同步成功；未登录时返回 null（跳过）
+async function _syncOverviewToSupabase() {
+  if (!_user) return null;
+  // 【安全防护】portfolio 为空时禁止同步，防止误清空云端数据
+  if (!portfolio || portfolio.length === 0) {
+    console.warn('Overview sync aborted: portfolio empty');
+    return false;
+  }
+  try {
+    const rows = portfolio.map((s, i) => ({
+      user_id: _user.id,
+      name: s.name,
+      code: s.code || '',
+      cost_price: s.costPrice,
+      hold_qty: s.holdQty,
+      open_price: s.price || 0,
+      t_price1: 0, t_qty: 0, t_price2: 0,
+      mode: 'reverse',
+      sort_order: i,
+    }));
+    // 先删除旧数据，再写入新数据
+    await _supabase.from('stocks').delete().eq('user_id', _user.id);
+    const { error } = await _supabase.from('stocks').insert(rows);
+    if (error) throw error;
+    return true;
+  } catch(e) {
+    console.error('Overview sync failed:', e);
+    return false;
+  }
 }
 
 function showToast(msg, type) {
