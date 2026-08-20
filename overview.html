@@ -112,8 +112,9 @@ td.edit-cell input.dirty { border-color: var(--gold); background: var(--gold-lig
 /* Drag reorder */
 td.col-no { cursor: grab; user-select: none; -webkit-user-select: none; }
 td.col-no:active { cursor: grabbing; }
-tr.dragging { opacity: 0.35; }
+tr.drag-ghost { opacity: 0.2; }
 tr.drag-over td { border-top: 2.5px solid var(--gold) !important; }
+.drag-row-clone { position: fixed; z-index: 9999; pointer-events: none; opacity: 0.88; box-shadow: 0 6px 24px rgba(0,0,0,0.2); border-radius: 4px; transition: none; }
 
 /* Values */
 td.val-qty { font-weight: 500; color: var(--text); }
@@ -538,7 +539,6 @@ function updateRow(idx) {
 // ──── Row Drag (Pointer Events) ────
 function initOvDrag() {
   const tbody = document.getElementById('tableBody');
-
   tbody.addEventListener('pointerdown', function(e) {
     if (e.button && e.button !== 0) return;
     const td = e.target.closest('td.col-no');
@@ -548,7 +548,7 @@ function initOvDrag() {
     const idx = parseInt(row.dataset.idx);
     if (isNaN(idx)) return;
     e.preventDefault();
-    _ovDragState = { fromIdx: idx, startY: e.clientY, moved: false };
+    _ovDragState = { fromIdx: idx, startY: e.clientY, moved: false, clone: null, ghost: null };
     document.addEventListener('pointermove', onOvPointerMove);
     document.addEventListener('pointerup', onOvPointerUp);
   });
@@ -557,41 +557,80 @@ function initOvDrag() {
 function onOvPointerMove(e) {
   if (!_ovDragState) return;
   const dy = Math.abs(e.clientY - _ovDragState.startY);
-  if (dy > 6) _ovDragState.moved = true;
+  if (dy > 6 && !_ovDragState.moved) {
+    _ovDragState.moved = true;
+    // 创建浮动克隆 + 原行变幽灵
+    const tbody = document.getElementById('tableBody');
+    const rows = tbody.querySelectorAll('tr');
+    const origRow = rows[_ovDragState.fromIdx];
+    if (origRow) {
+      const clone = origRow.cloneNode(true);
+      clone.className = 'drag-row-clone';
+      clone.style.width = origRow.offsetWidth + 'px';
+      const r = origRow.getBoundingClientRect();
+      clone.style.left = r.left + 'px';
+      clone.style.top = r.top + 'px';
+      document.body.appendChild(clone);
+      _ovDragState.clone = clone;
+      origRow.classList.add('drag-ghost');
+      _ovDragState.ghost = origRow;
+    }
+  }
   if (!_ovDragState.moved) return;
+  // 移动克隆
+  if (_ovDragState.clone) {
+    _ovDragState.clone.style.top = (e.clientY - 18) + 'px';
+  }
+  // 找悬停行，移动幽灵到目标位置
   const tbody = document.getElementById('tableBody');
-  const rows = tbody.querySelectorAll('tr');
-  const mouseY = e.clientY;
-  rows.forEach(r => r.classList.remove('drag-over'));
-  rows.forEach((r) => {
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const nonGhost = rows.filter(r => !r.classList.contains('drag-ghost'));
+  let insertBefore = null;
+  for (const r of nonGhost) {
     const rect = r.getBoundingClientRect();
-    if (mouseY >= rect.top && mouseY <= rect.bottom) r.classList.add('drag-over');
-  });
+    if (e.clientY < rect.top + rect.height / 2) { insertBefore = r; break; }
+  }
+  if (_ovDragState.ghost) {
+    if (insertBefore) {
+      tbody.insertBefore(_ovDragState.ghost, insertBefore);
+    } else {
+      tbody.appendChild(_ovDragState.ghost);
+    }
+  }
 }
 
 function onOvPointerUp(e) {
   document.removeEventListener('pointermove', onOvPointerMove);
   document.removeEventListener('pointerup', onOvPointerUp);
   if (!_ovDragState) return;
-  const tbody = document.getElementById('tableBody');
-  const rows = tbody.querySelectorAll('tr');
-
-  if (_ovDragState.moved) {
-    let dropIdx = _ovDragState.fromIdx;
-    rows.forEach((r, i) => {
-      const rect = r.getBoundingClientRect();
-      if (e.clientY >= rect.top && e.clientY <= rect.bottom) dropIdx = i;
-    });
-    rows.forEach(r => r.classList.remove('drag-over'));
-    if (dropIdx !== _ovDragState.fromIdx) {
-      const item = portfolio.splice(_ovDragState.fromIdx, 1)[0];
-      portfolio.splice(dropIdx, 0, item);
+  if (_ovDragState.moved && _ovDragState.clone) {
+    const tbody = document.getElementById('tableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const dropIdx = rows.indexOf(_ovDragState.ghost);
+    const fromIdx = _ovDragState.fromIdx;
+    // 动画：克隆飞到幽灵位置
+    if (dropIdx >= 0 && _ovDragState.ghost) {
+      const targetR = _ovDragState.ghost.getBoundingClientRect();
+      _ovDragState.clone.style.transition = 'all 0.2s ease';
+      _ovDragState.clone.style.top = targetR.top + 'px';
+    }
+    setTimeout(function() {
+      if (_ovDragState && _ovDragState.clone) _ovDragState.clone.remove();
+      if (_ovDragState && _ovDragState.ghost) _ovDragState.ghost.classList.remove('drag-ghost');
+      if (dropIdx >= 0 && dropIdx !== fromIdx) {
+        const item = portfolio.splice(fromIdx, 1)[0];
+        portfolio.splice(dropIdx, 0, item);
+      }
       renderTable();
       dirty = true;
       saveAll();
-    }
+      _ovDragState = null;
+    }, 200);
+  } else {
+    if (_ovDragState.clone) _ovDragState.clone.remove();
+    if (_ovDragState.ghost) _ovDragState.ghost.classList.remove('drag-ghost');
+    _ovDragState = null;
   }
-  _ovDragState = null;
 }
 
 
