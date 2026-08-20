@@ -1001,6 +1001,8 @@ function onPointerUp(e) {
       if (_dragState && _dragState.clone) _dragState.clone.remove();
       if (_dragState && _dragState.ghost) _dragState.ghost.classList.remove('drag-ghost');
       if (dropIdx >= 0 && dropIdx !== fromIdx) {
+        // 【关键】先保存 form 数据到原始位置，再重排数组
+        saveAll();
         const item = portfolio.splice(fromIdx, 1)[0];
         portfolio.splice(dropIdx, 0, item);
         if (currentStockIndex === fromIdx) currentStockIndex = dropIdx;
@@ -1694,13 +1696,19 @@ _syncToSupabase = function() {
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(async () => {
     if (!_user) return;
+    // 【安全防护】portfolio 为空时禁止同步，防止误清空云端数据
+    if (!portfolio || portfolio.length === 0) {
+      console.warn('Sync aborted: portfolio empty, refusing to wipe cloud data');
+      return;
+    }
     try {
-      await _supabase.from('stocks').delete().eq('user_id', _user.id);
       // 按名称去重，保留最后一个（最新的）
       const seen = new Map();
       portfolio.forEach(s => { seen.set(s.name, s); });
       const deduped = Array.from(seen.values());
-      portfolio = deduped; // 更新本地数组
+      portfolio = deduped;
+      // 先删除旧数据，再全量写入
+      await _supabase.from('stocks').delete().eq('user_id', _user.id);
       if (deduped.length > 0) {
         const rows = deduped.map((s, i) => ({
           user_id: _user.id,
