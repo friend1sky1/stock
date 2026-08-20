@@ -618,6 +618,8 @@ function onOvPointerUp(e) {
       if (_ovDragState && _ovDragState.clone) _ovDragState.clone.remove();
       if (_ovDragState && _ovDragState.ghost) _ovDragState.ghost.classList.remove('drag-ghost');
       if (dropIdx >= 0 && dropIdx !== fromIdx) {
+        // 【关键】先保存当前编辑数据，再重排数组
+        saveAll();
         const item = portfolio.splice(fromIdx, 1)[0];
         portfolio.splice(dropIdx, 0, item);
       }
