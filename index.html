@@ -420,14 +420,30 @@ const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 </script>
 
-<!-- Login Overlay -->
-<div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+<!-- 欢迎引导弹窗（一次性，仅游客首次）-->
+<div id="welcomeOverlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;">
+  <div style="width:88%;max-width:340px;background:var(--card);border-radius:16px;padding:28px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
+    <div style="font-size:2.2rem;margin-bottom:12px;">👋</div>
+    <h2 style="font-family:'Noto Serif SC',serif;font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:10px;letter-spacing:2px;">欢迎免费体验</h2>
+    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-bottom:8px;">你现在的数据只保存在<b>当前这台设备</b>上</p>
+    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-bottom:20px;">注册账号后，数据会<b>云端保存、跨设备同步</b></p>
+    <button onclick="closeWelcome()" style="width:100%;padding:12px;border:none;border-radius:12px;background:var(--profit);color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;">知道了，继续本机使用</button>
+  </div>
+</div>
+
+<!-- 登录/注册弹窗 -->
+<div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;">
   <div style="width:100%;max-width:360px;padding:20px;">
-    <div style="text-align:center;margin-bottom:24px;">
+    <div style="text-align:center;margin-bottom:20px;">
       <h1 style="font-family:'Noto Serif SC',serif;font-size:1.5rem;font-weight:700;color:var(--profit);letter-spacing:3px;margin-bottom:6px;">做T计算器</h1>
-      <p style="font-size:0.82rem;color:var(--text-secondary);">登录后数据云端同步</p>
+      <p id="authSubtitle" style="font-size:0.82rem;color:var(--text-secondary);">登录后数据云端同步</p>
     </div>
-    <div id="authLoginView">
+    <div id="authFormView">
+      <div id="authUsernameRow" style="margin-bottom:12px;display:none;">
+        <input id="authUsername" type="text" placeholder="用户名（全局唯一）" maxlength="20" autocomplete="username"
+          style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
       <div style="margin-bottom:12px;">
         <input id="authEmail" type="email" placeholder="邮箱" autocomplete="email"
           style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
@@ -437,29 +453,46 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
         <input id="authPassword" type="password" placeholder="密码" autocomplete="current-password"
           style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'"
-          onkeydown="if(event.key==='Enter')doLogin()">
+          onkeydown="if(event.key==='Enter')authSubmit()">
       </div>
-      <button onclick="doLogin()" id="loginBtn"
+      <button onclick="authSubmit()" id="authSubmitBtn"
         style="width:100%;padding:12px;border:none;border-radius:var(--radius);background:var(--profit);color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:10px;">
         登录
       </button>
-      <button onclick="doSignup()" id="signupBtn"
-        style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--text-secondary);font-size:0.85rem;cursor:pointer;margin-bottom:10px;">
-        注册新账号
-      </button>
-      <div style="text-align:center;margin-top:12px;">
-        <a href="#" onclick="doMagicLink();return false;" style="font-size:0.8rem;color:var(--text-muted);text-decoration:underline;">用魔法链接登录（免密码）</a>
+      <div style="text-align:center;font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">
+        <span id="authSwitchHint">还没有账号？</span>
+        <a href="#" onclick="toggleAuthMode();return false;" id="authSwitchLink" style="color:var(--profit);text-decoration:none;font-weight:600;">注册</a>
+      </div>
+      <div style="text-align:center;">
+        <a href="#" onclick="closeAuth();return false;" style="font-size:0.82rem;color:var(--text-muted);text-decoration:underline;">暂不登录，继续游客模式</a>
       </div>
     </div>
     <div id="authMsg" style="margin-top:12px;font-size:0.82rem;text-align:center;min-height:20px;"></div>
   </div>
 </div>
 
+<!-- 用户名设置弹窗（游客改名 / 注册用户改名）-->
+<div id="usernameOverlay" style="position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;">
+  <div style="width:88%;max-width:340px;background:var(--card);border-radius:16px;padding:26px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
+    <h2 style="font-family:'Noto Serif SC',serif;font-size:1.15rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:2px;">设置用户名</h2>
+    <p id="usernameHint" style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:16px;">给自己起个名字，方便识别</p>
+    <input id="usernameInput" type="text" placeholder="输入用户名" maxlength="20"
+      style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:0.95rem;background:#fff;color:var(--text);outline:none;box-sizing:border-box;text-align:center;"
+      onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'"
+      onkeydown="if(event.key==='Enter')saveUsername()">
+    <div id="usernameMsg" style="margin-top:10px;font-size:0.78rem;text-align:center;min-height:16px;"></div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button onclick="closeUsernameOverlay()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:12px;background:var(--card);color:var(--text-secondary);font-size:0.9rem;cursor:pointer;">取消</button>
+      <button onclick="saveUsername()" style="flex:1;padding:11px;border:none;border-radius:12px;background:var(--profit);color:#fff;font-size:0.9rem;font-weight:600;cursor:pointer;">保存</button>
+    </div>
+  </div>
+</div>
+
 <div class="app" style="display:none;">
   <div class="header" style="position:relative;">
     <h1>做T计算器</h1>
-    <div id="userEmail" style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;"></div>
-    <a href="#" onclick="doLogout();return false;" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">退出</a>
+    <div id="userEmail" style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;cursor:pointer;" onclick="openUsernameOverlay()" title="点击修改用户名"></div>
+    <a href="#" onclick="headerAuthAction();return false;" id="headerAuthLink" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">登录/注册</a>
   </div>
 
   <!-- Stock Tab Bar -->
@@ -633,8 +666,13 @@ let _user = null;  // 当前登录用户
 
 // ========== AUTH FUNCTIONS ==========
 const AUTH_KEY = 'tcalc_user_v1';
+const GUEST_USERNAME_KEY = 'tcalc_guest_username_v1';
+const WELCOME_SHOWN_KEY = 'tcalc_welcome_shown_v1';
+let _authMode = 'login';  // 'login' | 'signup'
 
-function showAuth() {
+function showAuth(mode) {
+  _authMode = mode || 'login';
+  syncAuthModeUI();
   document.getElementById('authOverlay').style.display = 'flex';
   document.querySelector('.app').style.display = 'none';
 }
@@ -642,67 +680,175 @@ function hideAuth() {
   document.getElementById('authOverlay').style.display = 'none';
   document.querySelector('.app').style.display = 'flex';
 }
+function closeAuth() {
+  // 关闭登录弹窗，回到游客模式
+  hideAuth();
+  updateUserDisplay();
+}
+function syncAuthModeUI() {
+  const isSignup = (_authMode === 'signup');
+  document.getElementById('authUsernameRow').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('authSubmitBtn').textContent = isSignup ? '注册' : '登录';
+  document.getElementById('authSubtitle').textContent = isSignup ? '注册后数据云端同步' : '登录后数据云端同步';
+  document.getElementById('authSwitchHint').textContent = isSignup ? '已有账号？' : '还没有账号？';
+  document.getElementById('authSwitchLink').textContent = isSignup ? '登录' : '注册';
+}
+function toggleAuthMode() {
+  _authMode = (_authMode === 'login') ? 'signup' : 'login';
+  setAuthMsg('', false);
+  syncAuthModeUI();
+}
 function setAuthMsg(msg, isError) {
   const el = document.getElementById('authMsg');
   el.textContent = msg;
   el.style.color = isError ? 'var(--profit)' : 'var(--loss, #2D8A4E)';
 }
 
+function authSubmit() {
+  if (_authMode === 'signup') doSignup();
+  else doLogin();
+}
+
+// 检查用户名是否已被占用（全局唯一）
+async function isUsernameTaken(username) {
+  if (!_supabase) return false;
+  const { data, error } = await _supabase
+    .from('user_profiles')
+    .select('username')
+    .ilike('username', username);
+  if (error) { console.error('username check error:', error); return false; }
+  return (data && data.length > 0);
+}
+
 async function doLogin() {
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   if (!email || !password) { setAuthMsg('请输入邮箱和密码', true); return; }
-  document.getElementById('loginBtn').disabled = true;
+  document.getElementById('authSubmitBtn').disabled = true;
   setAuthMsg('登录中...', false);
   const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('authSubmitBtn').disabled = false;
   if (error) { setAuthMsg(error.message, true); return; }
   _user = data.user;
   localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
   hideAuth();
-  await initApp();
+  await afterLoginSuccess();
 }
 
 async function doSignup() {
+  const username = document.getElementById('authUsername').value.trim();
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
-  if (!email || !password) { setAuthMsg('请输入邮箱和密码', true); return; }
+  if (!username || !email || !password) { setAuthMsg('请填写用户名、邮箱和密码', true); return; }
+  if (username.length < 2) { setAuthMsg('用户名至少2个字符', true); return; }
   if (password.length < 6) { setAuthMsg('密码至少6位', true); return; }
-  document.getElementById('signupBtn').disabled = true;
+  document.getElementById('authSubmitBtn').disabled = true;
   setAuthMsg('注册中...', false);
+
+  // 1. 先检查用户名唯一性
+  const taken = await isUsernameTaken(username);
+  if (taken) {
+    document.getElementById('authSubmitBtn').disabled = false;
+    setAuthMsg('该用户名已被使用，请换一个', true);
+    return;
+  }
+
+  // 2. 注册（邮箱+密码）
   const { data, error } = await _supabase.auth.signUp({
     email, password,
     options: { emailRedirectTo: 'https://t.ai-zhihui.cn' }
   });
-  document.getElementById('signupBtn').disabled = false;
+  document.getElementById('authSubmitBtn').disabled = false;
   if (error) { setAuthMsg(error.message, true); return; }
+
   if (data.user && !data.session) {
+    // 需要邮箱确认
     setAuthMsg('注册成功！请查收邮箱确认链接，然后登录。', false);
-  } else {
-    _user = data.user;
-    localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
-    hideAuth();
-    await initApp();
+    return;
   }
+
+  // 3. 注册成功（有 session），写 profile
+  _user = data.user;
+  const { error: profErr } = await _supabase.from('user_profiles').insert({
+    user_id: _user.id, username: username, email: email
+  });
+  if (profErr) {
+    console.error('profile insert error:', profErr);
+    // 用户名冲突（并发），提示
+    if (profErr.code === '23505') {
+      setAuthMsg('该用户名已被使用，请换一个', true);
+      return;
+    }
+  }
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
+  // 清除游客用户名
+  localStorage.removeItem(GUEST_USERNAME_KEY);
+  hideAuth();
+  await afterLoginSuccess();
 }
 
-async function doMagicLink() {
-  const email = document.getElementById('authEmail').value.trim();
-  if (!email) { setAuthMsg('请输入邮箱', true); return; }
-  setAuthMsg('发送中...', false);
-  const { error } = await _supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: 'https://t.ai-zhihui.cn' }
-  });
-  if (error) { setAuthMsg(error.message, true); return; }
-  setAuthMsg('✅ 登录链接已发送到邮箱，请点击链接登录', false);
+// 登录/注册成功后的统一处理：迁移游客本地数据
+async function afterLoginSuccess() {
+  // 迁移：将游客本地数据导入新账号
+  const guestPortfolio = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
+  if (guestPortfolio) {
+    try {
+      const localData = JSON.parse(guestPortfolio);
+      if (Array.isArray(localData) && localData.length > 0) {
+        await migrateGuestData(localData);
+      }
+    } catch(e) {}
+  }
+  updateUserDisplay();
+  await initApp();
+}
+
+// 把游客本地持仓导入新账号（作为初始数据）
+async function migrateGuestData(localPortfolio) {
+  if (!_user) return;
+  try {
+    // 仅当云端为空时才导入（避免覆盖已有数据）
+    const { data: existing } = await _supabase.from('stocks')
+      .select('id').eq('user_id', _user.id).limit(1);
+    if (existing && existing.length > 0) return; // 云端已有数据，不覆盖
+
+    const rows = localPortfolio.map((s, i) => ({
+      user_id: _user.id,
+      name: s.name,
+      code: s.code || '',
+      cost_price: s.costPrice,
+      hold_qty: s.holdQty,
+      open_price: s.openPrice,
+      t_price1: s.tPrice1,
+      t_qty: s.tQty,
+      t_price2: s.tPrice2,
+      mode: s.mode || 'reverse',
+      sort_order: i,
+    }));
+    await _supabase.from('stocks').insert(rows);
+  } catch(e) { console.error('migrate guest data failed:', e); }
 }
 
 async function doLogout() {
   await _supabase.auth.signOut();
   _user = null;
   localStorage.removeItem(AUTH_KEY);
-  showAuth();
+  // 切回游客模式
+  hideAuth();
+  updateUserDisplay();
+  await initApp();
+}
+
+function headerAuthAction() {
+  if (_user) {
+    // 已登录 → 退出
+    if (confirm('确定退出登录？退出后回到游客模式，本机数据仍保留。')) {
+      doLogout();
+    }
+  } else {
+    // 游客 → 打开登录/注册
+    showAuth('login');
+  }
 }
 
 async function checkSession() {
@@ -712,8 +858,129 @@ async function checkSession() {
     hideAuth();
     await initApp();
   } else {
-    showAuth();
+    // 游客模式（不弹登录墙）
+    _user = null;
+    hideAuth();
+    updateUserDisplay();
+    await initApp();
+    // 首次游客 → 弹欢迎引导
+    maybeShowWelcome();
   }
+}
+
+// ========== 用户名管理 ==========
+function getGuestUsername() {
+  return localStorage.getItem(GUEST_USERNAME_KEY) || '';
+}
+function setGuestUsername(name) {
+  if (name) localStorage.setItem(GUEST_USERNAME_KEY, name);
+  else localStorage.removeItem(GUEST_USERNAME_KEY);
+}
+
+// 更新顶部用户显示
+function updateUserDisplay() {
+  const el = document.getElementById('userEmail');
+  const link = document.getElementById('headerAuthLink');
+  if (_user) {
+    // 登录用户：显示用户名（优先 profile，次 email）
+    let label = _user.email || '已登录';
+    getProfileUsername().then(uname => {
+      if (uname) label = uname;
+      el.textContent = label + '（点击改名）';
+    });
+    link.textContent = '退出';
+  } else {
+    const guest = getGuestUsername();
+    el.textContent = guest ? ('游客·' + guest) : '游客模式';
+    link.textContent = '登录/注册';
+  }
+}
+
+// 获取注册用户的用户名（从 user_profiles）
+async function getProfileUsername() {
+  if (!_user || !_supabase) return '';
+  const { data, error } = await _supabase.from('user_profiles')
+    .select('username').eq('user_id', _user.id).maybeSingle();
+  if (error || !data) return '';
+  return data.username || '';
+}
+
+function openUsernameOverlay() {
+  const input = document.getElementById('usernameInput');
+  const hint = document.getElementById('usernameHint');
+  document.getElementById('usernameMsg').textContent = '';
+  if (_user) {
+    hint.textContent = '修改你的用户名';
+    getProfileUsername().then(uname => { input.value = uname || ''; });
+  } else {
+    hint.textContent = '给自己起个名字，方便识别';
+    input.value = getGuestUsername();
+  }
+  document.getElementById('usernameOverlay').style.display = 'flex';
+  setTimeout(() => input.focus(), 50);
+}
+function closeUsernameOverlay() {
+  document.getElementById('usernameOverlay').style.display = 'none';
+}
+
+async function saveUsername() {
+  const input = document.getElementById('usernameInput');
+  const username = input.value.trim();
+  const msgEl = document.getElementById('usernameMsg');
+  msgEl.textContent = '';
+  if (username.length < 2) { msgEl.textContent = '用户名至少2个字符'; msgEl.style.color = 'var(--profit)'; return; }
+
+  if (_user) {
+    // 注册用户改名：检测唯一性
+    const taken = await isUsernameTaken(username);
+    if (taken) {
+      msgEl.textContent = '该用户名已被使用，请换一个';
+      msgEl.style.color = 'var(--profit)';
+      return;
+    }
+    const { data, error } = await _supabase.from('user_profiles')
+      .select('id').eq('user_id', _user.id).maybeSingle();
+    if (error) { msgEl.textContent = '保存失败，请重试'; msgEl.style.color = 'var(--profit)'; return; }
+    if (data) {
+      const { error: upErr } = await _supabase.from('user_profiles')
+        .update({ username }).eq('user_id', _user.id);
+      if (upErr) {
+        msgEl.textContent = (upErr.code === '23505') ? '该用户名已被使用' : '保存失败';
+        msgEl.style.color = 'var(--profit)';
+        return;
+      }
+    } else {
+      const { error: inErr } = await _supabase.from('user_profiles').insert({
+        user_id: _user.id, username, email: _user.email
+      });
+      if (inErr) {
+        msgEl.textContent = (inErr.code === '23505') ? '该用户名已被使用' : '保存失败';
+        msgEl.style.color = 'var(--profit)';
+        return;
+      }
+    }
+  } else {
+    // 游客改名：本机，不检测
+    setGuestUsername(username);
+  }
+
+  closeUsernameOverlay();
+  updateUserDisplay();
+  if (_user) {
+    // 注册用户改名后，刷新显示
+    const el = document.getElementById('userEmail');
+    el.textContent = username + '（点击改名）';
+  }
+}
+
+// ========== 欢迎引导 ==========
+function maybeShowWelcome() {
+  if (localStorage.getItem(WELCOME_SHOWN_KEY)) return;
+  localStorage.setItem(WELCOME_SHOWN_KEY, '1');
+  document.getElementById('welcomeOverlay').style.display = 'flex';
+}
+function closeWelcome() {
+  document.getElementById('welcomeOverlay').style.display = 'none';
 }
 
 // ========== DATA ENGINE ==========
@@ -1719,10 +1986,8 @@ function initApp() {
   buildTabBar();
   loadStockIntoForm();
   updateSnapshot();
-  // 显示用户邮箱
-  if (_user && _user.email) {
-    document.getElementById('userEmail').textContent = _user.email;
-  }
+  // 显示用户信息
+  updateUserDisplay();
   // 异步从云端加载最新数据
   loadDataAsync().then(() => {
     // 云端加载完成后，如果还是空的，再尝试localStorage（兼容离线）
