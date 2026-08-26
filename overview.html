@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="stock_names.js"></script>
 <style>
 :root {
   --profit:      #E60012;
@@ -414,6 +415,8 @@ async function initApp() {
     localStorage.removeItem(STORAGE_KEY);
   }
   renderTable();
+  // 按名称从全量表补全缺失的 code（并回写数据库）
+  backfillMissingCodes();
   if (_user && _user.email) {
     document.getElementById('dateLabel').textContent = '数据更新：-- · ' + _user.email;
   }
@@ -699,12 +702,53 @@ const STOCK_CODE_MAP = {
   '京东方A': 'sz000725',
 };
 
+// 名称 → 全量代码反向索引（懒构建）
+let _nameToCode = null;
+function getNameToCode() {
+  if (_nameToCode) return _nameToCode;
+  const dict = (typeof window.STOCK_NAMES !== 'undefined') ? window.STOCK_NAMES : {};
+  _nameToCode = {};
+  for (const code in dict) {
+    const name = dict[code];
+    if (name && !_nameToCode[name]) _nameToCode[name] = code;
+  }
+  return _nameToCode;
+}
+
 function getStockCode(name) {
-  // 优先用数据库里的 code
+  if (!name) return '';
+  // 1. 优先用数据库里的 code
   const s = portfolio.find(p => p.name === name);
   if (s && s.code) return s.code;
-  // 其次用静态映射
+  // 2. 用全量映射表按名称反查代码
+  const nt = getNameToCode();
+  if (nt[name]) return nt[name];
+  // 3. 硬编码兑底
   return STOCK_CODE_MAP[name] || '';
+}
+
+// 补全并回写缺失的 code（按名称从全量表反查）
+async function backfillMissingCodes() {
+  if (!_user) return;
+  let changed = false;
+  const nt = getNameToCode();
+  portfolio.forEach(s => {
+    if (!s.code && s.name && nt[s.name]) {
+      s.code = nt[s.name];
+      changed = true;
+    }
+  });
+  if (changed) {
+    // 回写数据库（逐条 upsert code）
+    try {
+      for (const s of portfolio) {
+        if (s.id && s.code) {
+          await _supabase.from('stocks').update({ code: s.code }).eq('id', s.id);
+        }
+      }
+    } catch(e) { console.error('backfill code failed:', e); }
+  }
+  return changed;
 }
 
 // ========== 实时行情获取 ==========
