@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="stock_names.js"></script>
 <style>
 :root {
   --profit:      #E60012;
@@ -601,6 +602,10 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
   <div class="modal-box">
     <h3 id="modalTitle">新增持仓</h3>
     <div class="field">
+      <label>股票代码</label>
+      <input type="text" id="modalCode" placeholder="如：600316 / 000725" maxlength="6" inputmode="numeric">
+    </div>
+    <div class="field">
       <label>股票名称</label>
       <input type="text" id="modalName" placeholder="如：云铝股份" maxlength="8">
     </div>
@@ -758,6 +763,7 @@ function _syncToSupabase() {
         const rows = portfolio.map((s, i) => ({
           user_id: _user.id,
           name: s.name,
+          code: s.code || '',
           cost_price: s.costPrice,
           hold_qty: s.holdQty,
           open_price: s.openPrice,
@@ -793,6 +799,7 @@ async function loadDataFromCloud() {
     portfolio = deduped.map(row => ({
       id: row.id,
       name: row.name,
+      code: row.code || '',
       costPrice: parseFloat(row.cost_price) || 0,
       holdQty: parseInt(row.hold_qty) || 0,
       openPrice: parseFloat(row.open_price) || 10,
@@ -1068,29 +1075,63 @@ function loadStockIntoForm() {
 function openAddModal() {
   editingStockId = null;
   document.getElementById('modalTitle').textContent = '新增持仓';
+  document.getElementById('modalCode').value = '';
   document.getElementById('modalName').value = '';
   document.getElementById('modalCost').value = '';
   document.getElementById('modalQty').value = '';
   document.getElementById('editModal').classList.add('show');
-  setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
+  setTimeout(function(){ document.getElementById('modalCode').focus(); }, 100);
 }
 
 function openEditModal(idx, name, cost, qty) {
-  editingStockId = portfolio[idx].id;
+  const s = portfolio[idx];
+  editingStockId = s.id;
   document.getElementById('modalTitle').textContent = '编辑持仓';
+  document.getElementById('modalCode').value = s.code || '';
   document.getElementById('modalName').value = name;
   document.getElementById('modalCost').value = cost;
   document.getElementById('modalQty').value = qty;
   document.getElementById('editModal').classList.add('show');
-  setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
+  setTimeout(function(){ document.getElementById('modalCode').focus(); }, 100);
 }
 
 function closeModal() {
   document.getElementById('editModal').classList.remove('show');
 }
 
+// 根据6位数字代码自动补交易所前缀
+function withExchangePrefix(code) {
+  code = String(code).replace(/\s/g, '');
+  if (/^(sh|sz|bj)/i.test(code)) return code.toLowerCase();
+  // 前缀判断，与抓取规则一致
+  if (/^(60|68)/.test(code)) return 'sh' + code;
+  if (/^(00|30|20)/.test(code)) return 'sz' + code;
+  if (/^(920|43|83|87|88|4|8)/.test(code)) return 'bj' + code;
+  if (/^9/.test(code)) return 'sh' + code;
+  return 'sh' + code;
+}
+
+// 根据代码自动匹配名称（若名称未手填）
+function autoFillNameByCode(codeRaw) {
+  const nameInput = document.getElementById('modalName');
+  if (nameInput.dataset.manual === 'true') return; // 用户已手动改过名称
+  const code = String(codeRaw).trim().replace(/^(sh|sz|bj)/i, '').replace(/\s/g, '');
+  if (!/^\d{6}$/.test(code)) return;
+  const full = withExchangePrefix(code);
+  const dict = (typeof window.STOCK_NAMES !== 'undefined') ? window.STOCK_NAMES : {};
+  if (dict[full]) {
+    nameInput.value = dict[full];
+    nameInput.dataset.auto = 'true';
+  } else {
+    // 查不到则不覆盖用户已输入内容，但清空 auto 标记（避免残留旧名称）
+    if (nameInput.dataset.auto === 'true') nameInput.value = '';
+    nameInput.dataset.auto = 'false';
+  }
+}
+
 function saveStock() {
   const name = document.getElementById('modalName').value.trim();
+  const codeRaw = document.getElementById('modalCode').value.trim();
   const cost = parseFloat(document.getElementById('modalCost').value);
   const qty = parseInt(document.getElementById('modalQty').value, 10);
 
@@ -1098,11 +1139,24 @@ function saveStock() {
   if (isNaN(cost) || cost <= 0) { alert('请输入有效的成本价'); return; }
   if (isNaN(qty) || qty < 100) { alert('持仓数量至少100股'); return; }
 
+  // 规范化代码：去掉 sh/sz/bj 前缀和空格，只保留6位数字
+  let code = '';
+  if (codeRaw) {
+    code = codeRaw.toUpperCase().replace(/^(SH|SZ|BJ)/, '').replace(/\s/g, '');
+    if (!/^\d{6}$/.test(code)) {
+      alert('股票代码格式有误，请输入6位数字代码');
+      return;
+    }
+    // 自动补充交易所前缀
+    code = withExchangePrefix(code);
+  }
+
   if (editingStockId) {
     // Edit existing
     const idx = portfolio.findIndex(s => s.id === editingStockId);
     if (idx >= 0) {
       portfolio[idx].name = name;
+      portfolio[idx].code = code;
       portfolio[idx].costPrice = cost;
       portfolio[idx].holdQty = qty;
     }
@@ -1110,7 +1164,7 @@ function saveStock() {
     // Add new
     const id = 's' + Date.now();
     portfolio.push({
-      id, name,
+      id, name, code,
       costPrice: cost, holdQty: qty,
       mode: 'reverse', openPrice: cost, tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost
     });
@@ -1151,16 +1205,6 @@ document.getElementById('posSnapshot').addEventListener('dblclick', function() {
 });
 
 // Long-press tabs to enter edit mode — now handled by unified touch gesture (initTabGesture)
-
-function openEditModal(idx, name, cost, qty) {
-  editingStockId = portfolio[idx].id;
-  document.getElementById('modalTitle').textContent = '编辑持仓';
-  document.getElementById('modalName').value = name;
-  document.getElementById('modalCost').value = cost;
-  document.getElementById('modalQty').value = qty;
-  document.getElementById('editModal').classList.add('show');
-  setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
-}
 
 // 删除按钮的 click 委托已统一到 initTabDrag 中，避免重复绑定
 
@@ -1744,6 +1788,22 @@ _syncToSupabase = function() {
     return;
   }
   await checkSession();
+})();
+
+// ===== 股票代码↔名称联动 =====
+(function() {
+  const codeInput = document.getElementById('modalCode');
+  const nameInput = document.getElementById('modalName');
+  if (!codeInput) return;
+  // 输入/粘贴代码时自动匹配名称
+  codeInput.addEventListener('input', function() {
+    nameInput.dataset.manual = 'false';
+    autoFillNameByCode(codeInput.value);
+  });
+  // 用户手动改动名称时，停止自动覆盖
+  nameInput.addEventListener('input', function() {
+    nameInput.dataset.manual = 'true';
+  });
 })();
 </script>
 </body>
