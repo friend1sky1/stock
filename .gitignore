@@ -1,0 +1,5 @@
+# 本地临时脚本，不提交
+fetch_stocks.py
+clean_stocks.py
+upload.py
+*.bak
