@@ -919,7 +919,7 @@ function openUsernameOverlay() {
   const hint = document.getElementById('usernameHint');
   document.getElementById('usernameMsg').textContent = '';
   if (_user) {
-    hint.textContent = '修改你的用户名';
+    hint.textContent = '修改您的用户名';
     getProfileUsername().then(uname => { input.value = uname || ''; });
   } else {
     hint.textContent = '给自己起个名字，更方便';
