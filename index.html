@@ -469,7 +469,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
         <a href="#" onclick="toggleAuthMode();return false;" id="authSwitchLink" style="color:var(--profit);text-decoration:none;font-weight:600;">注册</a>
       </div>
       <div style="text-align:center;">
-        <a href="#" onclick="closeAuth();return false;" style="font-size:0.82rem;color:var(--text-muted);text-decoration:underline;">暂不登录，继续游客模式</a>
+        <a href="#" onclick="closeAuth();return false;" style="font-size:0.82rem;color:var(--text-muted);text-decoration:underline;">暂不登录，以访客身份继续</a>
       </div>
     </div>
     <div id="authMsg" style="margin-top:12px;font-size:0.82rem;text-align:center;min-height:20px;"></div>
@@ -732,7 +732,7 @@ async function isUsernameTaken(username) {
 async function doLogin() {
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
-  if (!email || !password) { setAuthMsg('请输入邮箱和密码', true); return; }
+  if (!email || !password) { setAuthMsg('请输入注册邮箱，并设置登录密码', true); return; }
   document.getElementById('authSubmitBtn').disabled = true;
   setAuthMsg('登录中...', false);
   const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
@@ -851,7 +851,7 @@ async function doLogout() {
 function headerAuthAction() {
   if (_user) {
     // 已登录 → 退出
-    if (confirm('确定退出登录？退出后回到游客模式，本机数据仍保留。')) {
+    if (confirm('确定退出登录？退出后回到未登录状态，本机数据仍保留。')) {
       doLogout();
     }
   } else {
@@ -900,7 +900,7 @@ function updateUserDisplay() {
     link.textContent = '退出';
   } else {
     const guest = getGuestUsername();
-    el.textContent = guest ? ('游客·' + guest) : '游客模式';
+    el.textContent = guest ? guest : '未登录';
     link.textContent = '登录/注册';
   }
 }
