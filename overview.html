@@ -43,7 +43,7 @@ html, body {
 .app {
   display: flex; flex-direction: column;
   min-height: 100vh; min-height: 100dvh;
-  max-width: 540px; margin: 0 auto;
+  max-width: 570px; margin: 0 auto;
   padding: 6px 14px 12px;
 }
 
@@ -83,14 +83,14 @@ table.overview tbody td {
 table.overview tbody tr:last-child td { border-bottom: none; }
 
 /* Column widths */
-th.col-no  { width: 26px; }
-th.col-name { width: 60px; }
-th.col-qty { width: 58px; }
-th.col-cost { width: 68px; }
-th.col-price { width: 66px; }
-th.col-mkt  { width: 70px; }
-th.col-pl   { width: 70px; }
-th.col-pct  { width: 58px; }
+th.col-no  { width: 30px; }
+th.col-name { width: 76px; }
+th.col-qty { width: 70px; }
+th.col-cost { width: 70px; }
+th.col-price { width: 68px; }
+th.col-mkt  { width: 78px; }
+th.col-pl   { width: 86px; }
+th.col-pct  { width: 64px; }
 
 /* Editable cells (qty / cost / price) */
 td.edit-cell { padding: 2px 2px; }
@@ -465,7 +465,7 @@ function renderTable() {
 
     html += '<tr data-idx="' + i + '">';
     html += '<td class="col-no" style="color:var(--text-muted)">' + (i + 1) + '</td>';
-    html += '<td class="col-name" style="font-weight:700;white-space:nowrap">' + s.name + '</td>';
+    html += '<td class="col-name" style="font-weight:700;white-space:nowrap;cursor:pointer;user-select:text;-webkit-user-select:text;" title="双击复制名称">' + s.name + '</td>';
     // 持仓输入
     html += '<td class="edit-cell"><input type="text" inputmode="numeric" id="qty_' + i + '"'
       + ' placeholder="数量" value="' + (r.qtyOk ? s.holdQty : '') + '"'
@@ -539,6 +539,37 @@ function updateRow(idx) {
 }
 
 // ========== DRAG REORDER (序号列) ==========
+// ──── 双击名称复制到剪贴板 ────
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch(e) {}
+  // 兑底：旧方案
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return true;
+  } catch(e) { return false; }
+}
+
+function initNameCopy() {
+  const tbody = document.getElementById('tableBody');
+  tbody.addEventListener('dblclick', async function(e) {
+    const td = e.target.closest('td.col-name');
+    if (!td) return;
+    const name = (td.textContent || '').trim();
+    if (!name) return;
+    const ok = await copyText(name);
+    showToast(ok ? '已复制：' + name : '复制失败', ok ? 'success' : 'error');
+  });
+}
+
 // ──── Row Drag (Pointer Events) ────
 function initOvDrag() {
   const tbody = document.getElementById('tableBody');
@@ -939,6 +970,7 @@ function showToast(msg, type) {
   }
   await checkSession();
   initOvDrag();
+  initNameCopy();
   // 一键恢复持仓数据
   if (window.location.search.includes('restore=true') && _user) {
     const ok = confirm('确认恢复小雨的3只持仓数据？\n\n洪都航空 30.4028/4000\n维远股份 15.5713/6000\n京东方A 8.6212/4000');
