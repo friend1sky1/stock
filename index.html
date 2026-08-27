@@ -61,13 +61,17 @@ html, body {
 
 /* ──── Stock Tab Bar ──── */
 .stock-tab-bar {
-  flex-shrink: 0; display: flex; gap: 6px;
-  margin-bottom: 6px; overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex-shrink: 0; display: flex; gap: 6px; align-items: center;
+  margin-bottom: 6px;
   padding-bottom: 2px;
 }
-.stock-tab-bar::-webkit-scrollbar { display: none; }
+.stock-tab-scroll {
+  flex: 1 1 auto; display: flex; gap: 6px; align-items: center;
+  overflow-x: auto; min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.stock-tab-scroll::-webkit-scrollbar { display: none; }
 .stock-tab {
   flex-shrink: 0; padding: 6px 14px;
   border-radius: 20px; border: 1.5px solid var(--border);
@@ -91,12 +95,13 @@ html, body {
 .stock-tab.drag-ghost { opacity: 0.25; min-width: 0; width: 0; padding: 0; margin: 0; border-width: 0; overflow: hidden; transition: all 0.25s ease; }
 .drag-clone { position: fixed; z-index: 9999; pointer-events: none; opacity: 0.9; transform: scale(1.06); box-shadow: 0 6px 20px rgba(0,0,0,0.2); border-radius: 20px; transition: none; }
 .add-stock-btn {
-  flex-shrink: 0; width: 36px; height: 36px;
+  flex: 0 0 auto; width: 36px; height: 36px;
   border-radius: 50%; border: 1.5px dashed var(--border);
-  background: transparent; font-size: 1.1rem; color: var(--text-muted);
+  background: var(--card); font-size: 1.1rem; color: var(--text-muted);
   cursor: pointer; transition: all var(--transition);
   display: flex; align-items: center; justify-content: center;
   font-family: inherit; line-height: 1;
+  margin-left: 2px;
 }
 .add-stock-btn:active { border-color: var(--profit); color: var(--profit); }
 
@@ -490,13 +495,17 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 
 <div class="app" style="display:none;">
   <div class="header" style="position:relative;">
+    <a href="overview.html" style="position:absolute;left:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">持仓总览 ↗</a>
     <h1>做T计算器</h1>
     <div id="userEmail" style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;cursor:pointer;" onclick="openUsernameOverlay()" title="点击修改用户名"></div>
     <a href="#" onclick="headerAuthAction();return false;" id="headerAuthLink" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">登录/注册</a>
   </div>
 
   <!-- Stock Tab Bar -->
-  <div class="stock-tab-bar" id="stockTabBar"></div>
+  <div class="stock-tab-bar" id="stockTabBar">
+    <div class="stock-tab-scroll" id="stockTabScroll"></div>
+    <button class="add-stock-btn" onclick="openAddModal()" title="新增持仓">+</button>
+  </div>
 
   <!-- Position Snapshot -->
   <div class="pos-snapshot" id="posSnapshot"></div>
@@ -1159,7 +1168,7 @@ function updateSnapshot() {
 
 // Build tab bar
 function buildTabBar() {
-  const bar = document.getElementById('stockTabBar');
+  const bar = document.getElementById('stockTabScroll');
   let html = '';
   portfolio.forEach((s, i) => {
     const activeCls = (i === currentStockIndex) ? ' active' : '';
@@ -1168,7 +1177,6 @@ function buildTabBar() {
       + '<span class="del-stock" onclick="event.stopPropagation();deleteStockConfirm(' + i + ')">✕</span>'
       + '</span>';
   });
-  html += '<button class="add-stock-btn" onclick="openAddModal()" title="新增持仓">+</button>';
   bar.innerHTML = html;
 }
 
@@ -1215,7 +1223,7 @@ function onPointerMove(e) {
     // 阻止默认行为（防止拖拽时选中文本）
     e.preventDefault();
     // 创建浮动克隆 + 原位变幽灵
-    const bar = document.getElementById('stockTabBar');
+    const bar = document.getElementById('stockTabScroll');
     const tabs = bar.querySelectorAll('.stock-tab');
     const origTab = tabs[_dragState.fromIdx];
     if (origTab) {
@@ -1238,7 +1246,7 @@ function onPointerMove(e) {
     _dragState.clone.style.top = (e.clientY - _dragState.clone.offsetHeight / 2) + 'px';
   }
   // 计算悬停位置，移动幽灵到该位置
-  const bar = document.getElementById('stockTabBar');
+  const bar = document.getElementById('stockTabScroll');
   const tabs = Array.from(bar.querySelectorAll('.stock-tab'));
   const nonGhost = tabs.filter(t => !t.classList.contains('drag-ghost'));
   let insertBefore = null;
@@ -1250,7 +1258,7 @@ function onPointerMove(e) {
     if (insertBefore) {
       bar.insertBefore(_dragState.ghost, insertBefore);
     } else {
-      bar.insertBefore(_dragState.ghost, bar.querySelector('.add-stock-btn'));
+      bar.appendChild(_dragState.ghost);
     }
   }
 }
@@ -1269,7 +1277,7 @@ function onPointerUp(e) {
   }
   if (_dragState.clone) {
     // 根据幽灵位置确定最终索引
-    const bar = document.getElementById('stockTabBar');
+    const bar = document.getElementById('stockTabScroll');
     const tabs = Array.from(bar.querySelectorAll('.stock-tab'));
     const dropIdx = tabs.indexOf(_dragState.ghost);
     const fromIdx = _dragState.fromIdx;
