@@ -947,7 +947,7 @@ function showToast(msg, type) {
         await _supabase.from('stocks').delete().eq('user_id', _user.id);
         const rows = [
           { user_id: _user.id, name: '洪都航空', code: 'sh600316', cost_price: 30.4028, hold_qty: 4000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 0 },
-          { user_id: _user.id, name: '维远股份', code: 'sz002470', cost_price: 15.5713, hold_qty: 6000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 1 },
+          { user_id: _user.id, name: '维远股份', code: 'sh600955', cost_price: 15.5713, hold_qty: 6000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 1 },
           { user_id: _user.id, name: '京东方A', code: 'sz000725', cost_price: 8.6212, hold_qty: 4000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 2 },
         ];
         const { error } = await _supabase.from('stocks').insert(rows);
