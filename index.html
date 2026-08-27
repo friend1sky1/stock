@@ -1178,6 +1178,11 @@ function buildTabBar() {
       + '</span>';
   });
   bar.innerHTML = html;
+  // 自动滚动到当前激活的 tab（避免屏幕外看不见）
+  const activeTab = bar.querySelector('.stock-tab.active');
+  if (activeTab) {
+    activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
 }
 
 // ──── Tab Drag (Pointer Events, desktop+mobile unified) ────
