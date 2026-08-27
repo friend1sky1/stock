@@ -1378,6 +1378,43 @@ function withExchangePrefix(code) {
   return 'sh' + code;
 }
 
+// 构建「名称→代码」反向字典（懒加载，含重名优先取沪深代码）
+let NAME_TO_CODE = null;
+function getNameToCode() {
+  if (NAME_TO_CODE) return NAME_TO_CODE;
+  NAME_TO_CODE = {};
+  const dict = (typeof window.STOCK_NAMES !== 'undefined') ? window.STOCK_NAMES : {};
+  for (const full in dict) {
+    const name = dict[full];
+    if (!name) continue;
+    // 只保留6位数字部分做匹配基准；重名时沪深(sh/sz)优先于北交所(bj)
+    if (!NAME_TO_CODE[name]) {
+      NAME_TO_CODE[name] = full;
+    } else if (/^bj/.test(NAME_TO_CODE[name]) && /^(sh|sz)/.test(full)) {
+      NAME_TO_CODE[name] = full;
+    }
+  }
+  return NAME_TO_CODE;
+}
+
+// 根据名称自动匹配代码（若代码未手填）
+function autoFillCodeByName(nameRaw) {
+  const codeInput = document.getElementById('modalCode');
+  if (codeInput.dataset.manual === 'true') return; // 用户已手动改过代码
+  const name = String(nameRaw).trim();
+  if (!name) return;
+  const full = getNameToCode()[name];
+  if (full) {
+    // 只回填6位数字部分，前缀由 withExchangePrefix 规范化
+    const digits = full.replace(/^(sh|sz|bj)/i, '');
+    codeInput.value = digits;
+    codeInput.dataset.auto = 'true';
+  } else {
+    if (codeInput.dataset.auto === 'true') codeInput.value = '';
+    codeInput.dataset.auto = 'false';
+  }
+}
+
 // 根据代码自动匹配名称（若名称未手填）
 function autoFillNameByCode(codeRaw) {
   const nameInput = document.getElementById('modalName');
@@ -2068,6 +2105,15 @@ _syncToSupabase = function() {
   // 用户手动改动名称时，停止自动覆盖
   nameInput.addEventListener('input', function() {
     nameInput.dataset.manual = 'true';
+  });
+  // 输入名称时自动匹配代码（反向）
+  nameInput.addEventListener('input', function() {
+    codeInput.dataset.manual = 'false';
+    autoFillCodeByName(nameInput.value);
+  });
+  // 用户手动改动代码时，停止自动覆盖
+  codeInput.addEventListener('input', function() {
+    codeInput.dataset.manual = 'true';
   });
 })();
 </script>
