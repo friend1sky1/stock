@@ -840,9 +840,8 @@ async function refreshPrices() {
       });
       updateFoot();
       setDirtyFlag();
-      const now = new Date();
-      const timeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-      showToast('已更新 ' + updated + ' 只股票现价 · ' + timeStr, 'success');
+      // 自动云同步：更新现价时，把持仓/成本等所有未保存修改一并落库
+      await saveAll();
     } else {
       showToast('未获取到行情数据', 'error');
     }
