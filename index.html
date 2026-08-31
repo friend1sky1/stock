@@ -824,10 +824,10 @@ async function migrateGuestData(localPortfolio) {
     const rows = localPortfolio.map((s, i) => {
       // 兼容旧格式（顶层字段）与新格式（reverse/normal 子对象）
       const rv = (s.reverse) ? s.reverse : {
-        openPrice: s.openPrice, tPrice1: s.tPrice1, tQty: s.tQty, tPrice2: s.tPrice2
+        tPrice1: s.tPrice1, tQty: s.tQty, tPrice2: s.tPrice2
       };
       const nm = (s.normal) ? s.normal : {
-        openPrice: s.openPrice, tPrice1: s.tPrice1, tQty: s.tQty, tPrice2: s.tPrice2
+        tPrice1: s.tPrice1, tQty: s.tQty, tPrice2: s.tPrice2
       };
       return {
         user_id: _user.id,
@@ -835,11 +835,10 @@ async function migrateGuestData(localPortfolio) {
         code: s.code || '',
         cost_price: s.costPrice,
         hold_qty: s.holdQty,
-        open_price: rv.openPrice || 10,
+        open_price: s.openPrice || 10,
         t_price1: rv.tPrice1 || 10,
         t_qty: rv.tQty || 1000,
         t_price2: rv.tPrice2 || 9.9,
-        n_open_price: nm.openPrice || 10,
         n_t_price1: nm.tPrice1 || 10,
         n_t_qty: nm.tQty || 1000,
         n_t_price2: nm.tPrice2 || 9.9,
@@ -1023,9 +1022,11 @@ function saveAll() {
     s.costPrice = parseFloat(document.getElementById('costPrice').value) || s.costPrice;
     s.holdQty = parseInt(document.getElementById('holdQty').value, 10) || s.holdQty;
     s.mode = currentMode;
+    // 开盘价是共用属性，存顶层
+    const op = parseFloat(document.getElementById('openPrice').value);
+    if (!isNaN(op) && op > 0) s.openPrice = op;
     // 操作参数存到当前模式子对象
     const d = getModeData(s, currentMode);
-    d.openPrice = parseFloat(document.getElementById('openPrice').value) || d.openPrice;
     d.tPrice1 = parseFloat(document.getElementById('tPrice1').value) || d.tPrice1;
     d.tQty = parseInt(document.getElementById('tQty').value, 10) || d.tQty;
     d.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || d.tPrice2;
@@ -1060,11 +1061,10 @@ function _syncToSupabase() {
             code: s.code || '',
             cost_price: s.costPrice,
             hold_qty: s.holdQty,
-            open_price: rv.openPrice,
+            open_price: s.openPrice,  // 开盘价共用
             t_price1: rv.tPrice1,
             t_qty: rv.tQty,
             t_price2: rv.tPrice2,
-            n_open_price: nm.openPrice,
             n_t_price1: nm.tPrice1,
             n_t_qty: nm.tQty,
             n_t_price2: nm.tPrice2,
@@ -1101,17 +1101,16 @@ async function loadDataFromCloud() {
       code: row.code || '',
       costPrice: parseFloat(row.cost_price) || 0,
       holdQty: parseInt(row.hold_qty) || 0,
+      openPrice: parseFloat(row.open_price) || 10,
       mode: row.mode || 'reverse',
-      // 倒T参数（原有字段）
+      // 倒T参数（tPrice1/tQty/tPrice2）
       reverse: {
-        openPrice: parseFloat(row.open_price) || 10,
         tPrice1: parseFloat(row.t_price1) || 10,
         tQty: parseInt(row.t_qty) || 1000,
         tPrice2: parseFloat(row.t_price2) || 9.9,
       },
       // 正T参数（新增字段 n_ 前缀）
       normal: {
-        openPrice: parseFloat(row.n_open_price) || 10,
         tPrice1: parseFloat(row.n_t_price1) || 10,
         tQty: parseInt(row.n_t_qty) || 1000,
         tPrice2: parseFloat(row.n_t_price2) || 9.9,
@@ -1134,16 +1133,15 @@ function loadData() {
   }
   portfolio.forEach(s => {
     if (!s.mode) s.mode = 'reverse';
-    // 兼容旧格式：旧数据在顶层 openPrice/tPrice1/tQty/tPrice2
+    if (s.openPrice == null) s.openPrice = 10;
+    // 兼容旧格式：旧数据在顶层 tPrice1/tQty/tPrice2
     if (!s.reverse && !s.normal) {
       s.reverse = {
-        openPrice: s.openPrice || 10,
         tPrice1: s.tPrice1 || 10,
         tQty: s.tQty || 1000,
         tPrice2: s.tPrice2 || 9.9,
       };
       s.normal = {
-        openPrice: s.openPrice || 10,
         tPrice1: s.tPrice1 || 10,
         tQty: s.tQty || 1000,
         tPrice2: s.tPrice2 || 9.9,
@@ -1186,14 +1184,14 @@ async function loadDataAsync() {
 }
 
 async function createDefaultPortfolio() {
-  const mk = (cost, t) => ({
-    reverse: { openPrice: t, tPrice1: t, tQty: 1000, tPrice2: t },
-    normal:   { openPrice: t, tPrice1: t, tQty: 1000, tPrice2: t },
+  const mk = (t) => ({
+    reverse: { tPrice1: t, tQty: 1000, tPrice2: t },
+    normal:   { tPrice1: t, tQty: 1000, tPrice2: t },
   });
   portfolio = [
-    { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, mode: 'reverse', code: '', ...mk(30.4028, 28.95) },
-    { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, mode: 'reverse', code: '', ...mk(15.5713, 12.72) },
-    { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, mode: 'reverse', code: '', ...mk(8.6212, 6.00) },
+    { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, mode: 'reverse', code: '', openPrice: 28.95, ...mk(28.95) },
+    { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, mode: 'reverse', code: '', openPrice: 12.72, ...mk(12.72) },
+    { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, mode: 'reverse', code: '', openPrice: 6.00,  ...mk(6.00) },
   ];
   currentStockIndex = 0;
   currentMode = 'reverse';
@@ -1412,12 +1410,77 @@ function applyStockFromUrl() {
   }
 }
 
-// 获取某只股票在指定模式下的操作参数对象（带兜底）
+// ========== 每日开盘价自动刷新 ==========
+const OPEN_PRICE_DATE_KEY = 'tcalc_openprice_date';
+
+function _todayStr() {
+  const now = new Date();
+  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+}
+
+// 获取单只股票的代码（优先用已存的 code，否则用名称反查）
+function _getStockCode(s) {
+  if (s.code && /^(sh|sz|bj)\d{6}$/i.test(s.code)) return s.code.toLowerCase();
+  // 名称反查
+  const dict = getNameToCode();
+  return dict[s.name] || '';
+}
+
+// 每天第一次打开时，批量查询持仓的今日开盘价（腾讯财经接口）
+async function fetchTodayOpenPrices() {
+  const today = _todayStr();
+  const last = localStorage.getItem(OPEN_PRICE_DATE_KEY);
+  if (last === today) return; // 今天已查过
+
+  const tasks = [];
+  portfolio.forEach((s, i) => {
+    const code = _getStockCode(s);
+    if (code) tasks.push({ idx: i, code: code });
+  });
+  if (tasks.length === 0) return;
+
+  const codes = tasks.map(t => t.code).join(',');
+  try {
+    const resp = await fetch('https://qt.gtimg.cn/q=' + codes);
+    const raw = await resp.text();
+    const lines = raw.split(';').filter(l => l.trim());
+    let updated = 0;
+    lines.forEach(line => {
+      const m = line.match(/v_([a-z]{2}\d+)="([^"]*)"/);
+      if (!m) return;
+      const code = m[1];
+      const fields = m[2].split('~');
+      // fields[5] = 今开价
+      const open = parseFloat(fields[5]);
+      if (isNaN(open) || open <= 0) return;
+      const task = tasks.find(t => t.code === code);
+      if (task) {
+        portfolio[task.idx].openPrice = open;
+        updated++;
+      }
+    });
+    if (updated > 0) {
+      // 更新当前显示的表单（若当前股票被更新了）
+      if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
+        const cur = portfolio[currentStockIndex];
+        if (cur.openPrice != null && cur.openPrice > 0) {
+          document.getElementById('openPrice').value = cur.openPrice;
+        }
+      }
+      // 标记今天已查（即使部分失败也记录，避免重复请求；失败的下次当天不再重试）
+      localStorage.setItem(OPEN_PRICE_DATE_KEY, today);
+      saveAll();
+    }
+  } catch(e) {
+    console.warn('Fetch today open price failed:', e);
+    // 失败不记录日期，下次打开会重试
+  }
+}
+
 function getModeData(s, mode) {
   const m = (mode === 'normal') ? 'normal' : 'reverse';
   if (!s[m]) s[m] = {};
   const d = s[m];
-  if (d.openPrice == null) d.openPrice = (s.reverse && s.reverse.openPrice) || s.openPrice || 10;
   if (d.tPrice1 == null) d.tPrice1 = (s.reverse && s.reverse.tPrice1) || s.tPrice1 || 10;
   if (d.tQty == null) d.tQty = (s.reverse && s.reverse.tQty) || s.tQty || 1000;
   if (d.tPrice2 == null) d.tPrice2 = (s.reverse && s.reverse.tPrice2) || s.tPrice2 || 9.9;
@@ -1436,7 +1499,7 @@ function loadStockIntoForm() {
   const d = getModeData(s, mode);
   document.getElementById('costPrice').value = s.costPrice;
   document.getElementById('holdQty').value = s.holdQty;
-  document.getElementById('openPrice').value = d.openPrice;
+  document.getElementById('openPrice').value = (s.openPrice != null && s.openPrice > 0) ? s.openPrice : 10;
   document.getElementById('tPrice1').value = d.tPrice1;
   document.getElementById('tQty').value = d.tQty;
   document.getElementById('tPrice2').value = d.tPrice2;
@@ -1578,9 +1641,10 @@ function saveStock() {
     portfolio.push({
       id, name, code,
       costPrice: cost, holdQty: qty,
+      openPrice: cost,
       mode: 'reverse',
-      reverse: { openPrice: cost, tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
-      normal:   { openPrice: cost, tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
+      reverse: { tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
+      normal:   { tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
     });
     currentStockIndex = portfolio.length - 1;
   }
@@ -1919,7 +1983,6 @@ function setMode(mode) {
   if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
     const s = portfolio[currentStockIndex];
     const old = getModeData(s, currentMode);
-    old.openPrice = parseFloat(document.getElementById('openPrice').value) || old.openPrice;
     old.tPrice1 = parseFloat(document.getElementById('tPrice1').value) || old.tPrice1;
     old.tQty = parseInt(document.getElementById('tQty').value, 10) || old.tQty;
     old.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || old.tPrice2;
@@ -1928,11 +1991,10 @@ function setMode(mode) {
   // 2. 切模式
   currentMode = mode;
   applyModeUI(mode);
-  // 3. 载入新模式数据到 form
+  // 3. 载入新模式数据到 form（开盘价共用，不随模式变）
   if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
     const s = portfolio[currentStockIndex];
     const d = getModeData(s, mode);
-    document.getElementById('openPrice').value = d.openPrice;
     document.getElementById('tPrice1').value = d.tPrice1;
     document.getElementById('tQty').value = d.tQty;
     document.getElementById('tPrice2').value = d.tPrice2;
@@ -2176,6 +2238,8 @@ function initApp() {
     }
     // 处理 Ctrl+点击新开页面带来的 ?stock= 参数
     applyStockFromUrl();
+    // 每天第一次打开时自动刷新持仓的开盘价
+    fetchTodayOpenPrices();
   });
 }
 
@@ -2208,11 +2272,10 @@ _syncToSupabase = function() {
             name: s.name,
             cost_price: s.costPrice,
             hold_qty: s.holdQty,
-            open_price: rv.openPrice,
+            open_price: s.openPrice,  // 开盘价共用
             t_price1: rv.tPrice1,
             t_qty: rv.tQty,
             t_price2: rv.tPrice2,
-            n_open_price: nm.openPrice,
             n_t_price1: nm.tPrice1,
             n_t_qty: nm.tQty,
             n_t_price2: nm.tPrice2,
