@@ -91,6 +91,7 @@ th.col-price { width: 68px; }
 th.col-mkt  { width: 78px; }
 th.col-pl   { width: 86px; }
 th.col-pct  { width: 64px; }
+th.col-act  { width: 40px; }
 
 /* Editable cells (qty / cost / price) */
 td.edit-cell { padding: 2px 2px; }
@@ -124,6 +125,17 @@ td.val-mkt { font-weight: 600; color: var(--text); }
 td.val-pl, td.val-pct { font-weight: 700; }
 td.val-pl.profit, td.val-pct.profit { color: var(--profit); }
 td.val-pl.loss, td.val-pct.loss { color: var(--loss); }
+
+/* Delete button */
+td.col-act .del-btn {
+  width: 26px; height: 26px; line-height: 26px;
+  border: none; border-radius: 6px;
+  background: #FBEEEE; color: var(--profit);
+  font-size: 0.9rem; cursor: pointer; text-align: center;
+  transition: all var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+td.col-act .del-btn:active { background: var(--profit); color: #FFF; transform: scale(0.9); }
 
 /* Summary row */
 tfoot td {
@@ -260,6 +272,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
         <th class="col-mkt">市值</th>
         <th class="col-pl">盈亏</th>
         <th class="col-pct">盈亏%</th>
+        <th class="col-act">操作</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>
@@ -482,6 +495,7 @@ function renderTable() {
     html += '<td class="val-mkt" id="mkt_' + i + '">' + (r.mkt != null ? (r.mkt / 10000).toFixed(2) + '万' : '--') + '</td>';
     html += '<td class="val-pl ' + plCls + '" id="pl_' + i + '">' + (r.pl != null ? (r.pl >= 0 ? '+' : '') + fmtMoney(r.pl) : '--') + '</td>';
     html += '<td class="val-pct ' + pctCls + '" id="pct_' + i + '">' + fmtPct(r.pct) + '</td>';
+    html += '<td class="col-act"><button class="del-btn" onclick="deleteStock(' + i + ')" title="删除">🗑️</button></td>';
     html += '</tr>';
   });
 
@@ -517,7 +531,18 @@ function updateFoot() {
     + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(2) + '万' : '--') + '</td>'
     + '<td class="' + totalPlCls + '">' + (totalPL >= 0 ? '+' : '') + fmtMoney(totalPL) + '</td>'
     + '<td class="' + totalPlCls + '">' + (totalPct != null ? (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%' : '--') + '</td>'
+    + '<td></td>'
     + '</tr>';
+}
+
+async function deleteStock(idx) {
+  const s = portfolio[idx];
+  if (!s) return;
+  const ok = confirm('确认删除「' + s.name + '」？删除后立即保存。');
+  if (!ok) return;
+  portfolio.splice(idx, 1);
+  renderTable();
+  await saveAll();
 }
 
 function updateRow(idx) {
