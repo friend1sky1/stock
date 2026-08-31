@@ -1276,6 +1276,17 @@ function onPointerUp(e) {
   // 【单击：moved=false，切换股票】
   if (!_dragState.moved) {
     const fromIdx = _dragState.fromIdx;
+    // Ctrl/Cmd+点击 → 新开浏览器标签页定位到该股票
+    if (e.ctrlKey || e.metaKey) {
+      _dragState = null;
+      const s = portfolio[fromIdx];
+      if (s) {
+        const key = s.code || s.name;
+        const url = 'index.html?stock=' + encodeURIComponent(key);
+        window.open(url, '_blank');
+      }
+      return;
+    }
     _dragState = null;
     if (fromIdx !== currentStockIndex) switchStock(fromIdx);
     return;
@@ -1333,6 +1344,22 @@ function switchStock(idx) {
   buildTabBar();
   updateSnapshot();
   saveAll();
+}
+
+// 从 URL 参数定位到指定股票（?stock=代码 或 ?stock=名称）
+function applyStockFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const target = (params.get('stock') || '').trim();
+  if (!target || portfolio.length === 0) return;
+  const idx = portfolio.findIndex(s =>
+    (s.code && String(s.code) === target) || (s.name && s.name === target)
+  );
+  if (idx >= 0 && idx !== currentStockIndex) {
+    currentStockIndex = idx;
+    loadStockIntoForm();
+    buildTabBar();
+    updateSnapshot();
+  }
 }
 
 // Load stock data into form
@@ -2049,6 +2076,8 @@ function initApp() {
         updateSnapshot();
       }
     }
+    // 处理 Ctrl+点击新开页面带来的 ?stock= 参数
+    applyStockFromUrl();
   });
 }
 
