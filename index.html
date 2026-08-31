@@ -821,19 +821,32 @@ async function migrateGuestData(localPortfolio) {
       .select('id').eq('user_id', _user.id).limit(1);
     if (existing && existing.length > 0) return; // 云端已有数据，不覆盖
 
-    const rows = localPortfolio.map((s, i) => ({
-      user_id: _user.id,
-      name: s.name,
-      code: s.code || '',
-      cost_price: s.costPrice,
-      hold_qty: s.holdQty,
-      open_price: s.openPrice,
-      t_price1: s.tPrice1,
-      t_qty: s.tQty,
-      t_price2: s.tPrice2,
-      mode: s.mode || 'reverse',
-      sort_order: i,
-    }));
+    const rows = localPortfolio.map((s, i) => {
+      // 兼容旧格式（顶层字段）与新格式（reverse/normal 子对象）
+      const rv = (s.reverse) ? s.reverse : {
+        openPrice: s.openPrice, tPrice1: s.tPrice1, tQty: s.tQty, tPrice2: s.tPrice2
+      };
+      const nm = (s.normal) ? s.normal : {
+        openPrice: s.openPrice, tPrice1: s.tPrice1, tQty: s.tQty, tPrice2: s.tPrice2
+      };
+      return {
+        user_id: _user.id,
+        name: s.name,
+        code: s.code || '',
+        cost_price: s.costPrice,
+        hold_qty: s.holdQty,
+        open_price: rv.openPrice || 10,
+        t_price1: rv.tPrice1 || 10,
+        t_qty: rv.tQty || 1000,
+        t_price2: rv.tPrice2 || 9.9,
+        n_open_price: nm.openPrice || 10,
+        n_t_price1: nm.tPrice1 || 10,
+        n_t_qty: nm.tQty || 1000,
+        n_t_price2: nm.tPrice2 || 9.9,
+        mode: s.mode || 'reverse',
+        sort_order: i,
+      };
+    });
     await _supabase.from('stocks').insert(rows);
   } catch(e) { console.error('migrate guest data failed:', e); }
 }
@@ -1010,10 +1023,12 @@ function saveAll() {
     s.costPrice = parseFloat(document.getElementById('costPrice').value) || s.costPrice;
     s.holdQty = parseInt(document.getElementById('holdQty').value, 10) || s.holdQty;
     s.mode = currentMode;
-    s.openPrice = parseFloat(document.getElementById('openPrice').value) || s.openPrice;
-    s.tPrice1 = parseFloat(document.getElementById('tPrice1').value) || s.tPrice1;
-    s.tQty = parseInt(document.getElementById('tQty').value, 10) || s.tQty;
-    s.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || s.tPrice2;
+    // 操作参数存到当前模式子对象
+    const d = getModeData(s, currentMode);
+    d.openPrice = parseFloat(document.getElementById('openPrice').value) || d.openPrice;
+    d.tPrice1 = parseFloat(document.getElementById('tPrice1').value) || d.tPrice1;
+    d.tQty = parseInt(document.getElementById('tQty').value, 10) || d.tQty;
+    d.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || d.tPrice2;
   }
   // 本地备份
   localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
@@ -1036,19 +1051,27 @@ function _syncToSupabase() {
       // 先删除该用户所有旧数据，再全量写入
       await _supabase.from('stocks').delete().eq('user_id', _user.id);
       if (portfolio.length > 0) {
-        const rows = portfolio.map((s, i) => ({
-          user_id: _user.id,
-          name: s.name,
-          code: s.code || '',
-          cost_price: s.costPrice,
-          hold_qty: s.holdQty,
-          open_price: s.openPrice,
-          t_price1: s.tPrice1,
-          t_qty: s.tQty,
-          t_price2: s.tPrice2,
-          mode: s.mode || 'reverse',
-          sort_order: i,
-        }));
+        const rows = portfolio.map((s, i) => {
+          const rv = getModeData(s, 'reverse');
+          const nm = getModeData(s, 'normal');
+          return {
+            user_id: _user.id,
+            name: s.name,
+            code: s.code || '',
+            cost_price: s.costPrice,
+            hold_qty: s.holdQty,
+            open_price: rv.openPrice,
+            t_price1: rv.tPrice1,
+            t_qty: rv.tQty,
+            t_price2: rv.tPrice2,
+            n_open_price: nm.openPrice,
+            n_t_price1: nm.tPrice1,
+            n_t_qty: nm.tQty,
+            n_t_price2: nm.tPrice2,
+            mode: s.mode || 'reverse',
+            sort_order: i,
+          };
+        });
         await _supabase.from('stocks').insert(rows);
       }
     } catch(e) { console.error('Sync failed:', e); }
@@ -1078,11 +1101,21 @@ async function loadDataFromCloud() {
       code: row.code || '',
       costPrice: parseFloat(row.cost_price) || 0,
       holdQty: parseInt(row.hold_qty) || 0,
-      openPrice: parseFloat(row.open_price) || 10,
-      tPrice1: parseFloat(row.t_price1) || 10,
-      tQty: parseInt(row.t_qty) || 1000,
-      tPrice2: parseFloat(row.t_price2) || 9.9,
       mode: row.mode || 'reverse',
+      // 倒T参数（原有字段）
+      reverse: {
+        openPrice: parseFloat(row.open_price) || 10,
+        tPrice1: parseFloat(row.t_price1) || 10,
+        tQty: parseInt(row.t_qty) || 1000,
+        tPrice2: parseFloat(row.t_price2) || 9.9,
+      },
+      // 正T参数（新增字段 n_ 前缀）
+      normal: {
+        openPrice: parseFloat(row.n_open_price) || 10,
+        tPrice1: parseFloat(row.n_t_price1) || 10,
+        tQty: parseInt(row.n_t_qty) || 1000,
+        tPrice2: parseFloat(row.n_t_price2) || 9.9,
+      },
     }));
     // 如果有重复被去除了，同步清理云端
     if (deduped.length < data.length) {
@@ -1101,10 +1134,23 @@ function loadData() {
   }
   portfolio.forEach(s => {
     if (!s.mode) s.mode = 'reverse';
-    if (!s.openPrice) s.openPrice = 10;
-    if (!s.tPrice1) s.tPrice1 = 10;
-    if (!s.tQty) s.tQty = 1000;
-    if (!s.tPrice2) s.tPrice2 = 9.9;
+    // 兼容旧格式：旧数据在顶层 openPrice/tPrice1/tQty/tPrice2
+    if (!s.reverse && !s.normal) {
+      s.reverse = {
+        openPrice: s.openPrice || 10,
+        tPrice1: s.tPrice1 || 10,
+        tQty: s.tQty || 1000,
+        tPrice2: s.tPrice2 || 9.9,
+      };
+      s.normal = {
+        openPrice: s.openPrice || 10,
+        tPrice1: s.tPrice1 || 10,
+        tQty: s.tQty || 1000,
+        tPrice2: s.tPrice2 || 9.9,
+      };
+    }
+    if (!s.reverse) s.reverse = {};
+    if (!s.normal) s.normal = {};
   });
 
   const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
@@ -1140,10 +1186,14 @@ async function loadDataAsync() {
 }
 
 async function createDefaultPortfolio() {
+  const mk = (cost, t) => ({
+    reverse: { openPrice: t, tPrice1: t, tQty: 1000, tPrice2: t },
+    normal:   { openPrice: t, tPrice1: t, tQty: 1000, tPrice2: t },
+  });
   portfolio = [
-    { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, mode: 'reverse', openPrice: 28.95, tPrice1: 28.95, tQty: 4000, tPrice2: 28.50 },
-    { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, mode: 'reverse', openPrice: 12.72, tPrice1: 12.72, tQty: 6000, tPrice2: 12.50 },
-    { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, mode: 'reverse', openPrice: 6.00,  tPrice1: 6.00,  tQty: 4000, tPrice2: 5.88 }
+    { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, mode: 'reverse', code: '', ...mk(30.4028, 28.95) },
+    { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, mode: 'reverse', code: '', ...mk(15.5713, 12.72) },
+    { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, mode: 'reverse', code: '', ...mk(8.6212, 6.00) },
   ];
   currentStockIndex = 0;
   currentMode = 'reverse';
@@ -1362,19 +1412,37 @@ function applyStockFromUrl() {
   }
 }
 
+// 获取某只股票在指定模式下的操作参数对象（带兜底）
+function getModeData(s, mode) {
+  const m = (mode === 'normal') ? 'normal' : 'reverse';
+  if (!s[m]) s[m] = {};
+  const d = s[m];
+  if (d.openPrice == null) d.openPrice = (s.reverse && s.reverse.openPrice) || s.openPrice || 10;
+  if (d.tPrice1 == null) d.tPrice1 = (s.reverse && s.reverse.tPrice1) || s.tPrice1 || 10;
+  if (d.tQty == null) d.tQty = (s.reverse && s.reverse.tQty) || s.tQty || 1000;
+  if (d.tPrice2 == null) d.tPrice2 = (s.reverse && s.reverse.tPrice2) || s.tPrice2 || 9.9;
+  return d;
+}
+
 // Load stock data into form
 function loadStockIntoForm() {
   if (portfolio.length === 0 || currentStockIndex >= portfolio.length) return;
   const s = portfolio[currentStockIndex];
+  // 确定模式（优先用该股记住的模式）
+  const mode = s.mode || 'reverse';
+  currentMode = mode;
+  applyModeUI(mode);
+  // 按模式读取操作参数
+  const d = getModeData(s, mode);
   document.getElementById('costPrice').value = s.costPrice;
   document.getElementById('holdQty').value = s.holdQty;
-  document.getElementById('openPrice').value = s.openPrice;
-  document.getElementById('tPrice1').value = s.tPrice1;
-  document.getElementById('tQty').value = s.tQty;
-  document.getElementById('tPrice2').value = s.tPrice2;
+  document.getElementById('openPrice').value = d.openPrice;
+  document.getElementById('tPrice1').value = d.tPrice1;
+  document.getElementById('tQty').value = d.tQty;
+  document.getElementById('tPrice2').value = d.tPrice2;
   document.getElementById('tPrice2').dataset.autoSet = 'false';
-  setMode(s.mode || 'reverse');
   document.getElementById('resultCard').classList.remove('show');
+  updateRefPrice();
   checkHoldQtySufficient();
 }
 
@@ -1510,7 +1578,9 @@ function saveStock() {
     portfolio.push({
       id, name, code,
       costPrice: cost, holdQty: qty,
-      mode: 'reverse', openPrice: cost, tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost
+      mode: 'reverse',
+      reverse: { openPrice: cost, tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
+      normal:   { openPrice: cost, tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
     });
     currentStockIndex = portfolio.length - 1;
   }
@@ -1811,8 +1881,8 @@ function onBuybackInput() {
 }
 
 // ──── Mode switch (with auto-save) ────
-function setMode(mode) {
-  currentMode = mode;
+// 纯 UI 更新（不碰数据读写、不做保存）
+function applyModeUI(mode) {
   document.getElementById('modeReverse').classList.toggle('active', mode === 'reverse');
   document.getElementById('modeNormal').classList.toggle('active', mode === 'normal');
   if (mode === 'reverse') {
@@ -1840,6 +1910,34 @@ function setMode(mode) {
     document.getElementById('refTag995').style.display = 'none';
     document.getElementById('refTag101').style.display = '';
   }
+}
+
+// 用户切换模式：存回旧模式 → 切模式 → 载入新模式数据
+function setMode(mode) {
+  if (mode === currentMode) return;
+  // 1. 把当前 form 数据存回旧模式（currentMode 此时还是旧模式）
+  if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
+    const s = portfolio[currentStockIndex];
+    const old = getModeData(s, currentMode);
+    old.openPrice = parseFloat(document.getElementById('openPrice').value) || old.openPrice;
+    old.tPrice1 = parseFloat(document.getElementById('tPrice1').value) || old.tPrice1;
+    old.tQty = parseInt(document.getElementById('tQty').value, 10) || old.tQty;
+    old.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || old.tPrice2;
+    s.mode = mode;
+  }
+  // 2. 切模式
+  currentMode = mode;
+  applyModeUI(mode);
+  // 3. 载入新模式数据到 form
+  if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
+    const s = portfolio[currentStockIndex];
+    const d = getModeData(s, mode);
+    document.getElementById('openPrice').value = d.openPrice;
+    document.getElementById('tPrice1').value = d.tPrice1;
+    document.getElementById('tQty').value = d.tQty;
+    document.getElementById('tPrice2').value = d.tPrice2;
+  }
+  document.getElementById('tPrice2').dataset.autoSet = 'false';
   updateRefPrice();
   checkHoldQtySufficient();
   document.getElementById('resultCard').classList.remove('show');
@@ -2102,18 +2200,26 @@ _syncToSupabase = function() {
       // 先删除旧数据，再全量写入
       await _supabase.from('stocks').delete().eq('user_id', _user.id);
       if (deduped.length > 0) {
-        const rows = deduped.map((s, i) => ({
-          user_id: _user.id,
-          name: s.name,
-          cost_price: s.costPrice,
-          hold_qty: s.holdQty,
-          open_price: s.openPrice,
-          t_price1: s.tPrice1,
-          t_qty: s.tQty,
-          t_price2: s.tPrice2,
-          mode: s.mode || 'reverse',
-          sort_order: i,
-        }));
+        const rows = deduped.map((s, i) => {
+          const rv = getModeData(s, 'reverse');
+          const nm = getModeData(s, 'normal');
+          return {
+            user_id: _user.id,
+            name: s.name,
+            cost_price: s.costPrice,
+            hold_qty: s.holdQty,
+            open_price: rv.openPrice,
+            t_price1: rv.tPrice1,
+            t_qty: rv.tQty,
+            t_price2: rv.tPrice2,
+            n_open_price: nm.openPrice,
+            n_t_price1: nm.tPrice1,
+            n_t_qty: nm.tQty,
+            n_t_price2: nm.tPrice2,
+            mode: s.mode || 'reverse',
+            sort_order: i,
+          };
+        });
         await _supabase.from('stocks').insert(rows);
       }
       _syncRetries = 0;
