@@ -879,7 +879,10 @@ async function backfillMissingCodes() {
 
 // ========== 实时行情获取 ==========
 let _refreshTimer = null;
+let _refreshing = false; // 防抖锁：防止连点/并发触发 refreshPrices
 async function refreshPrices() {
+  if (_refreshing) return; // 已有刷新在进行，直接忽略本次点击
+  _refreshing = true;
   const btn = document.getElementById('btnRefresh');
   btn.disabled = true;
   btn.classList.add('loading');
@@ -896,6 +899,7 @@ async function refreshPrices() {
     btn.disabled = false;
     btn.classList.remove('loading');
     btn.textContent = '🔄 更新现价';
+    _refreshing = false;
     showToast('没有可获取行情的股票（请先设置股票代码）', 'error');
     return;
   }
@@ -948,6 +952,7 @@ async function refreshPrices() {
   btn.disabled = false;
   btn.classList.remove('loading');
   btn.textContent = '🔄 更新现价';
+  _refreshing = false;
 }
 
 // ========== DATE / TIME ==========
@@ -1016,35 +1021,46 @@ async function saveAll() {
   }
 }
 
+// ===== 同步互斥锁：串行化云端覆写，杜绝 delete/insert 并发交错导致数据翻倍 =====
+let _syncChain = Promise.resolve();
+
 // 返回 true 表示云端同步成功；未登录时返回 null（跳过）
-async function _syncOverviewToSupabase() {
-  if (!_user) return null;
-  // 【安全防护】portfolio 为空时禁止同步，防止误清空云端数据
-  if (!portfolio || portfolio.length === 0) {
-    console.warn('Overview sync aborted: portfolio empty');
-    return false;
-  }
-  try {
-    const rows = portfolio.map((s, i) => ({
-      user_id: _user.id,
-      name: s.name,
-      code: s.code || '',
-      cost_price: s.costPrice,
-      hold_qty: s.holdQty,
-      open_price: s.price || 0,
-      t_price1: 0, t_qty: 0, t_price2: 0,
-      mode: 'reverse',
-      sort_order: i,
-    }));
-    // 先删除旧数据，再写入新数据
-    await _supabase.from('stocks').delete().eq('user_id', _user.id);
-    const { error } = await _supabase.from('stocks').insert(rows);
-    if (error) throw error;
-    return true;
-  } catch(e) {
-    console.error('Overview sync failed:', e);
-    return false;
-  }
+function _syncOverviewToSupabase() {
+  if (!_user) return Promise.resolve(null);
+  // 排队：确保同一时刻只有一个同步在跑，后到的等前一个完成
+  const run = _syncChain.then(async () => {
+    // 【安全防护】portfolio 为空时禁止同步，防止误清空云端数据
+    if (!portfolio || portfolio.length === 0) {
+      console.warn('Overview sync aborted: portfolio empty');
+      return false;
+    }
+    try {
+      // 快照当前 portfolio，避免同步过程中用户又改了引用
+      const snapshot = portfolio.slice();
+      const rows = snapshot.map((s, i) => ({
+        user_id: _user.id,
+        name: s.name,
+        code: s.code || '',
+        cost_price: s.costPrice,
+        hold_qty: s.holdQty,
+        open_price: s.price || 0,
+        t_price1: 0, t_qty: 0, t_price2: 0,
+        mode: 'reverse',
+        sort_order: i,
+      }));
+      // 先删除旧数据，再写入新数据（在互斥锁内串行，不再交错）
+      await _supabase.from('stocks').delete().eq('user_id', _user.id);
+      const { error } = await _supabase.from('stocks').insert(rows);
+      if (error) throw error;
+      return true;
+    } catch(e) {
+      console.error('Overview sync failed:', e);
+      return false;
+    }
+  });
+  // 无论成败都继续释放锁链
+  _syncChain = run.catch(() => {});
+  return run;
 }
 
 function showToast(msg, type) {
