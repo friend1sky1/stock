@@ -1044,6 +1044,7 @@ function saveAll() {
 }
 
 let _syncTimer = null;
+let _syncRetries = 0; // 同步失败重试计数
 // 同步互斥锁：串行化云端覆写，杜绝并发 delete/insert 交错导致数据翻倍
 let _syncChain = Promise.resolve();
 function _syncToSupabase() {
@@ -2278,10 +2279,6 @@ function initApp() {
     fetchTodayOpenPrices();
   });
 }
-
-// 全局：同步失败重试计数
-let _syncRetries = 0;
-// （同步逻辑已统一在 _syncToSupabase / _flushSync 中，见上文）
 
 // 页面加载完成后检查登录状态
 (async function() {
