@@ -391,6 +391,14 @@ async function loadDataFromCloud() {
       costPrice: parseFloat(row.cost_price) || 0,
       holdQty: parseInt(row.hold_qty) || 0,
       price: parseFloat(row.open_price) || 0,
+      // 保留做T参数（倒T/正T）与模式，同步时透传回去，绝不抹成 0
+      mode: row.mode || 'reverse',
+      tPrice1: parseFloat(row.t_price1) || 0,
+      tQty: parseInt(row.t_qty) || 0,
+      tPrice2: parseFloat(row.t_price2) || 0,
+      nTPrice1: parseFloat(row.n_t_price1) || 0,
+      nTQty: parseInt(row.n_t_qty) || 0,
+      nTPrice2: parseFloat(row.n_t_price2) || 0,
       date: '', time: '',
     }));
     return true;
@@ -1050,8 +1058,14 @@ function _syncOverviewToSupabase() {
         cost_price: s.costPrice,
         hold_qty: s.holdQty,
         open_price: s.price || 0,
-        t_price1: 0, t_qty: 0, t_price2: 0,
-        mode: 'reverse',
+        // 透传保留做T参数，绝不抹成 0（否则会破坏做T计算器页设置的数据）
+        t_price1: s.tPrice1 || 0,
+        t_qty: s.tQty || 0,
+        t_price2: s.tPrice2 || 0,
+        n_t_price1: s.nTPrice1 || 0,
+        n_t_qty: s.nTQty || 0,
+        n_t_price2: s.nTPrice2 || 0,
+        mode: s.mode || 'reverse',
         sort_order: i,
       }));
       // upsert（按 id 冲突更新），不再 delete-all + insert 的非原子写法
