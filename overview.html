@@ -1035,9 +1035,15 @@ function _syncOverviewToSupabase() {
       return false;
     }
     try {
+      // 给缺少 id 的条目补稳定 id（老数据/异常兜底）
+      portfolio.forEach(s => {
+        if (!s.id) s.id = (crypto.randomUUID ? crypto.randomUUID() : ('s' + Date.now() + '-' + Math.random().toString(36).slice(2)));
+      });
       // 快照当前 portfolio，避免同步过程中用户又改了引用
       const snapshot = portfolio.slice();
+      const idSet = new Set(snapshot.map(s => s.id).filter(Boolean));
       const rows = snapshot.map((s, i) => ({
+        id: s.id,
         user_id: _user.id,
         name: s.name,
         code: s.code || '',
@@ -1048,10 +1054,19 @@ function _syncOverviewToSupabase() {
         mode: 'reverse',
         sort_order: i,
       }));
-      // 先删除旧数据，再写入新数据（在互斥锁内串行，不再交错）
-      await _supabase.from('stocks').delete().eq('user_id', _user.id);
-      const { error } = await _supabase.from('stocks').insert(rows);
+      // upsert（按 id 冲突更新），不再 delete-all + insert 的非原子写法
+      const { error } = await _supabase.from('stocks').upsert(rows, { onConflict: 'id' });
       if (error) throw error;
+      // 精准清理：删掉本用户已不在快照的旧行，绝不 delete-all 误清空
+      const { data: existing, error: selErr } = await _supabase.from('stocks')
+        .select('id').eq('user_id', _user.id);
+      if (selErr) throw selErr;
+      const staleIds = (existing || [])
+        .filter(r => !idSet.has(r.id))
+        .map(r => r.id);
+      if (staleIds.length > 0) {
+        await _supabase.from('stocks').delete().in('id', staleIds).eq('user_id', _user.id);
+      }
       return true;
     } catch(e) {
       console.error('Overview sync failed:', e);
@@ -1088,9 +1103,9 @@ function showToast(msg, type) {
       try {
         await _supabase.from('stocks').delete().eq('user_id', _user.id);
         const rows = [
-          { user_id: _user.id, name: '洪都航空', code: 'sh600316', cost_price: 30.4028, hold_qty: 4000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 0 },
-          { user_id: _user.id, name: '维远股份', code: 'sh600955', cost_price: 15.5713, hold_qty: 6000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 1 },
-          { user_id: _user.id, name: '京东方A', code: 'sz000725', cost_price: 8.6212, hold_qty: 4000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 2 },
+          { id: crypto.randomUUID(), user_id: _user.id, name: '洪都航空', code: 'sh600316', cost_price: 30.4028, hold_qty: 4000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 0 },
+          { id: crypto.randomUUID(), user_id: _user.id, name: '维远股份', code: 'sh600955', cost_price: 15.5713, hold_qty: 6000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 1 },
+          { id: crypto.randomUUID(), user_id: _user.id, name: '京东方A', code: 'sz000725', cost_price: 8.6212, hold_qty: 4000, open_price: 0, t_price1: 0, t_qty: 0, t_price2: 0, mode: 'reverse', sort_order: 2 },
         ];
         const { error } = await _supabase.from('stocks').insert(rows);
         if (error) throw error;
