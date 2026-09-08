@@ -844,6 +844,8 @@ async function migrateGuestData(localPortfolio) {
       const nm = (s.normal) ? s.normal : {
         tPrice1: s.tPrice1, tQty: s.tQty, tPrice2: s.tPrice2
       };
+      // 做T参数默认值跟随开盘价，而非写死 10/9.9
+      const op = (typeof s.openPrice === 'number' && s.openPrice > 0) ? s.openPrice : 10;
       return {
         id: (crypto.randomUUID ? crypto.randomUUID() : ('s' + Date.now() + '-' + Math.random().toString(36).slice(2))),
         user_id: _user.id,
@@ -851,13 +853,13 @@ async function migrateGuestData(localPortfolio) {
         code: s.code || '',
         cost_price: s.costPrice,
         hold_qty: s.holdQty,
-        open_price: s.openPrice || 10,
-        t_price1: rv.tPrice1 || 10,
+        open_price: op,
+        t_price1: rv.tPrice1 || op,
         t_qty: rv.tQty || 1000,
-        t_price2: rv.tPrice2 || 9.9,
-        n_t_price1: nm.tPrice1 || 10,
+        t_price2: rv.tPrice2 || op,
+        n_t_price1: nm.tPrice1 || op,
         n_t_qty: nm.tQty || 1000,
-        n_t_price2: nm.tPrice2 || 9.9,
+        n_t_price2: nm.tPrice2 || op,
         mode: s.mode || 'reverse',
         sort_order: i,
       };
@@ -1152,27 +1154,30 @@ async function loadDataFromCloud() {
     const seen = new Map();
     data.forEach(row => { seen.set(row.name, row); });
     const deduped = Array.from(seen.values());
-    portfolio = deduped.map(row => ({
-      id: row.id,
-      name: row.name,
-      code: row.code || '',
-      costPrice: parseFloat(row.cost_price) || 0,
-      holdQty: parseInt(row.hold_qty) || 0,
-      openPrice: parseFloat(row.open_price) || 10,
-      mode: row.mode || 'reverse',
-      // 倒T参数（tPrice1/tQty/tPrice2）
-      reverse: {
-        tPrice1: parseFloat(row.t_price1) || 10,
-        tQty: parseInt(row.t_qty) || 1000,
-        tPrice2: parseFloat(row.t_price2) || 9.9,
-      },
-      // 正T参数（新增字段 n_ 前缀）
-      normal: {
-        tPrice1: parseFloat(row.n_t_price1) || 10,
-        tQty: parseInt(row.n_t_qty) || 1000,
-        tPrice2: parseFloat(row.n_t_price2) || 9.9,
-      },
-    }));
+    portfolio = deduped.map(row => {
+      const op = parseFloat(row.open_price) || 10;
+      return {
+        id: row.id,
+        name: row.name,
+        code: row.code || '',
+        costPrice: parseFloat(row.cost_price) || 0,
+        holdQty: parseInt(row.hold_qty) || 0,
+        openPrice: op,
+        mode: row.mode || 'reverse',
+        // 倒T参数（tPrice1/tQty/tPrice2）默认跟随开盘价
+        reverse: {
+          tPrice1: parseFloat(row.t_price1) || op,
+          tQty: parseInt(row.t_qty) || 1000,
+          tPrice2: parseFloat(row.t_price2) || op,
+        },
+        // 正T参数（新增字段 n_ 前缀）
+        normal: {
+          tPrice1: parseFloat(row.n_t_price1) || op,
+          tQty: parseInt(row.n_t_qty) || 1000,
+          tPrice2: parseFloat(row.n_t_price2) || op,
+        },
+      };
+    });
     // 如果有重复被去除了，同步清理云端
     if (deduped.length < data.length) {
       localStorage.setItem(STORAGE_KEY_PORTFOLIO, JSON.stringify(portfolio));
@@ -1191,17 +1196,18 @@ function loadData() {
   portfolio.forEach(s => {
     if (!s.mode) s.mode = 'reverse';
     if (s.openPrice == null) s.openPrice = 10;
+    const op = (typeof s.openPrice === 'number' && s.openPrice > 0) ? s.openPrice : 10;
     // 兼容旧格式：旧数据在顶层 tPrice1/tQty/tPrice2
     if (!s.reverse && !s.normal) {
       s.reverse = {
-        tPrice1: s.tPrice1 || 10,
+        tPrice1: s.tPrice1 || op,
         tQty: s.tQty || 1000,
-        tPrice2: s.tPrice2 || 9.9,
+        tPrice2: s.tPrice2 || op,
       };
       s.normal = {
-        tPrice1: s.tPrice1 || 10,
+        tPrice1: s.tPrice1 || op,
         tQty: s.tQty || 1000,
-        tPrice2: s.tPrice2 || 9.9,
+        tPrice2: s.tPrice2 || op,
       };
     }
     if (!s.reverse) s.reverse = {};
@@ -1551,9 +1557,11 @@ function getModeData(s, mode) {
   const m = (mode === 'normal') ? 'normal' : 'reverse';
   if (!s[m]) s[m] = {};
   const d = s[m];
-  if (d.tPrice1 == null) d.tPrice1 = (s.reverse && s.reverse.tPrice1) || s.tPrice1 || 10;
+  // 默认值优先跟随该股开盘价（做T围绕现价，而非写死 10 元）
+  const op = (typeof s.openPrice === 'number' && s.openPrice > 0) ? s.openPrice : 10;
+  if (d.tPrice1 == null) d.tPrice1 = (s.reverse && s.reverse.tPrice1) || s.tPrice1 || op;
   if (d.tQty == null) d.tQty = (s.reverse && s.reverse.tQty) || s.tQty || 1000;
-  if (d.tPrice2 == null) d.tPrice2 = (s.reverse && s.reverse.tPrice2) || s.tPrice2 || 9.9;
+  if (d.tPrice2 == null) d.tPrice2 = (s.reverse && s.reverse.tPrice2) || s.tPrice2 || op;
   return d;
 }
 
