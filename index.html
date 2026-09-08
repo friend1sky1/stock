@@ -365,6 +365,17 @@ html, body {
   font-size: 0.55rem; color: var(--text-muted);
 }
 
+/* ──── Toast ──── */
+.toast {
+  position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,0.82); color: #fff; padding: 10px 18px;
+  border-radius: 10px; font-size: 0.82rem; z-index: 200;
+  opacity: 0; pointer-events: none; transition: all 0.25s ease;
+  max-width: 84vw; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.warning { background: rgba(180, 60, 0, 0.92); }
+
 /* ──── Stock Edit Modal ──── */
 .modal-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -591,8 +602,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
       <h3>💰 费 率 设 置</h3>
       <div class="fee-row">
         <label>佣金</label>
-        <span class="desc">0.01854%</span>
-        <span class="desc">（万1.854，最低5元）</span>
+        <input type="number" id="feeCommWan" class="fee-input" step="0.001" min="0.01" max="3" value="1.854" onchange="onFeeCommChange()" oninput="onFeeCommInput()">
+        <span class="desc">万</span>
+        <span class="desc">（最低5元，上限万3）</span>
       </div>
       <div class="fee-info">
         <span>印花税 0.05%（卖出单向）</span>
@@ -638,6 +650,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
     </div>
   </div>
 </div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
 <!-- Stock Edit Modal -->
 <div class="modal-overlay" id="editModal">
@@ -1015,6 +1030,10 @@ let portfolio = [];       // [{ id, name, costPrice, holdQty, mode, openPrice, t
 let currentStockIndex = 0;
 let currentMode = 'reverse';
 let editingStockId = null;
+// 交易佣金费率（单位：万，即万分之几；默认万1.854，上限万3）
+let feeCommRateWan = 1.854;
+const FEE_COMM_DEFAULT_WAN = 1.854;
+const FEE_COMM_MAX_WAN = 3;
 
 function saveAll() {
   // Save all form values into current stock object
@@ -1038,6 +1057,7 @@ function saveAll() {
     currentStockIndex: currentStockIndex,
     currentMode: currentMode,
     posFolded: document.getElementById('posFold').classList.contains('hidden'),
+    feeCommRateWan: feeCommRateWan,
   }));
   // 云端同步（防抖）
   _syncToSupabase();
@@ -1196,6 +1216,12 @@ function loadData() {
   currentStockIndex = (typeof prefs.currentStockIndex === 'number' && prefs.currentStockIndex < portfolio.length)
     ? prefs.currentStockIndex : 0;
   currentMode = prefs.currentMode || 'reverse';
+  // 恢复佣金费率（单位：万）
+  if (typeof prefs.feeCommRateWan === 'number' && prefs.feeCommRateWan > 0) {
+    feeCommRateWan = Math.min(prefs.feeCommRateWan, FEE_COMM_MAX_WAN);
+  }
+  const feeEl = document.getElementById('feeCommWan');
+  if (feeEl) feeEl.value = feeCommRateWan;
 }
 
 async function loadDataAsync() {
@@ -1476,26 +1502,33 @@ async function fetchTodayOpenPrices() {
   });
   if (tasks.length === 0) return;
 
+  // code → idx 映射，O(1) 查找，容错 code 大小写/前后缀差异
+  const codeToIdx = new Map(tasks.map(t => [t.code.toLowerCase(), t.idx]));
   const codes = tasks.map(t => t.code).join(',');
   try {
     const resp = await fetch('https://qt.gtimg.cn/q=' + codes);
     const raw = await resp.text();
     const lines = raw.split(';').filter(l => l.trim());
     let updated = 0;
+    const matched = new Set();
     lines.forEach(line => {
       const m = line.match(/v_([a-z]{2}\d+)="([^"]*)"/);
       if (!m) return;
-      const code = m[1];
+      const code = m[1].toLowerCase();
       const fields = m[2].split('~');
       // fields[5] = 今开价
       const open = parseFloat(fields[5]);
       if (isNaN(open) || open <= 0) return;
-      const task = tasks.find(t => t.code === code);
-      if (task) {
-        portfolio[task.idx].openPrice = open;
-        updated++;
-      }
+      if (!codeToIdx.has(code)) return;
+      portfolio[codeToIdx.get(code)].openPrice = open;
+      matched.add(code);
+      updated++;
     });
+    // 提示：有股票未查到今日开盘价（含停牌/新股/代码未识别等情况）
+    if (matched.size < tasks.length) {
+      console.warn('部分持仓今日开盘价未获取到：',
+        tasks.filter(t => !matched.has(t.code.toLowerCase())).map(t => t.code));
+    }
     if (updated > 0) {
       // 更新当前显示的表单（若当前股票被更新了）
       if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
@@ -2049,8 +2082,45 @@ function parseNum(id) {
   return isNaN(v) ? 0 : v;
 }
 
+// 轻量提示（替代生硬的 alert）
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'toast ' + (type || '') + ' show';
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(function() { t.classList.remove('show'); }, 2200);
+}
+
+// 佣金费率输入（实时钳制到上限万3）
+function onFeeCommInput() {
+  const el = document.getElementById('feeCommWan');
+  let v = parseFloat(el.value);
+  if (isNaN(v) || v <= 0) { return; } // 空/非法输入暂不处理，失焦再归一
+  if (v > FEE_COMM_MAX_WAN) v = FEE_COMM_MAX_WAN;
+  feeCommRateWan = v;
+}
+// 佣金费率失焦/确认：归一化 + 持久化
+function onFeeCommChange() {
+  const el = document.getElementById('feeCommWan');
+  let v = parseFloat(el.value);
+  if (isNaN(v) || v <= 0) v = FEE_COMM_DEFAULT_WAN;
+  if (v > FEE_COMM_MAX_WAN) v = FEE_COMM_MAX_WAN;
+  v = Math.round(v * 1000) / 1000; // 保留3位小数
+  feeCommRateWan = v;
+  el.value = v;
+  // 持久化到 prefs
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PREFS);
+    let p = {};
+    if (raw) { try { p = JSON.parse(raw); } catch(e) {} }
+    p.feeCommRateWan = v;
+    localStorage.setItem(STORAGE_KEY_PREFS, JSON.stringify(p));
+  } catch(e) {}
+}
+
 function calcFee(amount, isSell) {
-  let commRate = 0.01854 / 100;
+  let commRate = feeCommRateWan / 10000;
   let comm = amount * commRate;
   let minComm = 5;
   if (comm > 0 && comm < minComm) comm = minComm;
@@ -2077,7 +2147,7 @@ function calculate() {
   const tPrice2 = parseNum('tPrice2');
 
   if (!tPrice1 || !tQty || !tPrice2) {
-    alert('请填写卖出/买入价、操作数量和预期价');
+    showToast('请填写卖出/买入价、操作数量和预期价', 'warning');
     return;
   }
 
@@ -2295,23 +2365,17 @@ function initApp() {
   const codeInput = document.getElementById('modalCode');
   const nameInput = document.getElementById('modalName');
   if (!codeInput) return;
-  // 输入/粘贴代码时自动匹配名称
+  // 输入代码：联动匹配名称，并锁定代码栏（防止名称反向覆盖用户刚输入的代码）
   codeInput.addEventListener('input', function() {
     nameInput.dataset.manual = 'false';
     autoFillNameByCode(codeInput.value);
+    codeInput.dataset.manual = 'true';
   });
-  // 用户手动改动名称时，停止自动覆盖
-  nameInput.addEventListener('input', function() {
-    nameInput.dataset.manual = 'true';
-  });
-  // 输入名称时自动匹配代码（反向）
+  // 输入名称：联动匹配代码，并锁定名称栏（防止代码反向覆盖用户刚输入的名称）
   nameInput.addEventListener('input', function() {
     codeInput.dataset.manual = 'false';
     autoFillCodeByName(nameInput.value);
-  });
-  // 用户手动改动代码时，停止自动覆盖
-  codeInput.addEventListener('input', function() {
-    codeInput.dataset.manual = 'true';
+    nameInput.dataset.manual = 'true';
   });
 })();
 </script>

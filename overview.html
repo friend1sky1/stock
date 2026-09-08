@@ -418,6 +418,14 @@ function loadData() {
             if (sv.price != null) portfolio[i].price = parseFloat(sv.price);
             if (sv.costPrice != null) portfolio[i].costPrice = parseFloat(sv.costPrice);
             if (sv.holdQty != null) portfolio[i].holdQty = parseFloat(sv.holdQty);
+            // 恢复做T参数与模式（本地缓存兜底，避免离线丢失）
+            if (sv.mode != null) portfolio[i].mode = sv.mode;
+            if (sv.tPrice1 != null) portfolio[i].tPrice1 = parseFloat(sv.tPrice1);
+            if (sv.tQty != null) portfolio[i].tQty = parseInt(sv.tQty);
+            if (sv.tPrice2 != null) portfolio[i].tPrice2 = parseFloat(sv.tPrice2);
+            if (sv.nTPrice1 != null) portfolio[i].nTPrice1 = parseFloat(sv.nTPrice1);
+            if (sv.nTQty != null) portfolio[i].nTQty = parseInt(sv.nTQty);
+            if (sv.nTPrice2 != null) portfolio[i].nTPrice2 = parseFloat(sv.nTPrice2);
             portfolio[i].date = sv.date || '';
             portfolio[i].time = sv.time || '';
           }
@@ -1002,7 +1010,11 @@ async function saveAll() {
   // Save to localStorage（同步，立即持久化到本地）
   const toSave = portfolio.map(s => ({
     id: s.id, name: s.name, code: s.code || '', costPrice: s.costPrice, holdQty: s.holdQty,
-    price: s.price, date: s.date, time: s.time
+    price: s.price, date: s.date, time: s.time,
+    // 补全做T参数与模式，避免离线场景从本地缓存恢复时丢失
+    mode: s.mode || 'reverse',
+    tPrice1: s.tPrice1 || 0, tQty: s.tQty || 0, tPrice2: s.tPrice2 || 0,
+    nTPrice1: s.nTPrice1 || 0, nTQty: s.nTQty || 0, nTPrice2: s.nTPrice2 || 0,
   }));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 
