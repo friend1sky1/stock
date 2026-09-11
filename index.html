@@ -560,7 +560,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
       <div class="input-row">
         <label>开盘价</label>
         <span class="spin-btn" style="visibility:hidden">−</span>
-        <input type="text" inputmode="decimal" id="openPrice" placeholder="" value="10.00" onchange="onOpenPriceChange()"
+        <input type="text" inputmode="decimal" id="openPrice" placeholder="" value="10.00" onchange="onOpenPriceChange()" onblur="roundPriceInput(this)"
           ontouchstart="slideStart(event, this, openPriceBounds, function(v){ onSlideOpenPrice(v); })" onmousedown="slideStart(event, this, openPriceBounds, function(v){ onSlideOpenPrice(v); })">
         <span class="spin-btn" style="visibility:hidden">+</span>
         <span class="unit">元</span>
@@ -568,7 +568,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
       <div class="input-row key-row" id="tPrice1Row">
         <label id="tPrice1Label">卖出价</label>
         <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="-0.01">−</span>
-        <input type="text" inputmode="decimal" id="tPrice1" placeholder="先卖价格" oninput="onSellPriceInput()"
+        <input type="text" inputmode="decimal" id="tPrice1" placeholder="先卖价格" oninput="onSellPriceInput()" onblur="onSellPriceBlur()"
           ontouchstart="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })" onmousedown="slideStart(event, this, sellPriceBounds, function(v){ updateRefPrice(); })">
         <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="0.01">+</span>
         <span class="unit">元</span>
@@ -585,7 +585,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
       <div class="input-row">
         <label id="expectLabel">预期接回价</label>
         <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="-0.01">−</span>
-        <input type="text" inputmode="decimal" id="tPrice2" placeholder="" oninput="onBuybackInput()"
+        <input type="text" inputmode="decimal" id="tPrice2" placeholder="" oninput="onBuybackInput()" onblur="onBuybackBlur()"
           ontouchstart="slideStart(event, this, buybackPriceBounds, function(v){ document.getElementById('tPrice2').dataset.autoSet='false'; })" onmousedown="slideStart(event, this, buybackPriceBounds, function(v){ document.getElementById('tPrice2').dataset.autoSet='false'; })">
         <span class="spin-btn" data-spin-id="tPrice2" data-spin-delta="0.01">+</span>
         <span class="unit">元</span>
@@ -1979,7 +1979,7 @@ function toggleFold(cardId) {
 }
 
 // ──── Open price sync ────
-function onOpenPriceChange() { syncPricesFromOpen(); saveDebounced(); }
+function onOpenPriceChange() { roundPriceInput(document.getElementById('openPrice')); syncPricesFromOpen(); saveDebounced(); }
 function onSlideOpenPrice(newVal) { syncPricesFromOpen(); saveDebounced(); }
 
 function syncPricesFromOpen() {
@@ -2016,9 +2016,37 @@ function updateRefPrice() {
   }
 }
 
-function onSellPriceInput() { updateRefPrice(); saveDebounced(); }
+// 数值归一：四舍五入到2位小数（价格输入统一入口）
+function round2(v) {
+  return Math.round(v * 100) / 100;
+}
+// 将输入框当前值四舍五入到2位小数并回写（含空值/非法值保护）
+function roundPriceInput(el) {
+  let v = parseFloat(el.value);
+  if (isNaN(v)) return;
+  v = round2(v);
+  if (v < 0) v = 0;
+  el.value = v.toFixed(2);
+  return v;
+}
+
+function onSellPriceInput() {
+  // 实时：仅更新预期价联动，不打断用户输入（避免输入过程中被四舍五入截断）
+  updateRefPrice();
+  saveDebounced();
+}
+function onSellPriceBlur() {
+  // 失焦：四舍五入到2位小数
+  const v = roundPriceInput(document.getElementById('tPrice1'));
+  if (v !== undefined) updateRefPrice();
+  saveDebounced();
+}
 function onBuybackInput() {
   document.getElementById('tPrice2').dataset.autoSet = 'false';
+  saveDebounced();
+}
+function onBuybackBlur() {
+  roundPriceInput(document.getElementById('tPrice2'));
   saveDebounced();
 }
 
@@ -2150,9 +2178,10 @@ function fmtMoney4(v) {
 }
 
 function calculate() {
-  const tPrice1 = parseNum('tPrice1');
+  // 安全网：计算前统一四舍五入到2位小数（避免输入未失焦直接点计算带多位小数）
+  const tPrice1 = round2(parseNum('tPrice1'));
   const tQty = parseNum('tQty');
-  const tPrice2 = parseNum('tPrice2');
+  const tPrice2 = round2(parseNum('tPrice2'));
 
   if (!tPrice1 || !tQty || !tPrice2) {
     showToast('请填写卖出/买入价、操作数量和预期价', 'warning');
