@@ -404,6 +404,10 @@ html, body {
 .modal-box .field input:focus {
   outline: none; border-color: var(--profit);
 }
+.modal-box .modal-hint {
+  font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;
+  min-height: 14px; line-height: 1.4;
+}
 .modal-actions {
   display: flex; gap: 8px; margin-top: 14px;
 }
@@ -661,6 +665,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
     <div class="field">
       <label>股票代码</label>
       <input type="text" id="modalCode" placeholder="如：600316 / 000725" maxlength="6" inputmode="numeric">
+      <div class="modal-hint" id="modalPriceHint"></div>
     </div>
     <div class="field">
       <label>股票名称</label>
@@ -1155,7 +1160,7 @@ async function loadDataFromCloud() {
     data.forEach(row => { seen.set(row.name, row); });
     const deduped = Array.from(seen.values());
     portfolio = deduped.map(row => {
-      const op = parseFloat(row.open_price) || 10;
+      const op = round2(parseFloat(row.open_price) || 10);
       return {
         id: row.id,
         name: row.name,
@@ -1166,15 +1171,15 @@ async function loadDataFromCloud() {
         mode: row.mode || 'reverse',
         // 倒T参数（tPrice1/tQty/tPrice2）默认跟随开盘价
         reverse: {
-          tPrice1: parseFloat(row.t_price1) || op,
+          tPrice1: round2(parseFloat(row.t_price1) || op),
           tQty: parseInt(row.t_qty) || 1000,
-          tPrice2: parseFloat(row.t_price2) || op,
+          tPrice2: round2(parseFloat(row.t_price2) || op),
         },
         // 正T参数（新增字段 n_ 前缀）
         normal: {
-          tPrice1: parseFloat(row.n_t_price1) || op,
+          tPrice1: round2(parseFloat(row.n_t_price1) || op),
           tQty: parseInt(row.n_t_qty) || 1000,
-          tPrice2: parseFloat(row.n_t_price2) || op,
+          tPrice2: round2(parseFloat(row.n_t_price2) || op),
         },
       };
     });
@@ -1196,22 +1201,30 @@ function loadData() {
   portfolio.forEach(s => {
     if (!s.mode) s.mode = 'reverse';
     if (s.openPrice == null) s.openPrice = 10;
+    if (typeof s.openPrice === 'number' && s.openPrice > 0) s.openPrice = round2(s.openPrice);
     const op = (typeof s.openPrice === 'number' && s.openPrice > 0) ? s.openPrice : 10;
     // 兼容旧格式：旧数据在顶层 tPrice1/tQty/tPrice2
     if (!s.reverse && !s.normal) {
       s.reverse = {
-        tPrice1: s.tPrice1 || op,
+        tPrice1: round2(s.tPrice1 || op),
         tQty: s.tQty || 1000,
-        tPrice2: s.tPrice2 || op,
+        tPrice2: round2(s.tPrice2 || op),
       };
       s.normal = {
-        tPrice1: s.tPrice1 || op,
+        tPrice1: round2(s.tPrice1 || op),
         tQty: s.tQty || 1000,
-        tPrice2: s.tPrice2 || op,
+        tPrice2: round2(s.tPrice2 || op),
       };
     }
     if (!s.reverse) s.reverse = {};
     if (!s.normal) s.normal = {};
+    // 做T价格参数统一两位小数（成本价精度不动）
+    ['reverse','normal'].forEach(function(m){
+      if (s[m]) {
+        if (typeof s[m].tPrice1 === 'number') s[m].tPrice1 = round2(s[m].tPrice1);
+        if (typeof s[m].tPrice2 === 'number') s[m].tPrice2 = round2(s[m].tPrice2);
+      }
+    });
   });
 
   const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
@@ -1527,6 +1540,7 @@ async function fetchTodayOpenPrices() {
       if (isNaN(open) || open <= 0) return;
       if (!codeToIdx.has(code)) return;
       portfolio[codeToIdx.get(code)].openPrice = open;
+      _openCacheSet(code, open);   // 写入当日缓存：新增持仓时直接复用，不重复请求
       matched.add(code);
       updated++;
     });
@@ -1540,7 +1554,7 @@ async function fetchTodayOpenPrices() {
       if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
         const cur = portfolio[currentStockIndex];
         if (cur.openPrice != null && cur.openPrice > 0) {
-          document.getElementById('openPrice').value = cur.openPrice;
+          document.getElementById('openPrice').value = _fmt2(cur.openPrice);
         }
       }
       // 标记今天已查（即使部分失败也记录，避免重复请求；失败的下次当天不再重试）
@@ -1553,12 +1567,75 @@ async function fetchTodayOpenPrices() {
   }
 }
 
+// ========== 单只开盘价查询（新增持仓用）==========
+// 防封IP三件套：①全局串行+最小间隔 ②当日缓存去重 ③失败退避
+const PRICE_MIN_INTERVAL = 1200;                 // 两次腾讯请求最小间隔(ms)
+const PRICE_FAIL_COOLDOWN = 10 * 60 * 1000;     // 失败后退避10分钟
+const OPEN_CACHE_KEY = 'tcalc_open_cache_v1';    // 当日开盘价缓存
+let _priceChain = Promise.resolve();
+let _priceLastAt = 0;
+const _priceFail = new Map();                    // code -> 失败时间戳
+
+function _sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+
+// 当日缓存读取（同一天内同一代码只查一次）
+function _openCacheGet(code) {
+  try {
+    const all = JSON.parse(localStorage.getItem(OPEN_CACHE_KEY) || '{}');
+    const day = all[_todayStr()];
+    const v = day ? day[String(code).toLowerCase()] : undefined;
+    return (typeof v === 'number' && v > 0) ? v : null;
+  } catch(e) { return null; }
+}
+function _openCacheSet(code, open) {
+  try {
+    const today = _todayStr();
+    const all = JSON.parse(localStorage.getItem(OPEN_CACHE_KEY) || '{}');
+    all[today] = all[today] || {};
+    all[today][String(code).toLowerCase()] = round2(open);
+    Object.keys(all).forEach(function(k){ if (k !== today) delete all[k]; }); // 只留当天，防膨胀
+    localStorage.setItem(OPEN_CACHE_KEY, JSON.stringify(all));
+  } catch(e) {}
+}
+
+// 查单只股票今日开盘价：命中当日缓存直接返回（0请求）
+function fetchOpenPriceForCode(code) {
+  const key = String(code || '').trim().toLowerCase();
+  if (!key) return Promise.resolve(null);
+  const cached = _openCacheGet(key);
+  if (cached != null) return Promise.resolve(cached);
+  const failAt = _priceFail.get(key);
+  if (failAt && Date.now() - failAt < PRICE_FAIL_COOLDOWN) return Promise.resolve(null); // 退避中，不重试
+  // 串行队列 + 最小间隔，杜绝并发高频
+  const task = _priceChain.then(function() {
+    const gap = PRICE_MIN_INTERVAL - (Date.now() - _priceLastAt);
+    return (gap > 0 ? _sleep(gap) : Promise.resolve()).then(function() {
+      return fetch('https://qt.gtimg.cn/q=' + key).then(function(resp){ return resp.text(); }).then(function(txt) {
+        _priceLastAt = Date.now();
+        const m = txt.match(new RegExp('v_' + key + '="([^"]*)"', 'i'));
+        const open = m ? parseFloat(m[1].split('~')[5]) : NaN;
+        if (isNaN(open) || open <= 0) { _priceFail.set(key, Date.now()); return null; }
+        _openCacheSet(key, open);
+        _priceFail.delete(key);
+        return round2(open);
+      });
+    });
+  }).catch(function(e) {
+    _priceLastAt = Date.now();
+    _priceFail.set(key, Date.now());
+    console.warn('获取今日开盘价失败：', key, e);
+    return null;
+  });
+  _priceChain = task.catch(function(){});
+  return task;
+}
+
 function getModeData(s, mode) {
   const m = (mode === 'normal') ? 'normal' : 'reverse';
   if (!s[m]) s[m] = {};
   const d = s[m];
   // 默认值优先跟随该股开盘价（做T围绕现价，而非写死 10 元）
-  const op = (typeof s.openPrice === 'number' && s.openPrice > 0) ? s.openPrice : 10;
+  const op = (typeof s.openPrice === 'number' && s.openPrice > 0) ? round2(s.openPrice) : 10;
   if (d.tPrice1 == null) d.tPrice1 = (s.reverse && s.reverse.tPrice1) || s.tPrice1 || op;
   if (d.tQty == null) d.tQty = (s.reverse && s.reverse.tQty) || s.tQty || 1000;
   if (d.tPrice2 == null) d.tPrice2 = (s.reverse && s.reverse.tPrice2) || s.tPrice2 || op;
@@ -1575,12 +1652,12 @@ function loadStockIntoForm() {
   applyModeUI(mode);
   // 按模式读取操作参数
   const d = getModeData(s, mode);
-  document.getElementById('costPrice').value = s.costPrice;
+  document.getElementById('costPrice').value = s.costPrice;  // 成本价保留原始精度(4位)
   document.getElementById('holdQty').value = s.holdQty;
-  document.getElementById('openPrice').value = (s.openPrice != null && s.openPrice > 0) ? s.openPrice : 10;
-  document.getElementById('tPrice1').value = d.tPrice1;
+  document.getElementById('openPrice').value = _fmt2((s.openPrice != null && s.openPrice > 0) ? s.openPrice : 10);
+  document.getElementById('tPrice1').value = _fmt2(d.tPrice1);
   document.getElementById('tQty').value = d.tQty;
-  document.getElementById('tPrice2').value = d.tPrice2;
+  document.getElementById('tPrice2').value = _fmt2(d.tPrice2);
   document.getElementById('tPrice2').dataset.autoSet = 'false';
   document.getElementById('resultCard').classList.remove('show');
   updateRefPrice();
@@ -1588,13 +1665,53 @@ function loadStockIntoForm() {
 }
 
 // ──── Modal operations ────
+// ──── 新增持仓：自动获取今日开盘价提示 ────
+let _modalOpenPrice = null;   // 本次新增取到的开盘价（未取到为 null）
+let _modalLookupSeq = 0;      // 防止过期请求回填
+
+function setModalPriceHint(text, tone) {
+  const el = document.getElementById('modalPriceHint');
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.color = (tone === 'ok') ? 'var(--profit)' : ((tone === 'warn') ? '#B45C00' : 'var(--text-muted)');
+}
+
+// 新增持仓：按代码取当日开盘价（走限速队列+当日缓存；编辑模式跳过）
+async function lookupOpenPriceForModal() {
+  const codeInput = document.getElementById('modalCode');
+  if (!codeInput || editingStockId) return;
+  const digits = String(codeInput.value).trim().replace(/^(sh|sz|bj)/i, '').replace(/\s/g, '');
+  if (!/^\d{6}$/.test(digits)) { _modalOpenPrice = null; setModalPriceHint(''); return; }
+  const code = withExchangePrefix(digits);
+  const seq = ++_modalLookupSeq;
+  const cached = _openCacheGet(code);
+  if (cached != null) {
+    _modalOpenPrice = cached;
+    setModalPriceHint('今日开盘价 ' + _fmt2(cached) + '（今日已查，直接采用）', 'ok');
+    return;
+  }
+  setModalPriceHint('正在获取今日开盘价…');
+  const open = await fetchOpenPriceForCode(code);
+  if (seq !== _modalLookupSeq) return;   // 已有更新的输入，丢弃本次结果
+  if (open != null) {
+    _modalOpenPrice = round2(open);
+    setModalPriceHint('今日开盘价 ' + _fmt2(open) + '，将自动采用', 'ok');
+  } else {
+    _modalOpenPrice = null;
+    setModalPriceHint('未取到今日开盘价，将使用成本价', 'warn');
+  }
+}
+
 function openAddModal() {
   editingStockId = null;
+  _modalOpenPrice = null;
+  _modalLookupSeq++;
   document.getElementById('modalTitle').textContent = '新增持仓';
   document.getElementById('modalCode').value = '';
   document.getElementById('modalName').value = '';
   document.getElementById('modalCost').value = '';
   document.getElementById('modalQty').value = '';
+  setModalPriceHint('');
   document.getElementById('editModal').classList.add('show');
   setTimeout(function(){ document.getElementById('modalCode').focus(); }, 100);
 }
@@ -1607,6 +1724,9 @@ function openEditModal(idx, name, cost, qty) {
   document.getElementById('modalName').value = name;
   document.getElementById('modalCost').value = cost;
   document.getElementById('modalQty').value = qty;
+  _modalOpenPrice = null;
+  _modalLookupSeq++;
+  setModalPriceHint('');
   document.getElementById('editModal').classList.add('show');
   setTimeout(function(){ document.getElementById('modalCode').focus(); }, 100);
 }
@@ -1682,7 +1802,7 @@ function autoFillNameByCode(codeRaw) {
   }
 }
 
-function saveStock() {
+async function saveStock() {
   const name = document.getElementById('modalName').value.trim();
   const codeRaw = document.getElementById('modalCode').value.trim();
   const cost = parseFloat(document.getElementById('modalCost').value);
@@ -1715,14 +1835,23 @@ function saveStock() {
     }
   } else {
     // Add new
+    // 开盘价：优先取腾讯财经当日开盘价（走限速队列+当日缓存），未取到则回落成本价
+    if (_modalOpenPrice == null && code) {
+      setModalPriceHint('正在获取今日开盘价…');
+      const fetched = await fetchOpenPriceForCode(code);
+      if (fetched != null) _modalOpenPrice = round2(fetched);
+    }
+    const op = round2(_modalOpenPrice != null ? _modalOpenPrice : cost);
+    if (_modalOpenPrice == null && code) showToast('未取到今日开盘价，暂用成本价', 'warning');
     const id = (crypto.randomUUID ? crypto.randomUUID() : ('s' + Date.now() + '-' + Math.random().toString(36).slice(2)));
     portfolio.push({
       id, name, code,
       costPrice: cost, holdQty: qty,
-      openPrice: cost,
+      openPrice: op,
       mode: 'reverse',
-      reverse: { tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
-      normal:   { tPrice1: cost, tQty: Math.min(qty, 10000), tPrice2: cost },
+      // 做T参数默认跟随开盘价（围绕现价做T，不再写死成本价）
+      reverse: { tPrice1: op, tQty: Math.min(qty, 10000), tPrice2: op },
+      normal:   { tPrice1: op, tQty: Math.min(qty, 10000), tPrice2: op },
     });
     currentStockIndex = portfolio.length - 1;
   }
@@ -2020,6 +2149,11 @@ function updateRefPrice() {
 function round2(v) {
   return Math.round(v * 100) / 100;
 }
+// 价格显示统一两位小数（用于写入输入框）
+function _fmt2(v) {
+  const n = parseFloat(v);
+  return (isNaN(n) ? 0 : round2(n)).toFixed(2);
+}
 // 将输入框当前值四舍五入到2位小数并回写（含空值/非法值保护）
 function roundPriceInput(el) {
   let v = parseFloat(el.value);
@@ -2092,6 +2226,8 @@ function setMode(mode) {
     old.tPrice1 = parseFloat(document.getElementById('tPrice1').value) || old.tPrice1;
     old.tQty = parseInt(document.getElementById('tQty').value, 10) || old.tQty;
     old.tPrice2 = parseFloat(document.getElementById('tPrice2').value) || old.tPrice2;
+    old.tPrice1 = round2(old.tPrice1);
+    old.tPrice2 = round2(old.tPrice2);
     s.mode = mode;
   }
   // 2. 切模式
@@ -2101,9 +2237,9 @@ function setMode(mode) {
   if (portfolio.length > 0 && currentStockIndex < portfolio.length) {
     const s = portfolio[currentStockIndex];
     const d = getModeData(s, mode);
-    document.getElementById('tPrice1').value = d.tPrice1;
+    document.getElementById('tPrice1').value = _fmt2(d.tPrice1);
     document.getElementById('tQty').value = d.tQty;
-    document.getElementById('tPrice2').value = d.tPrice2;
+    document.getElementById('tPrice2').value = _fmt2(d.tPrice2);
   }
   document.getElementById('tPrice2').dataset.autoSet = 'false';
   updateRefPrice();
@@ -2402,11 +2538,17 @@ function initApp() {
   const codeInput = document.getElementById('modalCode');
   const nameInput = document.getElementById('modalName');
   if (!codeInput) return;
+  let _codeLookupTimer = null;
   // 输入代码：联动匹配名称，并锁定代码栏（防止名称反向覆盖用户刚输入的代码）
   codeInput.addEventListener('input', function() {
     nameInput.dataset.manual = 'false';
     autoFillNameByCode(codeInput.value);
     codeInput.dataset.manual = 'true';
+    // 代码填齐6位→防抖500ms后取当日开盘价（限速+当日缓存）
+    if (_codeLookupTimer) clearTimeout(_codeLookupTimer);
+    const digits = String(codeInput.value).replace(/[^\d]/g, '');
+    if (digits.length !== 6) { _modalOpenPrice = null; setModalPriceHint(''); return; }
+    _codeLookupTimer = setTimeout(function(){ lookupOpenPriceForModal(); }, 500);
   });
   // 输入名称：联动匹配代码，并锁定名称栏（防止代码反向覆盖用户刚输入的名称）
   nameInput.addEventListener('input', function() {
