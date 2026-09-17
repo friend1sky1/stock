@@ -408,6 +408,27 @@ html, body {
   font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;
   min-height: 14px; line-height: 1.4;
 }
+/* 股票名称联想下拉 */
+.name-suggest-wrap { position: relative; }
+.name-suggest {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 999;
+  max-height: 220px; overflow-y: auto;
+  background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px;
+  margin-top: 2px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  list-style: none; padding: 4px 0; display: none;
+}
+.name-suggest.show { display: block; }
+.name-suggest li {
+  padding: 8px 12px; font-size: 0.85rem; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+.name-suggest li:hover, .name-suggest li.active { background: var(--accent-bg, rgba(0,150,100,0.08)); }
+.name-suggest li .s-name { color: var(--text); }
+.name-suggest li .s-code { color: var(--text-muted); font-size: 0.74rem; }
+.name-suggest li .s-market { color: var(--text-muted); font-size: 0.68rem; }
+.name-suggest .s-empty {
+  padding: 10px 12px; font-size: 0.8rem; color: var(--text-muted); cursor: default;
+}
 .modal-actions {
   display: flex; gap: 8px; margin-top: 14px;
 }
@@ -669,7 +690,10 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
     </div>
     <div class="field">
       <label>股票名称</label>
-      <input type="text" id="modalName" placeholder="如：云铝股份" maxlength="8">
+      <div class="name-suggest-wrap">
+        <input type="text" id="modalName" placeholder="如：云铝股份（需从列表选择）" maxlength="8" autocomplete="off">
+        <ul class="name-suggest" id="nameSuggest"></ul>
+      </div>
     </div>
     <div class="field">
       <label>成本价（元）</label>
@@ -1712,6 +1736,7 @@ function openAddModal() {
   document.getElementById('modalCost').value = '';
   document.getElementById('modalQty').value = '';
   setModalPriceHint('');
+  hideNameSuggest();
   document.getElementById('editModal').classList.add('show');
   setTimeout(function(){ document.getElementById('modalCode').focus(); }, 100);
 }
@@ -1727,6 +1752,7 @@ function openEditModal(idx, name, cost, qty) {
   _modalOpenPrice = null;
   _modalLookupSeq++;
   setModalPriceHint('');
+  hideNameSuggest();
   document.getElementById('editModal').classList.add('show');
   setTimeout(function(){ document.getElementById('modalCode').focus(); }, 100);
 }
@@ -1764,6 +1790,84 @@ function getNameToCode() {
     }
   }
   return NAME_TO_CODE;
+}
+
+// 构建「名称→全部代码列表」字典（含重名，已过滤退市/无效项），用于联想下拉
+let NAME_TO_CODES = null;
+function getNameToCodes() {
+  if (NAME_TO_CODES) return NAME_TO_CODES;
+  NAME_TO_CODES = {};
+  const dict = (typeof window.STOCK_NAMES !== 'undefined') ? window.STOCK_NAMES : {};
+  for (const full in dict) {
+    const name = dict[full];
+    if (!name) continue;
+    if (!NAME_TO_CODES[name]) NAME_TO_CODES[name] = [];
+    NAME_TO_CODES[name].push(full);
+  }
+  return NAME_TO_CODES;
+}
+
+// 市场标签中文
+function marketLabel(code) {
+  if (/^(sh|60|68|90)/.test(code)) return '沪';
+  if (/^(sz|00|30|20)/.test(code)) return '深';
+  if (/^(bj|92|43|83|87|88|4|8)/.test(code)) return '北';
+  return '';
+}
+
+// 名称联想：输入关键词 → 返回候选（含代码）列表，最多20条
+function searchStocksByName(keyword) {
+  const kw = String(keyword || '').trim();
+  if (!kw) return [];
+  const dict = (typeof window.STOCK_NAMES !== 'undefined') ? window.STOCK_NAMES : {};
+  const results = [];
+  for (const full in dict) {
+    const name = dict[full];
+    if (!name) continue;
+    // 略过含退市/终止上市/无效的项，避免误导
+    if (/退|终止|无效/.test(name)) continue;
+    if (name.indexOf(kw) === 0 || (kw.length >= 2 && name.indexOf(kw) !== -1)) {
+      results.push({ name: name, code: full });
+    }
+    if (results.length >= 50) break;
+  }
+  // 排序：前缀匹配优先 + 沪深优先 + 代码顺序
+  results.sort(function(a, b) {
+    const aPref = a.name.indexOf(kw) === 0 ? 0 : 1;
+    const bPref = b.name.indexOf(kw) === 0 ? 0 : 1;
+    if (aPref !== bPref) return aPref - bPref;
+    const aB = /^bj/.test(a.code) ? 1 : 0;
+    const bB = /^bj/.test(b.code) ? 1 : 0;
+    if (aB !== bB) return aB - bB;
+    return a.code < b.code ? -1 : 1;
+  });
+  return results.slice(0, 20);
+}
+
+// 渲染联想下拉
+function renderNameSuggest(keyword) {
+  const box = document.getElementById('nameSuggest');
+  if (!box) return;
+  const list = searchStocksByName(keyword);
+  if (!list.length) {
+    box.innerHTML = '<li class="s-empty">无匹配股票，请核对名称</li>';
+    box.classList.add('show');
+    return;
+  }
+  box.innerHTML = list.map(function(item) {
+    const digits = item.code.replace(/^(sh|sz|bj)/i, '');
+    return '<li data-name="' + item.name + '" data-code="' + digits + '" data-full="' + item.code + '">' +
+      '<span class="s-name">' + item.name + '</span>' +
+      '<span class="s-code">' + digits + '</span>' +
+      '<span class="s-market">' + marketLabel(item.code) + '</span>' +
+      '</li>';
+  }).join('');
+  box.classList.add('show');
+}
+
+function hideNameSuggest() {
+  const box = document.getElementById('nameSuggest');
+  if (box) box.classList.remove('show');
 }
 
 // 根据名称自动匹配代码（若代码未手填）
@@ -1822,6 +1926,25 @@ async function saveStock() {
     }
     // 自动补充交易所前缀
     code = withExchangePrefix(code);
+  }
+
+  // ===== 强制校验：名称必须是从联想列表“点选命中”的真实股票，且代码必须存在 =====
+  if (!code) {
+    alert('请从联想列表中选择股票（必须带出代码），不允许只录名称');
+    return;
+  }
+  const fullDict = (typeof window.STOCK_NAMES !== 'undefined') ? window.STOCK_NAMES : {};
+  const namesForCode = getNameToCodes()[name] || [];
+  // 点选命中：名称与代码必须是一对真实匹配
+  const isValidMatch = namesForCode.indexOf(code) !== -1;
+  if (!isValidMatch) {
+    alert('「' + name + '」与代码 ' + code.replace(/^(sh|sz|bj)/i,'') + ' 不匹配，请从联想列表重新选择');
+    return;
+  }
+  // 名称真实存在性终极校验（防止手输一个字典里没有的名字混过）
+  if (!fullDict[code]) {
+    alert('该代码不存在于股票库，请从联想列表选择');
+    return;
   }
 
   if (editingStockId) {
@@ -2550,12 +2673,40 @@ function initApp() {
     if (digits.length !== 6) { _modalOpenPrice = null; setModalPriceHint(''); return; }
     _codeLookupTimer = setTimeout(function(){ lookupOpenPriceForModal(); }, 500);
   });
-  // 输入名称：联动匹配代码，并锁定名称栏（防止代码反向覆盖用户刚输入的名称）
+  // 输入名称：弹出联想下拉（点选才命中代码），并锁定名称栏
   nameInput.addEventListener('input', function() {
     codeInput.dataset.manual = 'false';
     autoFillCodeByName(nameInput.value);
     nameInput.dataset.manual = 'true';
+    renderNameSuggest(nameInput.value);
   });
+  nameInput.addEventListener('focus', function() {
+    if (nameInput.value.trim()) renderNameSuggest(nameInput.value);
+  });
+  nameInput.addEventListener('blur', function() {
+    // 延迟隐藏，让点击 li 的 mousedown 先执行
+    setTimeout(hideNameSuggest, 150);
+  });
+
+  // 联想列表点击/键盘事件（事件委托）
+  const suggestBox = document.getElementById('nameSuggest');
+  if (suggestBox) {
+    suggestBox.addEventListener('mousedown', function(e) {
+      const li = e.target.closest('li[data-code]');
+      if (!li) return;
+      e.preventDefault();
+      const selName = li.getAttribute('data-name');
+      const selCode = li.getAttribute('data-code');
+      nameInput.value = selName;
+      codeInput.value = selCode;
+      codeInput.dataset.manual = 'true';
+      nameInput.dataset.manual = 'true';
+      hideNameSuggest();
+      // 代码填齐6位 → 取当日开盘价
+      if (_codeLookupTimer) clearTimeout(_codeLookupTimer);
+      _codeLookupTimer = setTimeout(function(){ lookupOpenPriceForModal(); }, 0);
+    });
+  }
 })();
 </script>
 </body>
