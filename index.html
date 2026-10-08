@@ -460,7 +460,7 @@ html, body {
 </head>
 <body>
 
-<!-- Supabase Config -->
+<!-- 云端数据库配置 -->
 <script>
 const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
@@ -730,7 +730,7 @@ const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
 let _user = null;  // 当前登录用户
 
 // ========== 数据库冷启动唤醒 + 自动重试 ==========
-// 背景：Supabase 免费版空闲一段时间会休眠，第一个请求需 10~30 秒唤醒，
+// 背景：云端数据库免费版空闲一段时间会休眠，第一个请求需 10~30 秒唤醒，
 // 前端请求超时 → 浏览器直接抛 "Failed to fetch"。
 // 方案1：失败后自动等一会儿重试；方案2：页面加载时先预热唤醒。
 const DB_RETRY_DELAYS = [2500, 5000];   // 重试等待毫秒（共 2 次重试）
@@ -2735,7 +2735,7 @@ function initApp() {
 // 页面加载完成后检查登录状态（先预热数据库，避免冷启动 Failed to fetch）
 (async function() {
   if (!_supabase) {
-    document.getElementById('authMsg').textContent = 'Supabase加载失败，请刷新';
+    document.getElementById('authMsg').textContent = '云端数据库加载失败，请刷新';
     document.getElementById('authMsg').style.color = 'var(--profit)';
     return;
   }
