@@ -1380,14 +1380,10 @@ async function createDefaultPortfolio() {
     reverse: { tPrice1: t, tQty: 1000, tPrice2: t },
     normal:   { tPrice1: t, tQty: 1000, tPrice2: t },
   });
-  portfolio = [
-    { id: 's1', name: '洪都航空', costPrice: 30.4028, holdQty: 4000, mode: 'reverse', code: '', openPrice: 28.95, ...mk(28.95) },
-    { id: 's2', name: '维远股份', costPrice: 15.5713, holdQty: 6000, mode: 'reverse', code: '', openPrice: 12.72, ...mk(12.72) },
-    { id: 's3', name: '京东方A',  costPrice: 8.6212,  holdQty: 4000, mode: 'reverse', code: '', openPrice: 6.00,  ...mk(6.00) },
-  ];
+  // 空默认持仓（不再硬编码个人持仓数据）
+  portfolio = [];
   currentStockIndex = 0;
   currentMode = 'reverse';
-  _syncToSupabase();
 }
 
 // Update snapshot row
