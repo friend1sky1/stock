@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>持仓总览</title>
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<!-- 字体：不再依赖 Google Fonts（国内常超时），改用系统字体栈 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="stock_names.js"></script>
+<script src="stock_names.js" defer></script>
 <style>
 :root {
   --profit:      #E60012;
@@ -52,7 +50,7 @@ html, body {
   text-align: center; padding: 2px 0 4px;
 }
 .header h1 {
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
   font-size: 1.2rem; font-weight: 700; color: var(--profit);
   letter-spacing: 3px;
 }
@@ -159,7 +157,7 @@ tfoot td.loss { color: var(--loss); }
   border: none; border-radius: 10px;
   font-size: 0.88rem; font-weight: 700; cursor: pointer;
   letter-spacing: 2px; transition: all var(--transition);
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
 }
 .btn:active { transform: scale(0.98); }
 .btn-save {
@@ -231,7 +229,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 <div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
   <div style="width:100%;max-width:360px;padding:20px;">
     <div style="text-align:center;margin-bottom:24px;">
-      <h1 style="font-family:'Noto Serif SC',serif;font-size:1.5rem;font-weight:700;color:var(--profit);letter-spacing:3px;margin-bottom:6px;">持仓总览</h1>
+      <h1 style="font-family:'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;font-size:1.5rem;font-weight:700;color:var(--profit);letter-spacing:3px;margin-bottom:6px;">持仓总览</h1>
       <p style="font-size:0.82rem;color:var(--text-secondary);">登录后查看您的持仓数据</p>
     </div>
     <div id="authLoginView">
