@@ -364,6 +364,13 @@ html, body {
   flex-shrink: 0; text-align: center; padding: 2px 0 0;
   font-size: 0.55rem; color: var(--text-muted);
 }
+.footer-links {
+  text-align: center; padding: 6px 0 14px; font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.footer-links a { color: var(--gold, #C4956A); text-decoration: none; margin: 0 6px; }
+.footer-links a:active { opacity: .6; }
+.footer-links .sep { color: var(--border); }
 
 /* ──── Toast ──── */
 .toast {
@@ -672,6 +679,13 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
         <div class="label">操作后新持仓成本</div>
         <div class="value" id="newCost">--</div>
       </div>
+    </div>
+
+    <!-- Footer Links -->
+    <div class="footer-links">
+      <a href="overview.html">📊 持仓总览</a>
+      <span class="sep">·</span>
+      <a href="clear.html">🔌 连接诊断 / 清缓存</a>
     </div>
   </div>
 </div>
