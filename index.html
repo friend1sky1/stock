@@ -717,6 +717,80 @@ const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
   : window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
 let _user = null;  // 当前登录用户
 
+// ========== 数据库冷启动唤醒 + 自动重试 ==========
+// 背景：Supabase 免费版空闲一段时间会休眠，第一个请求需 10~30 秒唤醒，
+// 前端请求超时 → 浏览器直接抛 "Failed to fetch"。
+// 方案1：失败后自动等一会儿重试；方案2：页面加载时先预热唤醒。
+const DB_RETRY_DELAYS = [2500, 5000];   // 重试等待毫秒（共 2 次重试）
+const DB_WARM_TIMEOUT = 30000;          // 预热最长等待
+
+// 方案2：页面加载即 ping 一次数据库，唤醒休眠实例（不占用阻塞流程）
+function warmupDatabase() {
+  try {
+    if (typeof fetch !== 'function') return Promise.resolve('no-fetch');
+    const p = fetch(SUPABASE_URL + '/auth/v1/health', {
+      method: 'GET', cache: 'no-store',
+      headers: { 'apikey': SUPABASE_ANON_KEY }
+    });
+    const timer = new Promise(r => setTimeout(() => r('timeout'), DB_WARM_TIMEOUT));
+    return Promise.race([p, timer]).then(() => 'ok').catch(() => 'fail');
+  } catch (e) { return Promise.resolve('fail'); }
+}
+
+// 方案1 + 方案3：请求失败（尤其 Failed to fetch）时自动重试，最终失败给友好中文提示
+async function dbFetch(label, fn) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= DB_RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) {
+      showConnBanner('正在连接云端数据…（第 ' + (attempt + 1) + ' 次尝试）');
+      await new Promise(r => setTimeout(r, DB_RETRY_DELAYS[attempt - 1]));
+    }
+    try {
+      const res = await fn();
+      hideConnBanner();
+      return res;
+    } catch (err) {
+      lastErr = err;
+      const msg = (err && (err.message || String(err))) || '';
+      if (!/fetch|network|timeout|Failed to fetch|NetworkError|Load failed/i.test(msg)) throw err;
+    }
+  }
+  hideConnBanner();
+  showConnFailBanner(label);
+  throw new Error('网络连接失败');
+}
+
+// 连接中提示条（轻量、不阻塞）
+function showConnBanner(text) {
+  let el = document.getElementById('connBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'connBanner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#C4956A;color:#fff;font-size:0.8rem;text-align:center;padding:6px 10px;box-shadow:0 1px 4px rgba(0,0,0,.15);';
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.style.display = 'block';
+}
+function hideConnBanner() {
+  const el = document.getElementById('connBanner');
+  if (el) el.style.display = 'none';
+}
+// 方案3：最终失败 → 友好中文提示 + 重试按钮
+function showConnFailBanner(label) {
+  let el = document.getElementById('connBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'connBanner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#B23A3A;color:#fff;font-size:0.82rem;text-align:center;padding:8px 10px;';
+    document.body.appendChild(el);
+  }
+  el.style.background = '#B23A3A';
+  el.style.display = 'block';
+  el.innerHTML = '⚠️ 云端连接失败（可能网络不稳或服务刚唤醒），请'
+    + '<a href="javascript:location.reload()" style="color:#FFF;text-decoration:underline;font-weight:600;margin:0 4px;">点击重试</a>。';
+}
+
 // ========== AUTH FUNCTIONS ==========
 const AUTH_KEY = 'tcalc_user_v1';
 const GUEST_USERNAME_KEY = 'tcalc_guest_username_v1';
@@ -920,7 +994,7 @@ function headerAuthAction() {
 }
 
 async function checkSession() {
-  const { data: { session } } = await _supabase.auth.getSession();
+  const { data: { session } } = await dbFetch('检查登录状态', () => _supabase.auth.getSession());
   if (session?.user) {
     _user = session.user;
     hideAuth();
@@ -2646,14 +2720,15 @@ function initApp() {
   });
 }
 
-// 页面加载完成后检查登录状态
+// 页面加载完成后检查登录状态（先预热数据库，避免冷启动 Failed to fetch）
 (async function() {
   if (!_supabase) {
     document.getElementById('authMsg').textContent = 'Supabase加载失败，请刷新';
     document.getElementById('authMsg').style.color = 'var(--profit)';
     return;
   }
-  await checkSession();
+  warmupDatabase();          // 方案2：后台预热，不阻塞
+  await checkSession();      // 方案1/3：失败自动重试 + 友好提示
 })();
 
 // ===== 股票代码↔名称联动 =====
