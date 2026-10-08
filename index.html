@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>做T计算器</title>
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<!-- 字体：不再依赖 Google Fonts（国内常超时 10~20s），改用系统字体栈，秒开 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="stock_names.js"></script>
+<script src="stock_names.js" defer></script>
 <style>
 :root {
   --profit:      #E60012;
@@ -54,7 +52,7 @@ html, body {
   margin-bottom: 4px;
 }
 .header h1 {
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
   font-size: 1.15rem; font-weight: 700; color: var(--profit);
   letter-spacing: 3px;
 }
@@ -146,7 +144,7 @@ html, body {
   font-size: 0.88rem; font-weight: 700; color: var(--profit);
   margin-bottom: 8px; padding-bottom: 5px;
   border-bottom: 1px dashed var(--border);
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
   display: flex; align-items: center; gap: 6px;
   letter-spacing: 2px;
   cursor: pointer; user-select: none;
@@ -166,7 +164,7 @@ html, body {
 .input-row:last-child { margin-bottom: 0; }
 .input-row label {
   font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap;
-  min-width: 84px; flex-shrink: 0; font-family: 'Noto Serif SC', serif;
+  min-width: 84px; flex-shrink: 0; font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
 }
 .input-row input {
   flex: 1; min-width: 0;
@@ -255,7 +253,7 @@ html, body {
 .fee-card h3 {
   font-size: 0.88rem; font-weight: 700; color: var(--text-secondary);
   margin-bottom: 6px; letter-spacing: 2px;
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
 }
 .fee-row {
   display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
@@ -263,7 +261,7 @@ html, body {
 .fee-row:last-child { margin-bottom: 0; }
 .fee-row label {
   font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; min-width: 54px;
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
 }
 .fee-row input {
   width: 60px; padding: 5px 6px; font-size: 0.84rem;
@@ -293,7 +291,7 @@ html, body {
   color: #FFF; font-size: 1rem; font-weight: 700;
   cursor: pointer; letter-spacing: 3px;
   margin-bottom: 8px; transition: all var(--transition);
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
 }
 .calc-btn:active { transform: scale(0.98); opacity: 0.9; }
 
@@ -306,7 +304,7 @@ html, body {
 .result-card.show { display: block; border: 1.5px solid var(--gold); }
 .result-card h2 {
   font-size: 0.88rem; font-weight: 700; color: var(--profit);
-  margin-bottom: 8px; font-family: 'Noto Serif SC', serif;
+  margin-bottom: 8px; font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
   display: flex; align-items: center; gap: 6px;
 }
 .result-card h2 .icon { font-size: 0.9rem; }
@@ -397,7 +395,7 @@ html, body {
 }
 .modal-box h3 {
   font-size: 1rem; font-weight: 700; color: var(--profit);
-  margin-bottom: 12px; font-family: 'Noto Serif SC', serif;
+  margin-bottom: 12px; font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
 }
 .modal-box .field { margin-bottom: 10px; }
 .modal-box .field label {
@@ -472,7 +470,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 <div id="welcomeOverlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;">
   <div style="width:88%;max-width:340px;background:var(--card);border-radius:16px;padding:28px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
     <div style="font-size:2.2rem;margin-bottom:12px;">👋</div>
-    <h2 style="font-family:'Noto Serif SC',serif;font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:10px;letter-spacing:2px;">👋 欢迎体验</h2>
+    <h2 style="font-family:'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:10px;letter-spacing:2px;">👋 欢迎体验</h2>
     <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-bottom:8px;">您当前的数据仅保存在<b>本机</b>，随时可用</p>
     <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-bottom:20px;">注册账号后，将<b>云端保存、跨设备同步</b></p>
     <button onclick="closeWelcome()" style="width:100%;padding:12px;border:none;border-radius:12px;background:var(--profit);color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;">知道了，继续使用</button>
@@ -483,7 +481,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 <div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;">
   <div style="width:100%;max-width:360px;padding:20px;">
     <div style="text-align:center;margin-bottom:20px;">
-      <h1 style="font-family:'Noto Serif SC',serif;font-size:1.5rem;font-weight:700;color:var(--profit);letter-spacing:3px;margin-bottom:6px;">做T计算器</h1>
+      <h1 style="font-family:'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;font-size:1.5rem;font-weight:700;color:var(--profit);letter-spacing:3px;margin-bottom:6px;">做T计算器</h1>
       <p id="authSubtitle" style="font-size:0.82rem;color:var(--text-secondary);">登录后数据云端同步</p>
     </div>
     <div id="authFormView">
@@ -522,7 +520,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 <!-- 用户名设置弹窗（游客改名 / 注册用户改名）-->
 <div id="usernameOverlay" style="position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;">
   <div style="width:88%;max-width:340px;background:var(--card);border-radius:16px;padding:26px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
-    <h2 style="font-family:'Noto Serif SC',serif;font-size:1.15rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:2px;">设置用户名</h2>
+    <h2 style="font-family:'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;font-size:1.15rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:2px;">设置用户名</h2>
     <p id="usernameHint" style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:16px;">给自己起个名字，更方便</p>
     <input id="usernameInput" type="text" placeholder="输入用户名" maxlength="20"
       style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:0.95rem;background:#fff;color:var(--text);outline:none;box-sizing:border-box;text-align:center;"
