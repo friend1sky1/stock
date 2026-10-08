@@ -64,17 +64,13 @@
 </head>
 <body>
   <h2>🔌 连接诊断</h2>
-  <div class="sub">检查云端数据库是否在线，并清理浏览器缓存</div>
+  <div class="sub">检查网站是否在线，并清理浏览器缓存</div>
 
   <div class="card">
     <h3>服务器侧检查</h3>
     <div class="row">
       <span class="label">主页（做T计算器）</span>
       <span class="val wait" id="s-site"><span class="dot wait"></span>检测中…</span>
-    </div>
-    <div class="row">
-      <span class="label">云端数据库（Supabase）</span>
-      <span class="val wait" id="s-db"><span class="dot wait"></span>检测中…</span>
     </div>
   </div>
 
@@ -86,8 +82,7 @@
 
   <p class="note">
     说明：本页只做诊断与本地缓存清理，<b>不会动你的云端数据</b>。<br>
-    判定参考：主页/数据库任一失败 → 多为本地网络或缓存问题，先清理缓存再试；<br>
-    若诊断全绿但做T计算器仍打不开 → 是 Supabase 冷启动，等 10~30 秒后重试即可。
+    若显示"无法访问" → 多为本地网络问题，切换 WiFi/流量或清理缓存后重试。
   </p>
 
 <script>
@@ -122,16 +117,13 @@ async function checkSite() {
 
 async function checkDb() {
   try {
-    // 401 也是“在线”（未鉴权），只有网络失败/超时/5xx 才算异常
+    // 401 也是"在线"（未鉴权），只有网络失败/超时/5xx 才算异常
     const r = await fetchWithTimeout(SUPABASE_URL + '/auth/v1/health', {
       method: 'GET', headers: { 'apikey': SUPABASE_ANON_KEY }
     }, 30000);
-    if (r.status === 200 || r.status === 401) { setState('s-db', 'ok', '在线（HTTP ' + r.status + '）'); return true; }
-    if (r.status >= 500) { setState('s-db', 'bad', '服务异常（HTTP ' + r.status + '）'); return false; }
-    setState('s-db', 'ok', '在线（HTTP ' + r.status + '）'); return true;
+    if (r.status >= 500) { return false; }
+    return true;
   } catch (e) {
-    const timeout = (e && e.name === 'AbortError');
-    setState('s-db', 'bad', timeout ? '超时未响应（疑似冷启动）' : '无法连接');
     return false;
   }
 }
@@ -145,19 +137,16 @@ function showFinal(cls, html) {
 async function runDiagnose() {
   document.getElementById('finalBox').className = 'final'; // 隐藏
   setState('s-site', 'wait', '检测中…');
-  setState('s-db', 'wait', '检测中…');
   const btn = document.getElementById('btnRetry');
   btn.disabled = true; btn.textContent = '诊断中…';
 
-  const [siteOk, dbOk] = await Promise.all([checkSite(), checkDb()]);
+  const siteOk = await checkSite();
 
   btn.disabled = false; btn.textContent = '🔄 重新诊断';
 
-  if (siteOk && dbOk) {
-    showFinal('good', '<b>✅ 一切正常</b><br>服务器与云端数据库都在线。若做T计算器仍打不开，多为本地缓存：点下方「清理本地缓存并跳转」即可。');
-  } else if (siteOk && !dbOk) {
-    showFinal('warn', '<b>⚠️ 云端数据库连接异常</b><br>网站本身正常，但数据库连接失败。可能是 <b>Supabase 冷启动</b>（等 10~30 秒再点「重新诊断」），或本地网络拦截了 supabase.co（换 WiFi/流量试试）。');
-  } else if (!siteOk) {
+  if (siteOk) {
+    showFinal('good', '<b>✅ 网站正常</b><br>服务器在线。若做T计算器仍打不开，多为本地缓存或网络抖动：点下方「清理本地缓存并跳转」即可。');
+  } else {
     showFinal('err', '<b>❌ 主页无法访问</b><br>连网站本身都打不开 → 大概率是本机网络问题：切换 WiFi/流量，或清理缓存后重试。');
   }
 }
