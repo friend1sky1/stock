@@ -3,25 +3,185 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>清理缓存</title>
+<title>连接诊断 / 清理缓存</title>
 <style>
-  body { font-family: sans-serif; background: #FBF6F0; text-align: center; padding: 40px 20px; }
-  h2 { color: #CC0000; }
-  .msg { color: #3D2E2E; margin: 16px 0; }
+  :root {
+    --bg: #FBF6F0;
+    --text: #3D2E2E;
+    --muted: #8A7A72;
+    --profit: #CC0000;
+    --loss: #2D8A4E;
+    --card: #FFFFFF;
+    --border: #E8DFD6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    text-align: center; padding: 28px 18px 48px; margin: 0;
+    -webkit-text-size-adjust: 100%;
+  }
+  h2 { font-family: "Noto Serif SC", serif; color: var(--text); margin: 0 0 4px; font-size: 1.35rem; }
+  .sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 22px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    max-width: 420px; margin: 0 auto 16px; padding: 18px 16px; text-align: left;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .card h3 { margin: 0 0 12px; font-size: 0.95rem; color: var(--text); }
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: 0.88rem;
+  }
+  .row:last-child { border-bottom: none; }
+  .row .label { color: var(--text); }
+  .row .val { font-weight: 600; font-size: 0.82rem; }
+  .ok { color: var(--loss); }
+  .bad { color: var(--profit); }
+  .wait { color: #C4956A; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.ok { background: var(--loss); }
+  .dot.bad { background: var(--profit); }
+  .dot.wait { background: #C4956A; }
+  button {
+    display: block; width: 100%; max-width: 420px; margin: 0 auto 10px;
+    padding: 13px; border: none; border-radius: 10px; cursor: pointer;
+    font-size: 0.95rem; font-weight: 600; transition: opacity .15s;
+  }
+  button:disabled { opacity: .55; cursor: default; }
+  .btn-primary { background: var(--text); color: #fff; }
+  .btn-warn { background: #C4956A; color: #fff; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1.5px solid var(--border); font-weight: 500; }
+  .note { color: var(--muted); font-size: 0.76rem; max-width: 420px; margin: 14px auto 0; line-height: 1.6; text-align: left; }
+  .final {
+    max-width: 420px; margin: 0 auto 16px; padding: 12px 14px; border-radius: 10px;
+    font-size: 0.85rem; text-align: left; line-height: 1.6; display: none;
+  }
+  .final.good { background: #EAF5EE; border: 1px solid #BFE3CC; color: #256B3C; display: block; }
+  .final.warn { background: #FDF3E7; border: 1px solid #F0D9BC; color: #8A5A28; display: block; }
+  .final.err  { background: #FBEAEA; border: 1px solid #F0C4C4; color: #9B2B2B; display: block; }
 </style>
 </head>
 <body>
-  <h2>✅ 旧数据已清除</h2>
-  <p class="msg">正在跳转到做T计算器...</p>
+  <h2>🔌 连接诊断</h2>
+  <div class="sub">检查云端数据库是否在线，并清理浏览器缓存</div>
+
+  <div class="card">
+    <h3>服务器侧检查</h3>
+    <div class="row">
+      <span class="label">主页（做T计算器）</span>
+      <span class="val wait" id="s-site"><span class="dot wait"></span>检测中…</span>
+    </div>
+    <div class="row">
+      <span class="label">云端数据库（Supabase）</span>
+      <span class="val wait" id="s-db"><span class="dot wait"></span>检测中…</span>
+    </div>
+  </div>
+
+  <div class="final" id="finalBox"></div>
+
+  <button class="btn-warn" id="btnClear" onclick="doClean()">🧹 清理本地缓存并跳转</button>
+  <button class="btn-primary" id="btnRetry" onclick="runDiagnose()">🔄 重新诊断</button>
+  <button class="btn-ghost" onclick="location.href='https://t.ai-zhihui.cn'">← 直接返回做T计算器</button>
+
+  <p class="note">
+    说明：本页只做诊断与本地缓存清理，<b>不会动你的云端数据</b>。<br>
+    判定参考：主页/数据库任一失败 → 多为本地网络或缓存问题，先清理缓存再试；<br>
+    若诊断全绿但做T计算器仍打不开 → 是 Supabase 冷启动，等 10~30 秒后重试即可。
+  </p>
+
 <script>
-localStorage.removeItem('tcalc_portfolio_v2');
-localStorage.removeItem('tcalc_history_v2');
-localStorage.removeItem('tcalc_prefs_v2');
-// Also clear old keys
-localStorage.removeItem('tcalc_portfolio');
-localStorage.removeItem('tcalc_history');
-localStorage.removeItem('tcalc_prefs');
-setTimeout(function() { location.href = 'https://t.ai-zhihui.cn'; }, 800);
+const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
+const SITE_URL = 'https://t.ai-zhihui.cn';
+
+function setState(id, state, text) {
+  const el = document.getElementById(id);
+  const cls = state === 'ok' ? 'ok' : (state === 'bad' ? 'bad' : 'wait');
+  el.className = 'val ' + cls;
+  el.innerHTML = '<span class="dot ' + cls + '"></span>' + text;
+}
+
+// 带超时的 fetch（AbortController）
+function fetchWithTimeout(url, opts, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, Object.assign({}, opts, { signal: ctrl.signal, cache: 'no-store' }))
+    .finally(() => clearTimeout(t));
+}
+
+async function checkSite() {
+  try {
+    const r = await fetchWithTimeout(SITE_URL + '/index.html?_=' + Date.now(), { method: 'GET' }, 15000);
+    if (r.ok) { setState('s-site', 'ok', '在线（HTTP ' + r.status + '）'); return true; }
+    setState('s-site', 'bad', '异常（HTTP ' + r.status + '）'); return false;
+  } catch (e) {
+    setState('s-site', 'bad', '无法访问'); return false;
+  }
+}
+
+async function checkDb() {
+  try {
+    // 401 也是“在线”（未鉴权），只有网络失败/超时/5xx 才算异常
+    const r = await fetchWithTimeout(SUPABASE_URL + '/auth/v1/health', {
+      method: 'GET', headers: { 'apikey': SUPABASE_ANON_KEY }
+    }, 30000);
+    if (r.status === 200 || r.status === 401) { setState('s-db', 'ok', '在线（HTTP ' + r.status + '）'); return true; }
+    if (r.status >= 500) { setState('s-db', 'bad', '服务异常（HTTP ' + r.status + '）'); return false; }
+    setState('s-db', 'ok', '在线（HTTP ' + r.status + '）'); return true;
+  } catch (e) {
+    const timeout = (e && e.name === 'AbortError');
+    setState('s-db', 'bad', timeout ? '超时未响应（疑似冷启动）' : '无法连接');
+    return false;
+  }
+}
+
+function showFinal(cls, html) {
+  const box = document.getElementById('finalBox');
+  box.className = 'final ' + cls;
+  box.innerHTML = html;
+}
+
+async function runDiagnose() {
+  document.getElementById('finalBox').className = 'final'; // 隐藏
+  setState('s-site', 'wait', '检测中…');
+  setState('s-db', 'wait', '检测中…');
+  const btn = document.getElementById('btnRetry');
+  btn.disabled = true; btn.textContent = '诊断中…';
+
+  const [siteOk, dbOk] = await Promise.all([checkSite(), checkDb()]);
+
+  btn.disabled = false; btn.textContent = '🔄 重新诊断';
+
+  if (siteOk && dbOk) {
+    showFinal('good', '<b>✅ 一切正常</b><br>服务器与云端数据库都在线。若做T计算器仍打不开，多为本地缓存：点下方「清理本地缓存并跳转」即可。');
+  } else if (siteOk && !dbOk) {
+    showFinal('warn', '<b>⚠️ 云端数据库连接异常</b><br>网站本身正常，但数据库连接失败。可能是 <b>Supabase 冷启动</b>（等 10~30 秒再点「重新诊断」），或本地网络拦截了 supabase.co（换 WiFi/流量试试）。');
+  } else if (!siteOk) {
+    showFinal('err', '<b>❌ 主页无法访问</b><br>连网站本身都打不开 → 大概率是本机网络问题：切换 WiFi/流量，或清理缓存后重试。');
+  }
+}
+
+// 只清理本地缓存，不动云端数据
+function clearLocal() {
+  localStorage.removeItem('tcalc_portfolio_v2');
+  localStorage.removeItem('tcalc_history_v2');
+  localStorage.removeItem('tcalc_prefs_v2');
+  localStorage.removeItem('tcalc_portfolio');
+  localStorage.removeItem('tcalc_history');
+  localStorage.removeItem('tcalc_prefs');
+}
+
+function doClean() {
+  clearLocal();
+  const btn = document.getElementById('btnClear');
+  btn.disabled = true; btn.textContent = '✅ 已清理，正在跳转…';
+  showFinal('good', '<b>🧹 本地缓存已清除</b><br>正在跳转到做T计算器…');
+  setTimeout(function() { location.href = SITE_URL; }, 700);
+}
+
+// 页面加载即自动诊断一次
+runDiagnose();
 </script>
 </body>
 </html>
