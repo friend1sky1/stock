@@ -219,7 +219,7 @@ tfoot td.loss { color: var(--loss); }
 </head>
 <body>
 
-<!-- Supabase Config -->
+<!-- 云端数据库配置 -->
 <script>
 const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
@@ -304,7 +304,7 @@ const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
 let _user = null;
 
 // ========== 数据库冷启动唤醒 + 自动重试 ==========
-// 背景：Supabase 免费版空闲时会休眠，第一个请求需 10~30 秒唤醒 → 前端超时报 "Failed to fetch"。
+// 背景：云端数据库免费版空闲时会休眠，第一个请求需 10~30 秒唤醒 → 前端超时报 "Failed to fetch"。
 const DB_RETRY_DELAYS = [2500, 5000];
 const DB_WARM_TIMEOUT = 30000;
 
@@ -1185,7 +1185,7 @@ function showToast(msg, type) {
 // ========== BOOT ==========
 (async function() {
   if (!_supabase) {
-    document.getElementById('authMsg').textContent = 'Supabase加载失败，请刷新';
+    document.getElementById('authMsg').textContent = '云端数据库加载失败，请刷新';
     document.getElementById('authMsg').style.color = 'var(--profit)';
     return;
   }
