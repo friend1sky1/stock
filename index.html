@@ -959,6 +959,11 @@ async function doSignup() {
 
 // 登录/注册成功后的统一处理：迁移游客本地数据
 async function afterLoginSuccess() {
+  // 确保老账号有 user_profiles 记录（表建立前注册的账号自动补建），失败不阻断登录
+  try {
+    const ensured = await ensureProfile();
+    if (!ensured.ok) console.warn('ensureProfile after login:', ensured.error);
+  } catch (e) { console.warn('ensureProfile exception:', e); }
   // 迁移：将游客本地数据导入新账号
   const guestPortfolio = localStorage.getItem(STORAGE_KEY_PORTFOLIO);
   if (guestPortfolio) {
@@ -1067,13 +1072,13 @@ function updateUserDisplay() {
   const el = document.getElementById('userEmail');
   const link = document.getElementById('headerAuthLink');
   if (_user) {
-    // 登录用户：显示用户名（优先 profile，次 email）
-    let label = _user.email || '已登录';
-    getProfileUsername().then(uname => {
-      if (uname) label = uname;
-      el.textContent = label + '（点击改名）';
-    });
+    // 登录用户：先显示邮箱前缀作占位，避免闪邮箱全称；profile 回来后再覆盖
+    const placeholder = _user.email ? _user.email.split('@')[0] : '已登录';
+    el.textContent = placeholder + '（点击改名）';
     link.textContent = '退出';
+    getProfileUsername().then(uname => {
+      el.textContent = (uname || placeholder) + '（点击改名）';
+    });
   } else {
     const guest = getGuestUsername();
     el.textContent = guest ? guest : '未登录';
@@ -1086,8 +1091,33 @@ async function getProfileUsername() {
   if (!_user || !_supabase) return '';
   const { data, error } = await _supabase.from('user_profiles')
     .select('username').eq('user_id', _user.id).maybeSingle();
-  if (error || !data) return '';
-  return data.username || '';
+  if (error) { console.error('getProfileUsername error:', error); return ''; }
+  return (data && data.username) ? data.username : '';
+}
+
+// 确保当前账号在 user_profiles 有记录；老账号(表建立前注册/注册时写入失败)自动补建
+// 返回 { ok, username, error }
+async function ensureProfile(desiredName) {
+  if (!_user || !_supabase) return { ok: false, error: 'not logged in' };
+  const { data, error } = await _supabase.from('user_profiles')
+    .select('id, username').eq('user_id', _user.id).maybeSingle();
+  if (error) {
+    console.error('ensureProfile select error:', error);
+    return { ok: false, error: '读取用户资料失败' };
+  }
+  if (data && data.id) {
+    return { ok: true, username: data.username || '' };
+  }
+  // 无记录 → 补建。默认名用邮箱前缀，可被 desiredName 覆盖
+  const fallback = desiredName || (_user.email ? _user.email.split('@')[0] : '用户');
+  const { error: inErr } = await _supabase.from('user_profiles').insert({
+    user_id: _user.id, username: fallback, email: _user.email || null
+  });
+  if (inErr) {
+    console.error('ensureProfile insert error:', inErr);
+    return { ok: false, error: inErr.code === '23505' ? '该用户名已被使用' : '创建用户资料失败' };
+  }
+  return { ok: true, username: fallback };
 }
 
 function openUsernameOverlay() {
@@ -1123,26 +1153,19 @@ async function saveUsername() {
       msgEl.style.color = 'var(--profit)';
       return;
     }
-    const { data, error } = await _supabase.from('user_profiles')
-      .select('id').eq('user_id', _user.id).maybeSingle();
-    if (error) { msgEl.textContent = '保存失败，请重试'; msgEl.style.color = 'var(--profit)'; return; }
-    if (data) {
-      const { error: upErr } = await _supabase.from('user_profiles')
-        .update({ username }).eq('user_id', _user.id);
-      if (upErr) {
-        msgEl.textContent = (upErr.code === '23505') ? '该用户名已被使用' : '保存失败';
-        msgEl.style.color = 'var(--profit)';
-        return;
-      }
-    } else {
-      const { error: inErr } = await _supabase.from('user_profiles').insert({
-        user_id: _user.id, username, email: _user.email
-      });
-      if (inErr) {
-        msgEl.textContent = (inErr.code === '23505') ? '该用户名已被使用' : '保存失败';
-        msgEl.style.color = 'var(--profit)';
-        return;
-      }
+    // 先确保有 profile 记录（老账号自动补建），再更新
+    const ensured = await ensureProfile();
+    if (!ensured.ok) {
+      msgEl.textContent = ensured.error || '保存失败，请重试';
+      msgEl.style.color = 'var(--profit)';
+      return;
+    }
+    const { error: upErr } = await _supabase.from('user_profiles')
+      .update({ username }).eq('user_id', _user.id);
+    if (upErr) {
+      msgEl.textContent = (upErr.code === '23505') ? '该用户名已被使用' : ('保存失败：' + (upErr.message || '请重试'));
+      msgEl.style.color = 'var(--profit)';
+      return;
     }
   } else {
     // 游客改名：本机，不检测
