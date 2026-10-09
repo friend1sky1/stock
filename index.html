@@ -843,6 +843,37 @@ function setAuthMsg(msg, isError) {
   el.style.color = isError ? 'var(--profit)' : 'var(--loss, #2D8A4E)';
 }
 
+// 将云端返回的英文报错翻译为中文，并给出下一步引导
+function friendlyAuthError(err, flow) {
+  const m = (err && err.message ? err.message : '').toLowerCase();
+  if (m.includes('already registered') || m.includes('already been registered') || m.includes('user already')) {
+    return '该邮箱已注册！请直接点下方「登录」，用这个邮箱和密码登录即可。';
+  }
+  if (m.includes('invalid login credentials') || m.includes('invalid credentials')) {
+    return '邮箱或密码不正确。若还没注册过，请先点下方「注册新账号」。';
+  }
+  if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+    return '邮箱还未验证，请先到邮箱点开确认链接再登录。';
+  }
+  if (m.includes('password should be at least') || m.includes('password is too short')) {
+    return '密码至少需要 6 位。';
+  }
+  if (m.includes('unable to validate email') || m.includes('invalid format') || m.includes('invalid email')) {
+    return '邮箱格式不正确，请检查后重试。';
+  }
+  if (m.includes('rate limit') || m.includes('too many requests') || m.includes('email rate limit')) {
+    return '操作太频繁了，请稍等 1 分钟再试。';
+  }
+  if (m.includes('signups not allowed') || m.includes('signup disabled')) {
+    return '当前暂不支持自助注册，请联系管理员。';
+  }
+  if (m.includes('network') || m.includes('failed to fetch')) {
+    return '网络连接失败，请检查网络后重试。';
+  }
+  // 兜底：不把英文原文抛给用户，给出通用中文提示 + 保留原文方便排查
+  return '操作失败，请稍后重试。' + (err && err.message ? '（' + err.message + '）' : '');
+}
+
 function authSubmit() {
   if (_authMode === 'signup') doSignup();
   else doLogin();
@@ -867,7 +898,7 @@ async function doLogin() {
   setAuthMsg('登录中...', false);
   const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
   document.getElementById('authSubmitBtn').disabled = false;
-  if (error) { setAuthMsg(error.message, true); return; }
+  if (error) { setAuthMsg(friendlyAuthError(error, 'login'), true); return; }
   _user = data.user;
   localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
   hideAuth();
@@ -898,7 +929,7 @@ async function doSignup() {
     options: { emailRedirectTo: 'https://t.ai-zhihui.cn' }
   });
   document.getElementById('authSubmitBtn').disabled = false;
-  if (error) { setAuthMsg(error.message, true); return; }
+  if (error) { setAuthMsg(friendlyAuthError(error, 'signup'), true); return; }
 
   if (data.user && !data.session) {
     // 需要邮箱确认
