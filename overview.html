@@ -49,6 +49,14 @@ html, body {
 .header {
   text-align: center; padding: 2px 0 4px;
 }
+.back-bar {
+  display: inline-block; margin: 0 0 10px; padding: 9px 20px;
+  background: linear-gradient(135deg, #C4956A, #A67B5B); color: #FFF;
+  border-radius: 10px; text-decoration: none; font-size: 0.86rem; font-weight: 700;
+  letter-spacing: 1px; box-shadow: 0 2px 8px rgba(166,123,91,0.28);
+  transition: all var(--transition);
+}
+.back-bar:active { transform: scale(0.97); }
 .header h1 {
   font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
   font-size: 1.2rem; font-weight: 700; color: var(--profit);
@@ -258,6 +266,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 </div>
 
 <div class="app" style="display:none;">
+  <a href="index.html" class="back-bar">← 返回做T计算器</a>
   <div class="header" style="position:relative;">
     <h1>📊 持仓总览</h1>
     <div class="date-row" id="dateLabel">数据更新：--</div>
@@ -288,8 +297,6 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
   </div>
 
   <div class="links">
-    <a href="index.html">← 返回做T计算器</a>
-    <span style="color:var(--border);margin:0 6px;">·</span>
     <a href="clear.html">🔌 连接诊断 / 清缓存</a>
   </div>
 
