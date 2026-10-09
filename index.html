@@ -633,8 +633,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
       <div class="fee-row">
         <label>佣金</label>
         <input type="number" id="feeCommWan" class="fee-input" step="0.001" min="0.01" max="3" value="3" onchange="onFeeCommChange()" oninput="onFeeCommInput()">
-        <span class="desc">万</span>
-        <span class="desc">（最低5元，上限万3）</span>
+        <span class="desc">万分之</span>
+        <span class="desc">（最低5元，上限万分之3）</span>
       </div>
       <div class="fee-info">
         <span>印花税 0.05%（卖出单向）</span>
@@ -1407,6 +1407,21 @@ function loadData() {
   } else {
     feeCommRateWan = FEE_COMM_DEFAULT_WAN;
   }
+  const feeEl = document.getElementById('feeCommWan');
+  if (feeEl) feeEl.value = feeCommRateWan;
+}
+
+// 【独立函数】仅从本地 prefs 读取佣金费率并更新 UI（不碰持仓，可安全在初始化调用）
+function loadFeeRateFromLocal() {
+  try {
+    const rawPrefs = localStorage.getItem(STORAGE_KEY_PREFS);
+    if (rawPrefs) {
+      const prefs = JSON.parse(rawPrefs);
+      if (typeof prefs.feeCommRateWan === 'number' && prefs.feeCommRateWan > 0) {
+        feeCommRateWan = Math.min(prefs.feeCommRateWan, FEE_COMM_MAX_WAN);
+      }
+    }
+  } catch(e) { console.warn('loadFeeRateFromLocal error:', e); }
   const feeEl = document.getElementById('feeCommWan');
   if (feeEl) feeEl.value = feeCommRateWan;
 }
@@ -2575,7 +2590,7 @@ async function onFeeCommChange() {
     cloudOk = await saveFeeRateToCloud(v);
   }
   // 每次设置/修改都告知用户一次
-  showToast('佣金费率已保存：万' + v + (cloudOk ? '（本账号长期生效）' : (_user ? '（云端同步失败，已存本机）' : '（本机保存）')), cloudOk || !_user ? 'success' : 'error');
+  showToast('佣金费率已保存：万分之' + v + (cloudOk ? '（本账号长期生效）' : (_user ? '（云端同步失败，已存本机）' : '（本机保存）')), cloudOk || !_user ? 'success' : 'error');
 }
 
 // 云端保存佣金费率（写入 user_profiles.fee_comm_wan）
@@ -2813,11 +2828,18 @@ function initApp() {
   // 如果云端加载失败，再从localStorage加载
   portfolio = [];
   currentStockIndex = 0;
+  // 【修复】先把本地佣金费率读上来：登录路径原本漏了 loadData()，
+  // 导致刷新后费率回落默认万3。这里只读费率，不动持仓（避免与云端加载竞争）。
+  loadFeeRateFromLocal();
   buildTabBar();
   loadStockIntoForm();
   updateSnapshot();
   // 显示用户信息
   updateUserDisplay();
+  // 【修复】初始化必经路径拉取云端佣金费率（刷新/换设备都生效，云端优先）
+  if (_user) {
+    loadFeeRateFromCloudIntoUI().catch(e => console.warn('loadFeeRate init error:', e));
+  }
   // 异步从云端加载最新数据
   loadDataAsync().then(() => {
     // 云端加载完成后，如果还是空的，再尝试localStorage（兼容离线）
