@@ -818,7 +818,8 @@ const AUTH_KEY = 'tcalc_user_v1';
 const GUEST_USERNAME_KEY = 'tcalc_guest_username_v1';
 const WELCOME_SHOWN_KEY = 'tcalc_welcome_shown_v1';
 const PROFILE_NAME_CACHE_KEY = 'tcalc_profile_name_v1'; // 本地缓存用户名，避免刷新时闪烁
-const TAB_HINT_SHOWN_KEY = 'tcalc_tab_hint_shown_v1'; // 长按删除提示是否已显示过（首次进页提示一次）
+const TAB_HINT_SHOWN_KEY = 'tcalc_tab_hint_shown_v1'; // A: 进页提示是否已显示过
+const TAB_HINT_LONGPRESS_KEY = 'tcalc_tab_hint_longpress_v1'; // C: 长按提示是否已显示过
 let _authMode = 'login';  // 'login' | 'signup'
 
 function showAuth(mode) {
@@ -1229,8 +1230,10 @@ function closeWelcome() {
 }
 
 // ========== 标签删除提示 ==========
-// C方案：长按触发删除模式时，显示提示（每次长按都给，时间稍长）
+// C方案：长按触发删除模式时提示——仅首次长按提示一次，之后不再弹
 function showTabDeleteHint() {
+  if (localStorage.getItem(TAB_HINT_LONGPRESS_KEY)) return; // 已提示过则不再弹
+  localStorage.setItem(TAB_HINT_LONGPRESS_KEY, '1');
   const el = document.getElementById('tabHint');
   if (!el) return;
   el.textContent = '💡 长按标签，点击 ✕ 号，可以删除';
