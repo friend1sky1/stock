@@ -50,13 +50,12 @@ html, body {
   text-align: center; padding: 2px 0 4px;
 }
 .back-bar {
-  display: inline-block; margin: 0 0 10px; padding: 9px 20px;
-  background: linear-gradient(135deg, #C4956A, #A67B5B); color: #FFF;
-  border-radius: 10px; text-decoration: none; font-size: 0.86rem; font-weight: 700;
-  letter-spacing: 1px; box-shadow: 0 2px 8px rgba(166,123,91,0.28);
+  position: absolute; left: 4px; top: 6px;
+  font-size: 0.85rem; font-weight: 600; color: var(--gold);
+  text-decoration: none; letter-spacing: 0.5px;
   transition: all var(--transition);
 }
-.back-bar:active { transform: scale(0.97); }
+.back-bar:active { opacity: 0.6; }
 .header h1 {
   font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
   font-size: 1.2rem; font-weight: 700; color: var(--profit);
@@ -266,8 +265,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 </div>
 
 <div class="app" style="display:none;">
-  <a href="index.html" class="back-bar">← 返回做T计算器</a>
   <div class="header" style="position:relative;">
+    <a href="index.html" class="back-bar">← 返回做T计算器</a>
     <h1>📊 持仓总览</h1>
     <div class="date-row" id="dateLabel">数据更新：--</div>
     <a href="#" onclick="doLogout();return false;" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">退出</a>
