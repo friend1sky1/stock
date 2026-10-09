@@ -70,6 +70,13 @@ html, body {
   scrollbar-width: none;
 }
 .stock-tab-scroll::-webkit-scrollbar { display: none; }
+.tab-hint {
+  font-size: 0.68rem; color: var(--gold);
+  text-align: center; margin: -2px 0 6px;
+  letter-spacing: 0.5px;
+  animation: tabHintIn 0.25s ease;
+}
+@keyframes tabHintIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .stock-tab {
   flex-shrink: 0; padding: 6px 14px;
   border-radius: 20px; border: 1.5px solid var(--border);
@@ -549,6 +556,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
     <div class="stock-tab-scroll" id="stockTabScroll"></div>
     <button class="add-stock-btn" onclick="openAddModal()" title="新增持仓">+</button>
   </div>
+  <div class="tab-hint" id="tabHint" style="display:none;">💡 长按标签，点击 ✕ 号，可以删除</div>
 
   <!-- Position Snapshot -->
   <div class="pos-snapshot" id="posSnapshot"></div>
@@ -810,6 +818,7 @@ const AUTH_KEY = 'tcalc_user_v1';
 const GUEST_USERNAME_KEY = 'tcalc_guest_username_v1';
 const WELCOME_SHOWN_KEY = 'tcalc_welcome_shown_v1';
 const PROFILE_NAME_CACHE_KEY = 'tcalc_profile_name_v1'; // 本地缓存用户名，避免刷新时闪烁
+const TAB_HINT_SHOWN_KEY = 'tcalc_tab_hint_shown_v1'; // 长按删除提示是否已显示过（首次进页提示一次）
 let _authMode = 'login';  // 'login' | 'signup'
 
 function showAuth(mode) {
@@ -1219,6 +1228,28 @@ function closeWelcome() {
   document.getElementById('welcomeOverlay').style.display = 'none';
 }
 
+// ========== 标签删除提示 ==========
+// C方案：长按触发删除模式时，显示提示（每次长按都给，时间稍长）
+function showTabDeleteHint() {
+  const el = document.getElementById('tabHint');
+  if (!el) return;
+  el.textContent = '💡 长按标签，点击 ✕ 号，可以删除';
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+// A方案：首次进页提示一次“长按删除”（仅当有股票时）
+function maybeShowTabHintOnce() {
+  if (localStorage.getItem(TAB_HINT_SHOWN_KEY)) return;
+  if (!portfolio || portfolio.length === 0) return; // 无股票不提示
+  localStorage.setItem(TAB_HINT_SHOWN_KEY, '1');
+  const el = document.getElementById('tabHint');
+  if (!el) return;
+  el.textContent = '💡 小提示：长按标签，点击 ✕ 号，可以删除';
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
 // ========== DATA ENGINE ==========
 const STORAGE_KEY_PORTFOLIO = 'tcalc_portfolio_v2';
 const STORAGE_KEY_HISTORY = 'tcalc_history_v2';
@@ -1552,6 +1583,8 @@ function initTabDrag() {
       if (_dragState && !_dragState.moved) {
         _dragState = null;
         document.querySelectorAll('.stock-tab').forEach(t => t.classList.add('editing'));
+        // C方案：长按弹出✕的同时，给一次操作提示
+        showTabDeleteHint();
         setTimeout(() => document.querySelectorAll('.stock-tab').forEach(t => t.classList.remove('editing')), 3000);
       }
     }, 600);
@@ -2879,6 +2912,8 @@ function initApp() {
     }
     // 处理 Ctrl+点击新开页面带来的 ?stock= 参数
     applyStockFromUrl();
+    // A方案：首次进页提示一次“长按删除”
+    maybeShowTabHintOnce();
     // 每天第一次打开时自动刷新持仓的开盘价
     fetchTodayOpenPrices();
   });
