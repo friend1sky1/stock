@@ -807,6 +807,7 @@ function showConnFailBanner(label) {
 const AUTH_KEY = 'tcalc_user_v1';
 const GUEST_USERNAME_KEY = 'tcalc_guest_username_v1';
 const WELCOME_SHOWN_KEY = 'tcalc_welcome_shown_v1';
+const PROFILE_NAME_CACHE_KEY = 'tcalc_profile_name_v1'; // 本地缓存用户名，避免刷新时闪烁
 let _authMode = 'login';  // 'login' | 'signup'
 
 function showAuth(mode) {
@@ -963,6 +964,7 @@ async function afterLoginSuccess() {
   try {
     const ensured = await ensureProfile();
     if (!ensured.ok) console.warn('ensureProfile after login:', ensured.error);
+    else if (ensured.username) setCachedProfileName(ensured.username); // 缓存用户名供下次刷新秒显
   } catch (e) { console.warn('ensureProfile exception:', e); }
   // 从云端拉取该账号的佣金费率（云端优先，换设备也能带出）
   try { await loadFeeRateFromCloudIntoUI(); } catch (e) { console.warn('loadFeeRate exception:', e); }
@@ -1025,6 +1027,7 @@ async function doLogout() {
   await _supabase.auth.signOut();
   _user = null;
   localStorage.removeItem(AUTH_KEY);
+  setCachedProfileName(''); // 清掉用户名缓存，防串号
   // 切回游客模式
   hideAuth();
   updateUserDisplay();
@@ -1074,18 +1077,38 @@ function updateUserDisplay() {
   const el = document.getElementById('userEmail');
   const link = document.getElementById('headerAuthLink');
   if (_user) {
-    // 登录用户：先显示邮箱前缀作占位，避免闪邮箱全称；profile 回来后再覆盖
-    const placeholder = _user.email ? _user.email.split('@')[0] : '已登录';
-    el.textContent = placeholder + '（点击改名）';
+    // 登录用户：优先用本地缓存用户名（避免刷新时先显示邮箱/旧名再闪改）
+    const cached = getCachedProfileName();
+    if (cached) {
+      // 有缓存：秒显正确名字，无闪烁
+      el.textContent = cached + '（点击改名）';
+    } else {
+      // 无缓存（首次/换设备）：先留空，不显示邮箱占位，等云端返回再填，避免闪错
+      el.textContent = '';
+    }
     link.textContent = '退出';
+    // 云端返回后：写入缓存；若有变化则更新显示
     getProfileUsername().then(uname => {
-      el.textContent = (uname || placeholder) + '（点击改名）';
+      const finalName = uname || cached || (_user.email ? _user.email.split('@')[0] : '已登录');
+      if (uname) setCachedProfileName(uname);
+      el.textContent = finalName + '（点击改名）';
     });
   } else {
     const guest = getGuestUsername();
     el.textContent = guest ? guest : '未登录';
     link.textContent = '登录/注册';
   }
+}
+
+// 用户名本地缓存读写（避免刷新闪烁）
+function getCachedProfileName() {
+  try { return localStorage.getItem(PROFILE_NAME_CACHE_KEY) || ''; } catch(e) { return ''; }
+}
+function setCachedProfileName(name) {
+  try {
+    if (name) localStorage.setItem(PROFILE_NAME_CACHE_KEY, name);
+    else localStorage.removeItem(PROFILE_NAME_CACHE_KEY);
+  } catch(e) {}
 }
 
 // 获取注册用户的用户名（从 user_profiles）
@@ -1177,9 +1200,10 @@ async function saveUsername() {
   closeUsernameOverlay();
   updateUserDisplay();
   if (_user) {
-    // 注册用户改名后，刷新显示
+    // 注册用户改名后：刷新显示 + 写入缓存
     const el = document.getElementById('userEmail');
     el.textContent = username + '（点击改名）';
+    setCachedProfileName(username);
   }
 }
 
