@@ -309,6 +309,31 @@ const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
   : window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
 let _user = null;
 
+// 与做T计算器共用：本地缓存的用户名（避免刷新闪烁）+ 云端用户名缓存
+const PROFILE_NAME_CACHE_KEY = 'tcalc_profile_name_v1';
+let _profileName = null;
+function getCachedProfileName() {
+  try { return localStorage.getItem(PROFILE_NAME_CACHE_KEY) || ''; } catch (e) { return ''; }
+}
+function setCachedProfileName(name) {
+  try {
+    if (name) localStorage.setItem(PROFILE_NAME_CACHE_KEY, name);
+    else localStorage.removeItem(PROFILE_NAME_CACHE_KEY);
+  } catch (e) {}
+}
+// 取显示名：云端 user_profiles.username 优先，其次本地缓存，最后邮箱前缀
+async function getDisplayName() {
+  const cached = getCachedProfileName();
+  if (_user && _supabase) {
+    try {
+      const { data, error } = await _supabase.from('user_profiles')
+        .select('username').eq('user_id', _user.id).maybeSingle();
+      if (!error && data && data.username) { setCachedProfileName(data.username); return data.username; }
+    } catch (e) {}
+  }
+  return cached || (_user && _user.email ? _user.email.split('@')[0] : '');
+}
+
 // ========== 数据库冷启动唤醒 + 自动重试 ==========
 // 背景：云端数据库免费版空闲时会休眠，第一个请求需 10~30 秒唤醒 → 前端超时报 "Failed to fetch"。
 const DB_RETRY_DELAYS = [2500, 5000];
@@ -554,8 +579,13 @@ async function initApp() {
   renderTable();
   // 按名称从全量表补全缺失的 code（并回写数据库）
   backfillMissingCodes();
-  if (_user && _user.email) {
-    document.getElementById('dateLabel').textContent = '数据更新：-- · ' + _user.email;
+  // 首屏先用本地缓存的用户名，再异步换成云端用户名，避免闪烁
+  if (_user) {
+    _profileName = getCachedProfileName();
+    updateDateLabel();
+    getDisplayName().then(name => {
+      if (name) { _profileName = name; updateDateLabel(); }
+    });
   }
 }
 
@@ -1086,11 +1116,17 @@ function updateDateLabel() {
     }
   });
   const label = document.getElementById('dateLabel');
+  let base;
   if (latestDate) {
-    label.textContent = '数据更新：' + latestDate + (latestTime ? ' ' + latestTime : '');
+    base = '数据更新：' + latestDate + (latestTime ? ' ' + latestTime : '');
   } else {
-    label.textContent = '请在下表输入现价';
+    base = '请在下表输入现价';
   }
+  // 登录用户：附上用户名（非邮箱）
+  if (_user && _profileName) {
+    base += ' · ' + _profileName;
+  }
+  label.textContent = base;
 }
 
 async function saveAll() {
