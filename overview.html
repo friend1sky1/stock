@@ -6,7 +6,21 @@
 <title>持仓总览</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <!-- 字体：不再依赖 Google Fonts（国内常超时），改用系统字体栈 -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- supabase-js 本地托管（原 jsdelivr CDN 国内常被拦截 → 白屏根因），8 秒兜底超时 -->
+<script src="supabase.min.js" onerror="window.__sbLoadFailed=true"></script>
+<script>
+(function(){
+  window.__sbLoadFailed = (typeof supabase === 'undefined' || !supabase.createClient);
+  window.addEventListener('load', function(){
+    setTimeout(function(){
+      if (typeof supabase === 'undefined' || !supabase.createClient) {
+        window.__sbLoadFailed = true;
+        if (typeof window.__onSbUnavailable === 'function') window.__onSbUnavailable();
+      }
+    }, 8000);
+  });
+})();
+</script>
 <script src="stock_names.js" defer></script>
 <style>
 :root {
@@ -1248,10 +1262,34 @@ function showToast(msg, type) {
 }
 
 // ========== BOOT ==========
+// 降级预警横幅：云端不可用时让页面照常可用，绝不白屏
+window.__onSbUnavailable = function() {
+  try {
+    var bar = document.getElementById('sbDownBar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'sbDownBar';
+      bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:10000;background:#E60012;color:#fff;font-size:0.8rem;line-height:1.5;padding:8px 12px;text-align:center;font-weight:600;';
+      bar.textContent = '⚠️ 云端同步暂不可用（网络或库加载失败），数据仅保存在本机。刷新可重试。';
+      document.body.appendChild(bar);
+    }
+    var app = document.querySelector('.app');
+    if (app && getComputedStyle(app).display === 'none') {
+      app.style.display = 'flex';
+    }
+    var ov = document.getElementById('authOverlay');
+    if (ov) ov.style.display = 'none';
+  } catch (e) { console.warn('degrade banner error:', e); }
+};
+
 (async function() {
   if (!_supabase) {
-    document.getElementById('authMsg').textContent = '云端数据库加载失败，请刷新';
-    document.getElementById('authMsg').style.color = 'var(--profit)';
+    // 关键修复：不再 return（原逻辑导致整页 display:none 白屏）
+    window.__onSbUnavailable();
+    try { updateUserDisplay(); } catch (e) {}
+    try { await initApp(); } catch (e) { console.warn('initApp degraded:', e); }
+    initOvDrag();
+    initNameCopy();
     return;
   }
   warmupDatabase();          // 方案2：后台预热
