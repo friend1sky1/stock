@@ -183,6 +183,43 @@ html, body {
   gap: 6px; margin-bottom: 6px;
 }
 .input-row:last-child { margin-bottom: 0; }
+/* ──── 到价提醒 ──── */
+.alert-row {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.alert-bell {
+  font-size: 1.05rem; line-height: 1; cursor: pointer;
+  opacity: 0.4; transition: opacity .15s, transform .15s;
+  -webkit-user-select: none; user-select: none;
+}
+.alert-bell.on { opacity: 1; transform: scale(1.12); }
+.alert-bell.hit { animation: alertPulse .8s ease infinite; }
+@keyframes alertPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.alert-dir {
+  width: 34px; flex-shrink: 0; text-align: center; cursor: pointer;
+  font-size: 0.9rem; font-weight: 700; color: var(--gold);
+  padding: 7px 0; border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg); -webkit-user-select: none; user-select: none;
+}
+.alert-row input {
+  flex: 1; min-width: 0; padding: 8px 10px;
+  font-size: 0.95rem; font-weight: 500; text-align: right;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text);
+  -webkit-appearance: none; font-variant-numeric: tabular-nums;
+  -webkit-user-select: text; user-select: text;
+}
+.alert-row input:focus { outline: none; border-color: var(--gold); }
+.alert-status {
+  font-size: 0.7rem; color: var(--text-muted);
+  text-align: right; margin-top: 3px; min-height: 1em;
+}
+.alert-status.on { color: var(--loss); }
+.alert-status.hit { color: var(--profit); font-weight: 700; }
+.stock-tab .alert-dot { font-size: 0.65rem; margin-left: 2px; }
+
 .input-row label {
   font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap;
   min-width: 84px; flex-shrink: 0; font-family: inherit;
@@ -605,6 +642,13 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
           <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="100">+</span>
           <span class="unit">股</span>
         </div>
+        <div class="alert-row">
+          <span class="alert-bell" id="alertBell" onclick="toggleAlertActive()" title="开启/关闭到价提醒">🔔</span>
+          <span class="alert-dir" id="alertDir" onclick="toggleAlertDir()" title="点击切换 ≥ / ≤">≥</span>
+          <input type="text" inputmode="decimal" id="alertPrice" placeholder="触发价（元）" onchange="onAlertPriceChange()" onblur="onAlertPriceBlur()">
+          <span class="unit">元</span>
+        </div>
+        <div class="alert-status" id="alertStatus">未设置到价提醒</div>
       </div>
     </div>
 
@@ -1572,8 +1616,11 @@ function buildTabBar() {
   let html = '';
   portfolio.forEach((s, i) => {
     const activeCls = (i === currentStockIndex) ? ' active' : '';
+    const _ak = alertKeyOf(s);
+    const _al = _ak ? _alerts[_ak] : null;
+    const _bellMark = (_al && _al.active) ? '<span class="alert-dot">🔔</span>' : '';
     html += '<span class="stock-tab' + activeCls + '" data-idx="' + i + '">'
-      + escapeHtml(s.name)
+      + escapeHtml(s.name) + _bellMark
       + '<span class="del-stock" onclick="event.stopPropagation();deleteStockConfirm(' + i + ')">✕</span>'
       + '</span>';
   });
@@ -1583,6 +1630,7 @@ function buildTabBar() {
   if (activeTab) {
     activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }
+  renderAlertUI();
 }
 
 // ──── Tab Drag (Pointer Events, desktop+mobile unified) ────
@@ -2937,6 +2985,269 @@ function initApp() {
 }
 
 // 页面加载完成后检查登录状态（先预热数据库，避免冷启动 Failed to fetch）
+
+// ==================== 到价提醒（A档） ====================
+// 每 30 秒拉一次腾讯行情，命中「≥ / ≤ 目标价」即弹窗+响铃+系统通知
+// 存储：localStorage 按「代码（无代码则用名称）」为准，与持仓解耦，改名不丢
+const ALERTS_KEY = 'tcalc_alerts_v1';
+const ALERT_POLL_MS = 30000;
+let _alerts = _loadAlerts();
+let _alertTimer = null;
+let _alertAudioCtx = null;
+
+function _loadAlerts() {
+  try { return JSON.parse(localStorage.getItem(ALERTS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function _saveAlerts() {
+  try { localStorage.setItem(ALERTS_KEY, JSON.stringify(_alerts)); } catch (e) {}
+}
+function alertKeyOf(stock) {
+  if (!stock) return '';
+  if (stock.code && /^(sh|sz|bj)\d{6}$/i.test(stock.code)) return String(stock.code).toLowerCase();
+  return 'name:' + (stock.name || '');
+}
+function currentAlertStock() {
+  return (portfolio && currentStockIndex < portfolio.length) ? portfolio[currentStockIndex] : null;
+}
+function currentAlert() {
+  const k = alertKeyOf(currentAlertStock());
+  return k ? (_alerts[k] || null) : null;
+}
+
+// ── 渲染当前股票对应的提醒 UI ──
+function renderAlertUI() {
+  const bell = document.getElementById('alertBell');
+  const dirEl = document.getElementById('alertDir');
+  const priceEl = document.getElementById('alertPrice');
+  const stat = document.getElementById('alertStatus');
+  if (!bell || !dirEl || !priceEl || !stat) return;
+
+  const a = currentAlert();
+  if (!a) {
+    bell.className = 'alert-bell';
+    dirEl.textContent = '≥';
+    if (document.activeElement !== priceEl) priceEl.value = '';
+    stat.className = 'alert-status';
+    stat.textContent = '未设置到价提醒';
+    return;
+  }
+  dirEl.textContent = (a.dir === 'up') ? '≥' : '≤';
+  if (document.activeElement !== priceEl) priceEl.value = a.price > 0 ? String(a.price) : '';
+
+  if (a.active) {
+    bell.className = 'alert-bell on';
+    stat.className = 'alert-status on';
+    stat.textContent = '监控中：现价 ' + (a.dir === 'up' ? '≥' : '≤') + ' ' + a.price + ' 元 · 每30秒检查';
+  } else if (a.lastHit) {
+    bell.className = 'alert-bell hit';
+    stat.className = 'alert-status hit';
+    stat.textContent = '已触发 @' + a.lastHit.price + ' 元（' + a.lastHit.at + '）· 点铃铛重新开启';
+  } else {
+    bell.className = 'alert-bell';
+    stat.className = 'alert-status';
+    stat.textContent = '已填写但未开启 · 点铃铛开启';
+  }
+}
+
+// ── 用户操作 ──
+function toggleAlertDir() {
+  const st = currentAlertStock();
+  if (!st) return;
+  const k = alertKeyOf(st);
+  if (!k) { showToast('请先选择一只持仓股票', 'error'); return; }
+  const a = _alerts[k] || { price: 0, dir: 'up', active: false };
+  a.dir = (a.dir === 'up') ? 'down' : 'up';
+  _alerts[k] = a;
+  _saveAlerts();
+  renderAlertUI();
+  buildTabBar();
+}
+
+function onAlertPriceChange() { saveAlertPriceFromInput(); }
+function onAlertPriceBlur() {
+  saveAlertPriceFromInput();
+  const el = document.getElementById('alertPrice');
+  if (el && el.value) {
+    const v = parseFloat(el.value);
+    if (!isNaN(v) && v > 0) el.value = v.toFixed(2);
+  }
+}
+function saveAlertPriceFromInput() {
+  const st = currentAlertStock();
+  if (!st) return;
+  const k = alertKeyOf(st);
+  if (!k) return;
+  const el = document.getElementById('alertPrice');
+  const v = parseFloat(String(el.value).replace(/[^\d.\-]/g, ''));
+  const a = _alerts[k] || { price: 0, dir: 'up', active: false };
+  if (!isNaN(v) && v > 0) {
+    a.price = v;
+    a.lastHit = null;              // 改了价格，视为新提醒
+    if (!a.active && a.wasActive) a.active = true;
+  } else {
+    a.price = 0;
+    a.active = false;
+  }
+  _alerts[k] = a;
+  _saveAlerts();
+  renderAlertUI();
+  buildTabBar();
+}
+
+function toggleAlertActive() {
+  const st = currentAlertStock();
+  if (!st) return;
+  const k = alertKeyOf(st);
+  if (!k) { showToast('请先选择一只持仓股票', 'error'); return; }
+  const a = _alerts[k] || { price: 0, dir: 'up', active: false };
+
+  if (a.active) {
+    a.active = false;
+    a.wasActive = false;
+    _alerts[k] = a;
+    _saveAlerts();
+    renderAlertUI();
+    buildTabBar();
+    return;
+  }
+  // 开启：必须有有效价格
+  const el = document.getElementById('alertPrice');
+  const v = parseFloat(String(el.value || '').replace(/[^\d.\-]/g, ''));
+  if (isNaN(v) || v <= 0) {
+    showToast('请先填写触发价', 'error');
+    el.focus();
+    return;
+  }
+  a.price = v;
+  a.active = true;
+  a.wasActive = true;
+  a.lastHit = null;
+  _alerts[k] = a;
+  _saveAlerts();
+  _requestNotifyPermission();
+  _ensureAudioCtx();
+  renderAlertUI();
+  buildTabBar();
+  showToast('🔔 已开启：现价 ' + (a.dir === 'up' ? '≥' : '≤') + ' ' + v + ' 元', 'success');
+  checkAlertsOnce();   // 立即检查一次，不必等 30 秒
+}
+
+// ── 通知权限 & 声音 ──
+function _requestNotifyPermission() {
+  try {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(function () {});
+    }
+  } catch (e) {}
+}
+function _ensureAudioCtx() {
+  try {
+    if (!_alertAudioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) _alertAudioCtx = new AC();
+    }
+    if (_alertAudioCtx && _alertAudioCtx.state === 'suspended') _alertAudioCtx.resume();
+  } catch (e) {}
+}
+function _beep() {
+  try {
+    _ensureAudioCtx();
+    if (!_alertAudioCtx) return;
+    [0, 0.18, 0.36].forEach(function (offset) {
+      const o = _alertAudioCtx.createOscillator();
+      const g = _alertAudioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, _alertAudioCtx.currentTime + offset);
+      g.gain.exponentialRampToValueAtTime(0.25, _alertAudioCtx.currentTime + offset + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, _alertAudioCtx.currentTime + offset + 0.15);
+      o.connect(g); g.connect(_alertAudioCtx.destination);
+      o.start(_alertAudioCtx.currentTime + offset);
+      o.stop(_alertAudioCtx.currentTime + offset + 0.16);
+    });
+  } catch (e) {}
+}
+
+// ── 轮询检查 ──
+function startAlertPoller() {
+  if (_alertTimer) return;
+  _alertTimer = setInterval(checkAlertsOnce, ALERT_POLL_MS);
+  setTimeout(checkAlertsOnce, 3000);
+}
+async function checkAlertsOnce() {
+  try {
+    if (document.visibilityState !== 'visible') return;
+    if (!portfolio || portfolio.length === 0) return;
+    const targets = [];
+    portfolio.forEach(function (s) {
+      const k = alertKeyOf(s);
+      const a = k ? _alerts[k] : null;
+      if (!a || !a.active || !(a.price > 0)) return;
+      const code = _getStockCode(s);
+      if (code) targets.push({ stock: s, key: k, code: code, alert: a });
+    });
+    if (targets.length === 0) return;
+
+    const codes = targets.map(function (t) { return t.code; }).join(',');
+    const resp = await fetch('https://qt.gtimg.cn/q=' + codes);
+    const raw = await resp.text();
+
+    targets.forEach(function (t) {
+      const m = raw.match(new RegExp('v_' + t.code + '="([^"]*)"', 'i'));
+      if (!m) return;
+      const fields = m[1].split('~');
+      const price = parseFloat(fields[3]);       // fields[3] = 当前价
+      if (isNaN(price) || price <= 0) return;
+      const a = _alerts[t.key];
+      if (!a || !a.active) return;
+      const hit = (a.dir === 'up') ? (price >= a.price) : (price <= a.price);
+      if (hit) _fireAlert(t.stock, t.key, price, a);
+    });
+  } catch (e) {
+    console.warn('alert poll failed:', e);
+  }
+}
+function _fireAlert(stock, key, price, a) {
+  a.active = false;
+  a.wasActive = false;
+  a.lastHit = { price: price.toFixed(2), at: new Date().toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5) };
+  _alerts[key] = a;
+  _saveAlerts();
+
+  _beep();
+  _showAlertBanner(stock, price, a);
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('🔔 到价提醒：' + stock.name, {
+        body: '现价 ' + price.toFixed(2) + ' 元，已' + (a.dir === 'up' ? '上破' : '跌破') + ' ' + a.price + ' 元',
+        tag: 'alert-' + key
+      });
+    }
+  } catch (e) {}
+
+  renderAlertUI();
+  buildTabBar();
+}
+function _showAlertBanner(stock, price, a) {
+  let bar = document.getElementById('alertHitBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'alertHitBar';
+    bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:10002;background:#E60012;color:#fff;'
+      + 'font-size:0.82rem;line-height:1.5;padding:10px 34px 10px 12px;text-align:center;font-weight:600;'
+      + 'box-shadow:0 2px 10px rgba(0,0,0,.2);cursor:pointer;';
+    bar.onclick = function () { bar.style.display = 'none'; };
+    document.body.appendChild(bar);
+  }
+  bar.style.display = 'block';
+  bar.textContent = '🔔 ' + stock.name + ' 现价 ' + price.toFixed(2) + ' 元，'
+    + (a.dir === 'up' ? '已上破 ' : '已跌破 ') + a.price + ' 元（点此关闭）';
+  clearTimeout(bar._t);
+  bar._t = setTimeout(function () { bar.style.display = 'none'; }, 60000);
+}
+
+// ==================== /到价提醒 ====================
+
 // 降级预警横幅：云端不可用时让页面照常可用，绝不白屏
 window.__onSbUnavailable = function() {
   try {
@@ -2965,11 +3276,13 @@ window.__onSbUnavailable = function() {
     try { updateUserDisplay(); } catch (e) {}
     try { await initApp(); } catch (e) { console.warn('initApp degraded:', e); }
     window.__bootOk = true;
+    startAlertPoller();
     return;
   }
   warmupDatabase();          // 方案2：后台预热，不阻塞
   try { await checkSession(); } catch (e) { console.warn('checkSession failed:', e); window.__onSbUnavailable && window.__onSbUnavailable(); }
   window.__bootOk = true;
+  startAlertPoller();   // 到价提醒轮询（页面可见时每30秒）
 })();
 
 // ===== 股票代码↔名称联动 =====
