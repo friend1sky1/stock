@@ -750,7 +750,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 // ========== SUPABASE INIT ==========
 const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
   ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
+  : (window.supabase && window.supabase.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
 let _user = null;  // 当前登录用户
 
 // ========== 数据库冷启动唤醒 + 自动重试 ==========
@@ -1074,7 +1074,7 @@ function headerAuthAction() {
 
 async function checkSession() {
   const { data: { session } } = await dbFetch('检查登录状态', () => _supabase.auth.getSession());
-  if (session?.user) {
+  if (session && session.user) {
     _user = session.user;
     hideAuth();
     await initApp();
@@ -2964,10 +2964,12 @@ window.__onSbUnavailable = function() {
     window.__onSbUnavailable();
     try { updateUserDisplay(); } catch (e) {}
     try { await initApp(); } catch (e) { console.warn('initApp degraded:', e); }
+    window.__bootOk = true;
     return;
   }
   warmupDatabase();          // 方案2：后台预热，不阻塞
-  await checkSession();      // 方案1/3：失败自动重试 + 友好提示
+  try { await checkSession(); } catch (e) { console.warn('checkSession failed:', e); window.__onSbUnavailable && window.__onSbUnavailable(); }
+  window.__bootOk = true;
 })();
 
 // ===== 股票代码↔名称联动 =====
@@ -3021,6 +3023,52 @@ window.__onSbUnavailable = function() {
       _codeLookupTimer = setTimeout(function(){ lookupOpenPriceForModal(); }, 0);
     });
   }
+})();
+</script>
+<!-- ===== ES5 兜底看门狗：任何原因导致白屏，都会强制显示界面并报出原因 ===== -->
+<script>
+(function(){
+  window.__bootOk = false;
+  window.__errs = [];
+  window.onerror = function(msg, src, line, col){
+    try {
+      window.__errs.push(msg + ' @' + line + ':' + col);
+      var b = document.getElementById('jsErrBar');
+      if (!b) {
+        b = document.createElement('div');
+        b.id = 'jsErrBar';
+        b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:10001;background:#7a1f1f;color:#fff;font-size:11px;line-height:1.5;padding:8px 10px;max-height:45%;overflow:auto;font-family:monospace;white-space:pre-wrap;';
+        document.body.appendChild(b);
+      }
+      b.textContent = 'JS 错误（请截图发给宝华的技术助手）：' + String.fromCharCode(10) + window.__errs.join(String.fromCharCode(10));
+    } catch(e) {}
+    return false;
+  };
+  function forceShow(reason){
+    try {
+      var app = document.querySelector('.app');
+      var ov  = document.getElementById('authOverlay');
+      if (ov && ov.style.display === 'flex') return;
+      if (!app) return;
+      if (app.style.display !== 'none') return;
+      app.style.display = 'flex';
+      var bar = document.getElementById('sbDownBar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'sbDownBar';
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:10000;background:#E60012;color:#fff;font-size:12px;line-height:1.5;padding:8px 12px;text-align:center;font-weight:600;';
+        document.body.appendChild(bar);
+      }
+      bar.textContent = '⚠️ ' + reason + '，已进入降级模式（数据仅存本机，可正常计算）';
+    } catch(e) {}
+  }
+  setTimeout(function(){
+    if (window.__bootOk) return;
+    var why = (typeof supabase === 'undefined' || !window.supabase || !window.supabase.createClient)
+      ? '云端库加载失败'
+      : '页面初始化未完成（浏览器内核可能过旧）';
+    forceShow(why);
+  }, 3500);
 })();
 </script>
 </body>
