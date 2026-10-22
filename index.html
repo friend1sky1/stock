@@ -522,8 +522,13 @@ html, body {
 
 <!-- 云端数据库配置 -->
 <script>
-const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
+// 走本站同域中转（/sb → 云端），避浏览器把 supabase.co 当第三方域名拦截；中转不可用时自动回退直连
+const SUPABASE_URL_DIRECT = 'https://idindbktqpjulhvcvcdj.supabase.co';
+const SUPABASE_URL_PROXY  = 'https://t.ai-zhihui.cn/sb';
+let   SUPABASE_URL        = SUPABASE_URL_PROXY;
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
+// 固定会话存储键，保证「中转/直连」两种模式共用同一登录态（不丢登录）
+const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
 </script>
 
 <!-- 欢迎引导弹窗（一次性，仅游客首次）-->
@@ -792,9 +797,13 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 
 <script>
 // ========== SUPABASE INIT ==========
-const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
-  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : (window.supabase && window.supabase.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
+function buildSupabaseClient() {
+  if (typeof supabase !== 'undefined' && supabase.createClient) return supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SB_CLIENT_OPTS);
+  if (window.supabase && window.supabase.createClient) return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SB_CLIENT_OPTS);
+  return null;
+}
+let _supabase = buildSupabaseClient();
+let _sbViaProxy = true;   // 当前是否走中转
 let _user = null;  // 当前登录用户
 
 // ========== 数据库冷启动唤醒 + 自动重试 ==========
@@ -805,14 +814,37 @@ const DB_RETRY_DELAYS = [2500, 5000];   // 重试等待毫秒（共 2 次重试�
 const DB_WARM_TIMEOUT = 30000;          // 预热最长等待
 
 // 方案2：页面加载即 ping 一次数据库，唤醒休眠实例（不占用阻塞流程）
+// 连通性探测：先试中转，不行再试直连；直连能用就切过去（一次请求额度）
+async function sbHealth(timeoutMs) {
+  if (typeof fetch !== 'function') return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs || 5000);
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/health', {
+      method: 'GET', cache: 'no-store', signal: ctrl.signal,
+      headers: { 'apikey': SUPABASE_ANON_KEY }
+    });
+    clearTimeout(timer);
+    return !!(res && res.status > 0);
+  } catch (e) { clearTimeout(timer); return false; }
+}
+
+// 中转不可用时自动回退直连（只切一次，不回旋）
+async function ensureSupabaseBase() {
+  if (!_sbViaProxy || !_supabase) return;
+  const ok = await sbHealth(5000);
+  if (ok) return;
+  _sbViaProxy = false;
+  SUPABASE_URL = SUPABASE_URL_DIRECT;
+  _supabase = buildSupabaseClient();
+  console.warn('[sb] 中转不可用，已回退直连');
+}
+
 function warmupDatabase() {
   try {
     if (typeof fetch !== 'function') return Promise.resolve('no-fetch');
-    const p = fetch(SUPABASE_URL + '/auth/v1/health', {
-      method: 'GET', cache: 'no-store',
-      headers: { 'apikey': SUPABASE_ANON_KEY }
-    });
     const timer = new Promise(r => setTimeout(() => r('timeout'), DB_WARM_TIMEOUT));
+    const p = ensureSupabaseBase();
     return Promise.race([p, timer]).then(() => 'ok').catch(() => 'fail');
   } catch (e) { return Promise.resolve('fail'); }
 }
@@ -966,14 +998,21 @@ function isRetryableAuthError(err) {
 async function probeCloudReachable() {
   try {
     if (typeof fetch !== 'function') return false;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 6000);
-    const res = await fetch(SUPABASE_URL + '/auth/v1/health', {
-      method: 'GET', cache: 'no-store', signal: ctrl.signal,
-      headers: { 'apikey': SUPABASE_ANON_KEY }
-    });
-    clearTimeout(timer);
-    return !!(res && res.status > 0);
+    if (await sbHealth(6000)) return true;
+    // 中转不行 → 试直连；直连能用则当场切过去
+    if (_sbViaProxy) {
+      const backup = SUPABASE_URL;
+      SUPABASE_URL = SUPABASE_URL_DIRECT;
+      const okDirect = await sbHealth(6000);
+      if (okDirect) {
+        _sbViaProxy = false;
+        _supabase = buildSupabaseClient();
+        console.warn('[sb] 已切换到直连');
+        return true;
+      }
+      SUPABASE_URL = backup;
+    }
+    return false;
   } catch (e) {
     return false;
   }
