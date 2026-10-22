@@ -938,8 +938,11 @@ function friendlyAuthError(err, flow) {
   if (m.includes('signups not allowed') || m.includes('signup disabled')) {
     return '当前暂不支持自助注册，请联系管理员。';
   }
-  if (m.includes('network') || m.includes('failed to fetch')) {
-    return '网络连接失败，请检查网络后重试。';
+  if (m.includes('timeout') || m.includes('timed out') || m.includes('abort')) {
+    return '请求超时：网络太慢或被拦截，登录请求没能完成（已自动重试 2 次）。请换个网络或无痕窗口再试。';
+  }
+  if (m.includes('network') || m.includes('failed to fetch') || m.includes('load failed') || m.includes('connection') || m.includes('reset')) {
+    return '请求没能发出去：网络中断，或被浏览器插件/安全软件拦截（已自动重试 2 次）' + (err && err.name ? '（错误类型：' + err.name + '）' : '');
   }
   // 兜底：不把英文原文抛给用户，给出通用中文提示 + 保留原文方便排查
   return '操作失败，请稍后重试。' + (err && err.message ? '（' + err.message + '）' : '');
@@ -948,6 +951,52 @@ function friendlyAuthError(err, flow) {
 function authSubmit() {
   if (_authMode === 'signup') doSignup();
   else doLogin();
+}
+
+// ===== 登录/注册请求的自动重试（网络类错误才重试，密码错等业务错误立即返回） =====
+function isRetryableAuthError(err) {
+  const m = ((err && (err.message || String(err))) || '').toLowerCase();
+  if (!m) return false;
+  // 业务错误不重试
+  if (/invalid|credentials|already|confirm|rate limit|too many|password should|email/i.test(m)) return false;
+  return /fetch|network|timeout|timed out|abort|load failed|connection|reset/i.test(m);
+}
+
+// 探测：浏览器此刻能否连上云端（用于区分「网络/插件拦截」与「登录请求被拒」）
+async function probeCloudReachable() {
+  try {
+    if (typeof fetch !== 'function') return false;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(SUPABASE_URL + '/auth/v1/health', {
+      method: 'GET', cache: 'no-store', signal: ctrl.signal,
+      headers: { 'apikey': SUPABASE_ANON_KEY }
+    });
+    clearTimeout(timer);
+    return !!(res && res.status > 0);
+  } catch (e) {
+    return false;
+  }
+}
+
+// 执行认证请求：失败且属网络类错误时，自动重试 2 次（各等 2.5 秒）
+async function authCall(busyText, fn) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    if (attempt > 0) {
+      setAuthMsg(busyText + '网络有点慢，正在重试（第 ' + attempt + ' 次）…', false);
+      await new Promise(r => setTimeout(r, 2500));
+    }
+    try {
+      const res = await fn();
+      if (res && res.error && isRetryableAuthError(res.error)) { lastErr = res.error; continue; }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      if (!isRetryableAuthError(err)) throw err;
+    }
+  }
+  throw lastErr || new Error('Failed to fetch');
 }
 
 // 检查用户名是否已被占用（全局唯一）
@@ -966,8 +1015,23 @@ async function doLogin() {
   const password = document.getElementById('authPassword').value;
   if (!email || !password) { setAuthMsg('请输入注册邮箱，并设置登录密码', true); return; }
   document.getElementById('authSubmitBtn').disabled = true;
-  setAuthMsg('登录中...', false);
-  const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+  setAuthMsg('登录中…', false);
+  let result;
+  try {
+    result = await authCall('登录中…', () => _supabase.auth.signInWithPassword({ email, password }));
+  } catch (err) {
+    document.getElementById('authSubmitBtn').disabled = false;
+    console.error('login failed:', err);
+    // 网络类失败：再探一次云端可达性，给出可执行的结论
+    const reachable = await probeCloudReachable();
+    if (reachable) {
+      setAuthMsg('云端可以访问，但登录请求被中断了（可能是插件拦截了登录请求，或代理改写了它）。请用无痕窗口试一次。', true);
+    } else {
+      setAuthMsg('你的浏览器现在连不上云端（网络不通或被插件/安全软件拦截）。请换网络（手机流量）或用无痕窗口再试。', true);
+    }
+    return;
+  }
+  const { data, error } = result;
   document.getElementById('authSubmitBtn').disabled = false;
   if (error) { setAuthMsg(friendlyAuthError(error, 'login'), true); return; }
   _user = data.user;
