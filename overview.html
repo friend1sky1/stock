@@ -286,8 +286,10 @@ tfoot td.loss { color: var(--loss); }
 
 <!-- 云端数据库配置 -->
 <script>
-const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
+// 走本站同域中转（/sb → 云端），避浏览器把 supabase.co 当第三方域名拦截
+const SUPABASE_URL = 'https://t.ai-zhihui.cn/sb';
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
+const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
 </script>
 
 <!-- Login Overlay -->
@@ -363,8 +365,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 <script>
 // ========== SUPABASE INIT ==========
 const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
-  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : (window.supabase && window.supabase.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SB_CLIENT_OPTS)
+  : (window.supabase && window.supabase.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SB_CLIENT_OPTS) : null);
 let _user = null;
 
 // 与做T计算器共用：本地缓存的用户名（避免刷新闪烁）+ 云端用户名缓存
