@@ -1,5 +1,25 @@
 # 更新日志（新→旧）
 
+## 2026-11-03 注册查重改走服务端函数 username_taken（第一步，main 部署）
+
+**背景**：`user_profiles` 表策略为 `FOR SELECT USING (true)`（行级不限、无列级控制），导致**未登录也能读全表 username + email**（实测匿名可读，3 条记录）。原查重走 `ilike` 前端查全表，必须开放全表读，属于结构性依赖。
+
+### 改动
+- 宝华在 Supabase SQL Editor 建函数 `public.username_taken(p_name text) RETURNS boolean`，`SECURITY DEFINER` + `SET search_path=public`，`lower()` 大小写不敏感匹配，`GRANT EXECUTE TO anon, authenticated`，并 `NOTIFY pgrst, 'reload schema'`
+- `index.html`：`isUsernameTaken()` 由 `.from('user_profiles').select().ilike()` 改为 `_supabase.rpc('username_taken', {p_name})`，判据由 `data.length>0` 改为 `data===true`
+- 行为不变：大小写不敏感、出错仍 fail-open 返回 false（与原来一致）
+
+### 验证（main）
+- 函数实测：`GBH`→true、`gbh`→true（大小写不敏感）、不存在→false，HTTP 200
+- 线上 index.html 逐字节 = 本地最终版；`rpc版=1 / 旧ilike=0 / 入口=1`
+- headless 加载线上页面：无 JS 错误；authOverlay/authEmail/authSubmitBtn/stockTabBar 元素齐全
+- recover.html 200、overview.html 200
+
+### 未做 / 下一步
+- **第二步（未执行）**：收紧 `user_profiles` 的 SELECT 策略，去掉 `USING (true)`，改为「仅读自己 + 通过 username_taken 查重」，彻底关闭匿名读全表（含 email）
+- 待宝华真人验收：登录一次，确认昵称显示、持仓同步正常
+
+
 ## 2026-11-03 新增独立页面「回本计算器」recover.html（main 部署）
 
 **需求**：宝华自研回本计算器，作为与做T计算器并列的独立功能页，单独开页部署。
