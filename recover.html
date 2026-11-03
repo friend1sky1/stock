@@ -154,14 +154,24 @@ thead th{font-size:14px}
 .bar-legend,.chk{font-size:14px}
 .footer-quote,.result-msg,.bar-label,.btn{font-size:15px}
 .note{font-size:13px}
+/* 名称联想下拉 */
+.name-wrap{position:relative;display:inline-block}
+.name-drop{display:none;position:absolute;z-index:60;left:0;top:100%;margin-top:2px;width:250px;max-height:250px;overflow-y:auto;background:#fffdf7;border:1px solid var(--gold);border-radius:8px;box-shadow:0 6px 18px rgba(150,110,30,.2)}
+.name-drop .drop-item{display:flex;align-items:center;gap:6px;padding:6px 9px;cursor:pointer;font-size:14px;white-space:nowrap}
+.name-drop .drop-item:hover,.name-drop .drop-item.on{background:#f7ecc9}
+.name-drop .drop-item b{font-weight:600;color:var(--text);max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.name-drop .mk{font-size:11px;line-height:15px;color:#fffdf7;background:var(--gold);border-radius:3px;padding:0 4px;flex-shrink:0}
+.name-drop .cd{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.name-drop .empty{display:block;padding:8px 10px;font-size:13px;color:var(--muted)}
 </style>
 </head>
+<script src="stock_names.js" defer></script>
 <body>
 <div class="container">
   <h1>📈 回本计算器</h1>
   <div class="card">
       <div class="row-inline">
-        <span class="pair"><label>名称</label><input id="name" type="text" value="京东方A" style="width:110px"></span>
+        <span class="pair"><label>名称</label><span class="name-wrap"><input id="name" type="text" value="京东方A" style="width:110px" autocomplete="off" placeholder="输入名称"><div class="name-drop" id="nameDrop"></div></span></span>
         <span class="pair"><label>代码</label><input id="code" type="text" value="000725" style="width:110px"></span>
         <span class="pair"><label>股数</label><input id="shares" type="number" step="100" min="0" value="500" style="width:110px"><span class="unit">股</span></span>
         <span class="pair"><label>成本</label><input id="cost" type="number" step="0.0001" min="0" value="27.0032" style="width:110px"><span class="unit">元</span></span>
@@ -696,6 +706,100 @@ thead th{font-size:14px}
         allDown ? 'bad' : 'ok');
     });
   }
+
+  /* ===== 名称 → 代码：输入名称自动带出代码（复用 stock_names.js 全量 5900+ 支） ===== */
+  var nameList = [], nameIdx = -1, nameTimer = null;
+  function stockDict(){ return (typeof window.STOCK_NAMES !== 'undefined' && window.STOCK_NAMES) ? window.STOCK_NAMES : null; }
+  function searchStocks(kw){
+    var d = stockDict();
+    if(!d) return null;                       // null = 字典未就绪（离线/未加载），区别于"无匹配"
+    kw = String(kw || '').trim();
+    if(!kw) return [];
+    var res = [], n = 0;
+    for(var full in d){
+      var nm = d[full];
+      if(!nm || /退|终止|无效/.test(nm)) continue;
+      if(nm.indexOf(kw) === 0 || (kw.length >= 2 && nm.indexOf(kw) >= 0)){
+        res.push({ name: nm, code: full });
+        if(++n >= 60) break;
+      }
+    }
+    res.sort(function(a, b){
+      var ap = a.name.indexOf(kw) === 0 ? 0 : 1, bp = b.name.indexOf(kw) === 0 ? 0 : 1;
+      if(ap !== bp) return ap - bp;                       // 前缀匹配优先
+      var ab = /^bj/.test(a.code) ? 1 : 0, bb = /^bj/.test(b.code) ? 1 : 0;
+      if(ab !== bb) return ab - bb;                       // 沪深优先于北交所
+      return a.code < b.code ? -1 : 1;
+    });
+    return res.slice(0, 8);
+  }
+  function hideNameDrop(){
+    var box = $('nameDrop');
+    box.style.display = 'none'; box.innerHTML = '';
+    nameList = []; nameIdx = -1;
+  }
+  function renderNameDrop(list){
+    var box = $('nameDrop');
+    if(list === null){ hideNameDrop(); return; }          // 字典未加载：静默不干扰
+    if(!list.length){ box.innerHTML = '<span class="empty">没找到匹配的股票，可直接填代码</span>'; box.style.display = 'block'; nameList = []; nameIdx = -1; return; }
+    nameList = list; nameIdx = -1;
+    var html = '';
+    for(var i = 0; i < list.length; i++){
+      var mk = /^sh/.test(list[i].code) ? '沪' : (/^sz/.test(list[i].code) ? '深' : '北');
+      html += '<div class="drop-item" data-i="'+i+'"><b>'+esc(list[i].name)+'</b><span class="mk">'+mk+'</span><span class="cd">'+list[i].code.slice(2)+'</span></div>';
+    }
+    box.innerHTML = html; box.style.display = 'block';
+    nameIdx = 0;                                          // 默认高亮第一项，Enter 可直接选中
+    var first = box.querySelector('.drop-item');
+    if(first) first.className = 'drop-item on';
+  }
+  function moveNameIdx(step){
+    if(!nameList.length) return;
+    nameIdx = (nameIdx + step + nameList.length) % nameList.length;
+    var items = $('nameDrop').querySelectorAll('.drop-item');
+    for(var i = 0; i < items.length; i++) items[i].className = 'drop-item' + (i === nameIdx ? ' on' : '');
+  }
+  var pickQuoteTimer = null;
+  function pickName(i){
+    var it = nameList[i];
+    if(!it) return;
+    $('name').value = it.name;
+    $('code').value = it.code.slice(2);                  // 填 6 位数字，取价时自动识别沪深/北交所
+    hideNameDrop();
+    compute();
+    if(pickQuoteTimer){ clearTimeout(pickQuoteTimer); pickQuoteTimer = null; }
+    // 换股后顺手取现价；若还在冷却期（如刚打开页面自动取过一次），等冷却结束再取，避免弹"太频繁"
+    var same = qLast.ok && qLast.code === it.code.slice(2);
+    var wait = QUOTE_COOLDOWN - (Date.now() - qLast.attempt);
+    if(wait > 0 && !same){
+      qSetMsg('🕐 已选 <b>' + esc(it.name) + '</b>（' + it.code.slice(2) + '），' + Math.ceil(wait/1000) + ' 秒后自动获取现价…', 'warn');
+      pickQuoteTimer = setTimeout(function(){ pickQuoteTimer = null; fetchQuote(); }, wait + 150);
+    } else {
+      fetchQuote();
+    }
+  }
+  $('name').addEventListener('input', function(){
+    clearTimeout(nameTimer);
+    var v = this.value.trim();
+    if(!v){ hideNameDrop(); return; }
+    nameTimer = setTimeout(function(){ renderNameDrop(searchStocks(v)); }, 180);
+  });
+  $('name').addEventListener('keydown', function(e){
+    var box = $('nameDrop');
+    if(box.style.display !== 'block') return;
+    if(e.key === 'ArrowDown'){ e.preventDefault(); moveNameIdx(1); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); moveNameIdx(-1); }
+    else if(e.key === 'Enter'){ e.preventDefault(); if(nameIdx >= 0) pickName(nameIdx); }
+    else if(e.key === 'Escape'){ hideNameDrop(); }
+  });
+  $('name').addEventListener('blur', function(){ setTimeout(hideNameDrop, 180); });   // 延后，保证点击能选中
+  // pointerdown 统一鼠标与触摸（移动端只会合成 click，用 pointerdown 最稳），旧浏览器回落 mousedown
+  $('nameDrop').addEventListener(window.PointerEvent ? 'pointerdown' : 'mousedown', function(e){
+    var el = e.target.closest ? e.target.closest('.drop-item') : null;
+    if(!el) return;
+    e.preventDefault();                                  // 防止 blur 先触发
+    pickName(parseInt(el.getAttribute('data-i'), 10));
+  });
 
   /* 绑定事件 */
   var ids = ['name','code','price','cost','shares','addPrice','addShares','commRate','minComm','planCount'];
