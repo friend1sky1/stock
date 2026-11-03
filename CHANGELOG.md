@@ -1,5 +1,41 @@
 # 更新日志（新→旧）
 
+## 2026-11-03 数据库加固第二步：user_profiles 行级读权限收紧（宝华执行 SQL）
+
+**背景**：`user_profiles` 原 SELECT 策略为 `USING (true)`（角色 public），实测**未登录即可拉取全表 username + email**。第一步已把注册查重从「前端读全表」改为服务端函数 `username_taken`，从而具备锁门前提。
+
+### 改动（宝华在 Supabase SQL Editor 执行）
+```sql
+DROP POLICY IF EXISTS "Anyone can read usernames for uniqueness check" ON public.user_profiles;
+CREATE POLICY "Users can read only their own profile"
+  ON public.user_profiles FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+```
+
+### 前置检查（改前实测，避免锁死功能）
+- 全站 8 处 `user_profiles` 读写全部命中 `.eq('user_id', _user.id)`（只读自己）
+- 所有读取前置 `if (!_user)` 判断，游客状态不查表
+- 表内 3 条记录 `user_id` 均非空
+- 无任何代码读取 `email` 列（前端用登录态邮箱）
+- 重名由数据库 UNIQUE 约束兜底，`23505` 在注册/改名/补建三处均已处理
+
+### 验证（实测）
+| 项 | 锁门前 | 锁门后 |
+|---|---|---|
+| 匿名读 username | 返回 3 条 | **`[]`** ✅ |
+| 匿名读 email | 返回 3 条 | **`[]`** ✅ |
+| 匿名 RPC 查重 | true/false | true/false ✅ |
+| 宝华登录 | — | 昵称/持仓/费率正常 ✅ |
+
+### 现状（pg_policies）
+- SELECT：`{authenticated}` + `auth.uid() = user_id`（核心防线）
+- INSERT / UPDATE：`{public}` 但 check/qual 均为 `auth.uid() = user_id`，游客 uid 为空故等效拒绝，未改动
+
+### 备注
+- 执行时出现 `42710 policy already exists`：同名策略此前已存在，DROP 已成功，净效果正确
+- 回滚：`DROP POLICY "Users can read only their own profile"` + 重建 `USING (true)` 策略
+
+
 ## 2026-11-03 recover.html 新增「输入股票名称自动带出代码」（main 部署）
 
 **需求**：宝华要求「填写股票名称之后，能自动带出股票代码」。
