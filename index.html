@@ -1043,12 +1043,10 @@ async function authCall(busyText, fn) {
 // 检查用户名是否已被占用（全局唯一）
 async function isUsernameTaken(username) {
   if (!_supabase) return false;
-  const { data, error } = await _supabase
-    .from('user_profiles')
-    .select('username')
-    .ilike('username', username);
+  // RLS 已开启：走服务端函数判断重名，避免为查重名而暴露全表邮箱
+  const { data, error } = await _supabase.rpc('username_taken', { p_name: username });
   if (error) { console.error('username check error:', error); return false; }
-  return (data && data.length > 0);
+  return data === true;
 }
 
 async function doLogin() {
