@@ -170,7 +170,8 @@ thead th{font-size:14px}
         <span class="limit-txt" style="margin-top:0">该股票最大涨幅：<b id="limitShow">10%</b></span>
         <label class="chk" for="buyFeeIncluded"><input id="buyFeeIncluded" type="checkbox" checked>成本价已含买入费</label>
         <span class="comm-inline">佣金率：万分之（<input id="commRate" type="number" step="0.1" min="0" value="3">）</span>
-        <span class="fee-tiny"><span>印花税卖出万5</span><span>过户费万0.1</span><span>最低佣金5元</span></span>
+        <span class="comm-inline">最低佣金（<input id="minComm" type="number" step="1" min="0" value="5">）元</span>
+        <span class="fee-tiny"><span>印花税卖出万5</span><span>过户费万0.1</span></span>
       </div>
 
     <div class="quote-row" style="margin-top:6px">
@@ -263,6 +264,12 @@ thead th{font-size:14px}
   function money(n){ return n.toLocaleString('zh-CN',{minimumFractionDigits:2, maximumFractionDigits:2, useGrouping:false}); }
   function sharesFmt(n){ return n.toLocaleString('zh-CN',{maximumFractionDigits:0, useGrouping:false}); }
   function pct(n){ return Math.round(n) + '%'; }
+  /* 转义外部来源文本（行情源返回的股票名/代码），防止 HTML 注入 */
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];
+    });
+  }
 
   function statCard(k, v, cls, d){
     return '<div class="stat"><div class="k">'+k+'</div><div class="v '+(cls||'')+'">'+v+'</div>'+(d?'<div class="d">'+d+'</div>':'')+'</div>';
@@ -275,7 +282,7 @@ thead th{font-size:14px}
   function feeParams(){
     return {
       cr: getNum('commRate', 3) / 10000,   // 佣金费率（可改，默认万3）
-      minC: 5,                               // 最低佣金（固定）
+      minC: Math.max(0, getNum('minComm', 5)),  // 最低佣金（可改，默认5元）
       stamp: 0.0005,                         // 印花税 卖出（固定）
       tr: 0.00001,                           // 过户费（固定）
       included: $('buyFeeIncluded').checked
@@ -338,7 +345,7 @@ thead th{font-size:14px}
     var inv0 = buyCostOrig + buyFee(buyCostOrig, fp);          // 原投入（含买入费）
     var curValue = price * shares;
     var loss = inv0 - curValue;
-    var be0 = solveBe(inv0, shares, fp);                        // 回本卖出价（含卖出费）
+    var be0 = Math.ceil(solveBe(inv0, shares, fp) * 100) / 100;  // 回本卖出价（含卖出费，统一向上取整到分）
     var be0Rise = (be0 / price - 1) * 100;
 
     /* ===== 补仓后 ===== */
@@ -347,19 +354,19 @@ thead th{font-size:14px}
     var inv1 = inv0 + addCost + addFee;
     var newShares = shares + addShares;
     var avg1 = newShares > 0 ? inv1 / newShares : NaN;
-    var be1 = newShares > 0 ? solveBe(inv1, newShares, fp) : NaN;
-    var be1Rise = price > 0 ? (be1 / price - 1) * 100 : 0;
+    var be1 = newShares > 0 ? Math.ceil(solveBe(inv1, newShares, fp) * 100) / 100 : NaN;
+    var be1Rise = (isFinite(be1) && price > 0) ? (be1 / price - 1) * 100 : 0;
     var lup1 = newShares > 0 ? limitUpCount(be1, price, limit) : 0;
 
     $('addStats').innerHTML =
       '<div class="stats">' +
         statCard('新投入', sharesFmt(addCost + addFee), '', addShares>0 ? (addFee>0?'含买入费 '+sharesFmt(addFee):'') : '（未补仓）') +
         statCard('总投入', sharesFmt(inv1)) +
-        statCard('成本降低为', isFinite(avg1) ? avg1.toFixed(4) : '-', 'blue') +
+        statCard('成本降低为', isFinite(avg1) ? avg1.toFixed(2) : '-', 'blue') +
         statCard('还需几个涨停', lup1 + ' 个', 'blue') +
       '</div>' +
       '<div class="stats" style="margin-top:10px">' +
-        statRow('回本价约为', isFinite(be1) ? (Math.ceil(be1 * 100) / 100).toFixed(2) : '-', 'blue') +
+        statRow('回本价约为', isFinite(be1) ? be1.toFixed(2) : '-', 'blue') +
         statRow('回本所需涨幅', isFinite(be1Rise) ? pct(be1Rise) : '-', be1Rise>=0?'red':'green') +
       '</div>';
 
@@ -368,7 +375,7 @@ thead th{font-size:14px}
     var planBase = [1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000];
     var plans = planBase.slice(0, planN);
     $('planCountVal').textContent = planN;
-    if(plans.indexOf(addShares) < 0) plans.push(addShares);
+    if(addShares > 0 && plans.indexOf(addShares) < 0) plans.push(addShares);
     plans.sort(function(a,b){ return a - b; });
     var rows = '';
     for(var i = 0; i < plans.length; i++){
@@ -378,7 +385,7 @@ thead th{font-size:14px}
       var invN = inv0 + ac + af;
       var tsN = shares + n;
       var avgN = invN / tsN;
-      var beN = solveBe(invN, tsN, fp);
+      var beN = Math.ceil(solveBe(invN, tsN, fp) * 100) / 100;   // 与卡片同口径：向上取整到分
       var riseN = (beN / price - 1) * 100;
       var lupN = limitUpCount(beN, price, limit);
       var isSel = (n === addShares);
@@ -420,16 +427,18 @@ thead th{font-size:14px}
   }
 
   /* ===== 实时行情：雅虎(fetch) → 腾讯(fetch+script) → 东财(script) ===== */
-  var qHideTimer = null;
+  var qHideTimer = null, qClearTimer = null;
   function qSetMsg(html, cls){
     if(qHideTimer){ clearTimeout(qHideTimer); qHideTimer = null; }
-    $('quoteMsg').innerHTML = html ? '<div class="result-msg '+cls+'">'+html+'</div>' : '';
+    if(qClearTimer){ clearTimeout(qClearTimer); qClearTimer = null; }
+    var qm = $('quoteMsg');
+    qm.style.opacity = '';                    // 重置为可见，避免淡出期内新消息透明
+    qm.innerHTML = html ? '<div class="result-msg '+cls+'">'+html+'</div>' : '';
     if(html){
       qHideTimer = setTimeout(function(){            // 6 秒后自动收起
-        var qm = $('quoteMsg');
         qm.style.transition = 'opacity .6s';
         qm.style.opacity = '0';
-        setTimeout(function(){ qm.innerHTML = ''; qm.style.opacity = ''; }, 600);
+        qClearTimer = setTimeout(function(){ qm.innerHTML = ''; qm.style.opacity = ''; qClearTimer = null; }, 600);
       }, 6000);
     }
   }
@@ -449,9 +458,16 @@ thead th{font-size:14px}
     $('quoteBtn').disabled = b;
     $('quoteBtn').textContent = b ? '获取中…' : '获取现价';
   }
+  var lastAutoAddPrice = '';
   function qFill(data){
     $('price').value = String(data.price);
-    $('addPrice').value = String(data.price);
+    var ap = $('addPrice');
+    var cur = (ap.value || '').trim();
+    // 空 or 仍是上次自动填入的值 → 跟随现价；用户手填过 → 保留不被冲掉
+    if(cur === '' || cur === lastAutoAddPrice){
+      ap.value = String(data.price);
+      lastAutoAddPrice = String(data.price);
+    }
     if(data.name && data.name.indexOf('\uFFFD') < 0) $('name').value = data.name;
     compute();
   }
@@ -466,7 +482,8 @@ thead th{font-size:14px}
     var chgHtml = isFinite(chg) ? ' · 较昨收 <b style="color:'+(chg>=0?'#CC0000':'#2e7d32')+'">'+(chg>=0?'+':'')+chg.toFixed(2)+'%</b>' : '';
     var stale = data.stale ? ' <span style="color:#a16207">（停牌/未开盘，可能非当日成交）</span>' : '';
     var nm = (data.name && data.name.indexOf('\uFFFD') < 0) ? data.name : ($('name').value || '');
-    var nmHtml = nm ? '<b>' + nm + '</b>（' + data.code + '）' : '（' + data.code + '）';
+    var nmSafe = esc(nm), codeSafe = esc(data.code);
+    var nmHtml = nmSafe ? '<b>' + nmSafe + '</b>（' + codeSafe + '）' : '（' + codeSafe + '）';
     qSetMsg('✅ ' + nmHtml + '现价 <b>'+price.toFixed(2)+'</b> 元'+chgHtml+stale+'<span style="font-size:12px;color:var(--muted);float:right;line-height:1.7">来源：'+src+' · '+hh+':'+mm+':'+ss+'</span>', 'ok');
   }
   /* 腾讯：优先 fetch（GBK 解码，兼容禁止外部 script 的环境），被跨域拦截时退回 script 注入 */
@@ -681,7 +698,7 @@ thead th{font-size:14px}
   }
 
   /* 绑定事件 */
-  var ids = ['name','code','price','cost','shares','addPrice','addShares','commRate','planCount'];
+  var ids = ['name','code','price','cost','shares','addPrice','addShares','commRate','minComm','planCount'];
   for(var j = 0; j < ids.length; j++){
     $(ids[j]).addEventListener('input', compute);
     $(ids[j]).addEventListener('change', compute);
