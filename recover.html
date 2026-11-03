@@ -67,6 +67,7 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 .status-grid .field input{flex:0 1 112px;width:112px;max-width:112px}
 .chk{display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap}
 .chk input{width:16px;height:16px;accent-color:var(--primary)}
+#price.stale{border-color:#CC0000;background:#fff4f2}
 #quoteMsg{flex:1;min-width:0;margin-left:4px}
 #quoteMsg .result-msg{margin:0;padding:0;background:none;border:none;border-radius:0;font-size:13px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .quote-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-start;margin-top:6px}
@@ -471,6 +472,8 @@ thead th{font-size:14px}
   var lastAutoAddPrice = '';
   function qFill(data){
     $('price').value = String(data.price);
+    $('price').classList.remove('stale');
+    $('price').title = '';
     var ap = $('addPrice');
     var cur = (ap.value || '').trim();
     // 空 or 仍是上次自动填入的值 → 跟随现价；用户手填过 → 保留不被冲掉
@@ -661,7 +664,9 @@ thead th{font-size:14px}
                 qApply(d3, '东方财富');
                 done(true);
               } else {
-                qSetMsg('❌ 三个行情源都失败（雅虎：'+reason1+'；腾讯：'+reason2+'；东财：'+qReason(res3)+'）。请先点"网络自检"判断原因；'+Math.round(QUOTE_COOLDOWN/1000)+' 秒后可重试。', 'bad');
+                $('price').classList.add('stale');          // 现价框标红：当前显示的可能是上一次的价格
+                $('price').title = '取价失败，框内数字可能不是该股票的价格，请核对代码';
+                qSetMsg('❌ 三个行情源都失败（雅虎：'+reason1+'；腾讯：'+reason2+'；东财：'+qReason(res3)+'）。<b>现价框已标红，框内数字可能不是这只股票的价格</b>，请核对代码后重试。', 'bad');
                 done(false);
               }
             });
