@@ -884,10 +884,9 @@ function updateFoot() {
   const totalPct = (totalCostBasis > 0) ? (totalPL / totalCostBasis * 100) : null;
   foot.innerHTML =
     '<tr style="text-align:center">'
-    + '<td colspan="3" style="text-align:center">'
-      + '<div>合计</div>'
-      + '<div style="font-size:0.58rem;font-weight:600;color:var(--text-secondary)">' + totalQty.toLocaleString() + '股</div>'
-      + '</td>'
+    + '<td></td>'
+    + '<td>合计</td>'
+    + '<td>' + totalQty.toLocaleString() + '</td>'
     + '<td>' + (totalCostBasis > 0 ? (totalCostBasis / 10000).toFixed(2) + '万' : '--') + '</td>'
     + '<td>--</td>'
     + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(1) + '万' : '--') + '</td>'
