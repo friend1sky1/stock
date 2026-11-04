@@ -479,6 +479,8 @@ html, body {
 #tourBubble .t-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
 #tourBubble .t-dots { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 2px; }
 #tourBubble .t-skip { color: var(--text-muted); font-size: 0.78rem; text-decoration: none; margin-right: 14px; }
+#tourBubble .t-optout { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 0.74rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+#tourBubble .t-optout input { width: 14px; height: 14px; margin: 0; accent-color: #c62828; }
 #tourBubble .t-next {
   border: none; background: var(--profit); color: #fff; border-radius: 20px;
   padding: 8px 20px; font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -585,17 +587,6 @@ const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
 </script>
 
-<!-- 欢迎引导弹窗（一次性，仅游客首次）-->
-<div id="welcomeOverlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;">
-  <div style="width:88%;max-width:340px;background:var(--card);border-radius:16px;padding:28px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
-    <div style="font-size:2.2rem;margin-bottom:12px;">👋</div>
-    <h2 style="font-family:'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:10px;letter-spacing:2px;">👋 欢迎体验</h2>
-    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-bottom:8px;">您当前的数据仅保存在<b>本机</b>，随时可用</p>
-    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-bottom:20px;">注册账号后，将<b>云端保存、跨设备同步</b></p>
-    <button onclick="closeWelcome()" style="width:100%;padding:12px;border:none;border-radius:12px;background:var(--profit);color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;">知道了，继续使用</button>
-  </div>
-</div>
-
 <!-- 登录/注册弹窗 -->
 <div id="authOverlay" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;">
   <div style="width:100%;max-width:360px;padding:20px;">
@@ -681,15 +672,15 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
     <!-- 新用户起步卡（无持仓时显示） -->
     <div class="starter-card" id="starterCard" style="display:none;">
       <div class="s-emoji">🧭</div>
-      <div class="s-title">先告诉我你手里有什么</div>
+      <div class="s-title">添加你的第一只股票</div>
       <div class="s-desc">
-        做T是围绕<b>底仓</b>做的：先有一只股票的成本价和持仓数量，<br>
-        再填今天打算卖/买的价格，就能算出这一笔赚多少。
+        做T以<b>底仓</b>为基础。填入成本价和持仓数量，<br>
+        再填今天打算卖或买的价位，就能算出这一笔的盈亏。
       </div>
-      <button class="s-btn s-btn-primary" onclick="openAddModal()">➕ 添加我的持仓</button>
+      <button class="s-btn s-btn-primary" onclick="openAddModal()">➕ 添加持仓</button>
       <button class="s-btn s-btn-example" onclick="loadExampleStock()">🧪 先看示例（京东方A）</button>
       <a class="s-btn s-btn-ghost" href="overview.html" style="display:block;text-decoration:none;line-height:1.4;box-sizing:border-box;padding:12px;">📊 从持仓总览进来</a>
-      <div class="s-foot">加完会自动带你走一遍怎么用；想重看随时点底部「❓ 使用引导」</div>
+      <div class="s-foot">未登录时数据只存本机，注册后云端同步 · 想重看引导点底部「❓ 使用引导」</div>
     </div>
     <!-- Position Card -->
     <div class="input-card" id="posCard">
@@ -842,6 +833,7 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
   <div id="tourBubble">
     <div class="t-title" id="tourTitle"></div>
     <div class="t-text" id="tourText"></div>
+    <label class="t-optout"><input type="checkbox" id="tourOptOut"><span>以后不再自动显示</span></label>
     <div class="t-bar">
       <span class="t-dots" id="tourDots"></span>
       <span>
@@ -994,7 +986,6 @@ function showConnFailBanner(label) {
 // ========== AUTH FUNCTIONS ==========
 const AUTH_KEY = 'tcalc_user_v1';
 const GUEST_USERNAME_KEY = 'tcalc_guest_username_v1';
-const WELCOME_SHOWN_KEY = 'tcalc_welcome_shown_v1';
 const PROFILE_NAME_CACHE_KEY = 'tcalc_profile_name_v1'; // 本地缓存用户名，避免刷新时闪烁
 const TAB_HINT_SHOWN_KEY = 'tcalc_tab_hint_shown_v1'; // A: 进页提示是否已显示过
 const TAB_HINT_LONGPRESS_KEY = 'tcalc_tab_hint_longpress_v1'; // C: 长按提示是否已显示过
@@ -1317,8 +1308,6 @@ async function checkSession() {
     hideAuth();
     updateUserDisplay();
     await initApp();
-    // 首次游客 → 弹欢迎引导
-    maybeShowWelcome();
   }
 }
 
@@ -1466,16 +1455,6 @@ async function saveUsername() {
   }
 }
 
-// ========== 欢迎引导 ==========
-function maybeShowWelcome() {
-  if (localStorage.getItem(WELCOME_SHOWN_KEY)) return;
-  localStorage.setItem(WELCOME_SHOWN_KEY, '1');
-  document.getElementById('welcomeOverlay').style.display = 'flex';
-}
-function closeWelcome() {
-  document.getElementById('welcomeOverlay').style.display = 'none';
-}
-
 // ========== 标签删除提示 ==========
 // C方案：长按触发删除模式时提示——仅首次长按提示一次，之后不再弹
 function showTabDeleteHint() {
@@ -1501,7 +1480,13 @@ function maybeShowTabHintOnce() {
 }
 
 // ========== 新用户起步：空状态 / 示例 / 新手引导 ==========
-const TOUR_DONE_KEY = 'tcalc_tour_done_v1';
+// 引导频率：每月首次打开自动一次；用户可勾选「以后不再自动显示」
+const TOUR_LAST_MONTH_KEY = 'tcalc_tour_last_month_v1';
+const TOUR_OPTOUT_KEY = 'tcalc_tour_optout_v1';
+function tourMonthKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
 
 // 无持仓：显示起步卡，隐藏做T表单（有持仓后自动恢复）
 function refreshEmptyState() {
@@ -1543,7 +1528,7 @@ let _tourIdx = 0;
 function tourSteps() {
   return [
     { sel: '#posCard', title: '① 先确认底仓',
-      text: '成本价＝你这只股票的平均买入成本；持仓数量＝现在手里有多少股。做T是围绕底仓做的，没底仓就算不了。' },
+      text: '成本价＝这只股票的平均买入成本；持仓数量＝当前持股数量。做T是围绕底仓做的，没底仓就算不了。' },
     { sel: '#opCard', title: '② 再填今天的 T 价',
       text: '当前是倒T（先卖后买）：卖出价填今天准备卖的价格，预期接回价填跌回来后接回的价格。股数先按 1000 股试。' },
     { sel: '#calcBtn', title: '③ 点这里看结果',
@@ -1551,11 +1536,11 @@ function tourSteps() {
   ];
 }
 
-let _noLocalDataAtBoot = null;   // 首次进入时本机是否没有任何持仓数据（用于判断“真新用户”）
+let _noLocalDataAtBoot = null;   // 首次进入时本机是否没有任何持仓数据（保留字段，判定已改为月度）
 function startTourIfNeeded() {
-  if (localStorage.getItem(TOUR_DONE_KEY)) return;
+  if (localStorage.getItem(TOUR_OPTOUT_KEY) === '1') return;      // 用户已选择不再自动提示
+  if (localStorage.getItem(TOUR_LAST_MONTH_KEY) === tourMonthKey()) return;  // 本月已引导过
   if (!portfolio || portfolio.length === 0) return;
-  if (_noLocalDataAtBoot === false) return;   // 老用户（本机或云端原本有数据）不自动打扰，可点「❓ 使用引导」重看
   startTour(false);
 }
 
@@ -1565,7 +1550,8 @@ function startTour(manual) {
     return;
   }
   _tourIdx = 0;
-  if (!manual) localStorage.setItem(TOUR_DONE_KEY, '1');
+  const cb = document.getElementById('tourOptOut');
+  if (cb) cb.checked = false;
   document.getElementById('tourLayer').style.display = 'block';
   showTourStep(0);
 }
@@ -1618,7 +1604,9 @@ function tourNext() {
 function endTour() {
   const layer = document.getElementById('tourLayer');
   if (layer) layer.style.display = 'none';
-  localStorage.setItem(TOUR_DONE_KEY, '1');
+  localStorage.setItem(TOUR_LAST_MONTH_KEY, tourMonthKey());   // 本月不再重复弹
+  const cb = document.getElementById('tourOptOut');
+  if (cb && cb.checked) localStorage.setItem(TOUR_OPTOUT_KEY, '1');
 }
 
 window.addEventListener('resize', function () {
