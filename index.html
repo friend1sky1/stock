@@ -426,9 +426,63 @@ html, body {
   text-align: center; padding: 6px 0 14px; font-size: 0.68rem;
   color: var(--text-muted);
 }
-.footer-links a { color: var(--gold, #C4956A); text-decoration: none; margin: 0 6px; }
+.footer-links a { color: var(--gold, #C4956A); text-decoration: none; margin: 0 5px; white-space: nowrap; }
 .footer-links a:active { opacity: .6; }
 .footer-links .sep { color: var(--border); }
+
+/* ──── 新用户起步卡（空状态） ──── */
+.starter-card {
+  background: var(--card); border: 2px solid var(--gold, #C4956A); border-radius: 14px;
+  padding: 18px 16px 14px; margin: 8px 0 12px; text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,.05);
+}
+.starter-card .s-emoji { font-size: 2rem; line-height: 1; margin-bottom: 6px; }
+.starter-card .s-title {
+  font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
+  font-size: 1.05rem; font-weight: 700; color: var(--text); letter-spacing: 1px; margin-bottom: 6px;
+}
+.starter-card .s-desc { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 14px; }
+.starter-card .s-btn {
+  display: block; width: 100%; padding: 12px; margin-bottom: 9px; border: none; border-radius: 10px;
+  font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.starter-card .s-btn-primary { background: var(--profit); color: #fff; }
+.starter-card .s-btn-example { background: var(--gold-light, #FAF4E5); color: #8A6A1E; border: 1.5px solid var(--gold, #C4956A); }
+.starter-card .s-btn-ghost { background: transparent; color: var(--text-secondary); border: 1.5px solid var(--border); font-weight: 600; }
+.starter-card .s-btn:active { transform: scale(.985); }
+.starter-card .s-foot { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; line-height: 1.6; }
+
+/* ──── 结果人话解读 ──── */
+.result-plain {
+  background: var(--gold-light, #FAF4E5); border-left: 3px solid var(--gold, #C4956A);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+  font-size: 0.82rem; line-height: 1.75; color: var(--text); text-align: left;
+}
+.result-plain b { color: var(--profit); font-weight: 700; }
+.result-plain.loss b { color: var(--loss); }
+
+/* ──── 新手引导（气泡＋聚光） ──── */
+#tourLayer { position: fixed; inset: 0; z-index: 10005; display: none; }
+#tourHole {
+  position: absolute; border-radius: 14px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.55);
+  border: 2px solid rgba(255,255,255,.85);
+  transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
+}
+#tourBubble {
+  position: absolute; background: #fff; border-radius: 14px; padding: 16px 16px 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28); width: min(320px, calc(100vw - 24px));
+  box-sizing: border-box;
+}
+#tourBubble .t-title { font-weight: 700; font-size: 0.95rem; color: var(--text); margin-bottom: 6px; letter-spacing: .5px; }
+#tourBubble .t-text { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.75; }
+#tourBubble .t-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+#tourBubble .t-dots { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 2px; }
+#tourBubble .t-skip { color: var(--text-muted); font-size: 0.78rem; text-decoration: none; margin-right: 14px; }
+#tourBubble .t-next {
+  border: none; background: var(--profit); color: #fff; border-radius: 20px;
+  padding: 8px 20px; font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: inherit;
+}
 
 /* ──── Toast ──── */
 .toast {
@@ -618,12 +672,25 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
   <div class="pos-snapshot" id="posSnapshot"></div>
 
   <!-- Mode Toggle -->
-  <div class="mode-toggle">
+  <div class="mode-toggle" id="modeToggle">
     <button class="mode-btn active" id="modeReverse" onclick="setMode('reverse')">倒T · 高抛低吸</button>
     <button class="mode-btn" id="modeNormal" onclick="setMode('normal')">正T · 先买后卖</button>
   </div>
 
   <div class="scroll-area" id="scrollArea">
+    <!-- 新用户起步卡（无持仓时显示） -->
+    <div class="starter-card" id="starterCard" style="display:none;">
+      <div class="s-emoji">🧭</div>
+      <div class="s-title">先告诉我你手里有什么</div>
+      <div class="s-desc">
+        做T是围绕<b>底仓</b>做的：先有一只股票的成本价和持仓数量，<br>
+        再填今天打算卖/买的价格，就能算出这一笔赚多少。
+      </div>
+      <button class="s-btn s-btn-primary" onclick="openAddModal()">➕ 添加我的持仓</button>
+      <button class="s-btn s-btn-example" onclick="loadExampleStock()">🧪 先看示例（京东方A）</button>
+      <a class="s-btn s-btn-ghost" href="overview.html" style="display:block;text-decoration:none;line-height:1.4;box-sizing:border-box;padding:12px;">📊 从持仓总览进来</a>
+      <div class="s-foot">加完会自动带你走一遍怎么用；想重看随时点底部「❓ 使用引导」</div>
+    </div>
     <!-- Position Card -->
     <div class="input-card" id="posCard">
       <h2 onclick="toggleFold('posCard')">
@@ -720,6 +787,7 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
     <!-- Result Card -->
     <div class="result-card" id="resultCard">
       <h2><span class="icon">📋</span>预估结果</h2>
+      <div class="result-plain" id="resultPlain" style="display:none;"></div>
       <div class="result-big">
         <button class="copy-btn" onclick="copyResult()" id="copyBtn">复制</button>
         <div class="label">净盈亏</div>
@@ -759,12 +827,30 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
       <a href="recover.html">📈 回本计算器</a>
       <span class="sep">·</span>
       <a href="clear.html">🔌 连接诊断 / 清缓存</a>
+      <span class="sep">·</span>
+      <a href="#" onclick="startTour(true);return false;">❓ 使用引导</a>
     </div>
   </div>
 </div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- 新手引导层（气泡＋聚光） -->
+<div id="tourLayer">
+  <div id="tourHole"></div>
+  <div id="tourBubble">
+    <div class="t-title" id="tourTitle"></div>
+    <div class="t-text" id="tourText"></div>
+    <div class="t-bar">
+      <span class="t-dots" id="tourDots"></span>
+      <span>
+        <a href="#" class="t-skip" onclick="endTour();return false;">跳过</a>
+        <button class="t-next" id="tourNext" onclick="tourNext()">下一步</button>
+      </span>
+    </div>
+  </div>
+</div>
 
 <!-- Stock Edit Modal -->
 <div class="modal-overlay" id="editModal">
@@ -1413,6 +1499,134 @@ function maybeShowTabHintOnce() {
   el.style.display = 'block';
   setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
+
+// ========== 新用户起步：空状态 / 示例 / 新手引导 ==========
+const TOUR_DONE_KEY = 'tcalc_tour_done_v1';
+
+// 无持仓：显示起步卡，隐藏做T表单（有持仓后自动恢复）
+function refreshEmptyState() {
+  const empty = (!portfolio || portfolio.length === 0);
+  const starter = document.getElementById('starterCard');
+  if (starter) starter.style.display = empty ? 'block' : 'none';
+  ['posCard', 'opCard', 'calcBtn', 'modeToggle'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = empty ? 'none' : '';
+  });
+  const fee = document.querySelector('.fee-card');
+  if (fee) fee.style.display = empty ? 'none' : '';
+  const snap = document.getElementById('posSnapshot');
+  if (snap) snap.style.display = empty ? 'none' : '';
+}
+
+// 一键载入示例（京东方A）——数字随便改，不是你的真实持仓
+function loadExampleStock() {
+  const id = (crypto.randomUUID ? crypto.randomUUID() : ('s' + Date.now() + '-' + Math.random().toString(36).slice(2)));
+  portfolio.push({
+    id: id, name: '京东方A', code: 'sz000725',
+    costPrice: 7.6288, holdQty: 6400, openPrice: 7.90,
+    mode: 'reverse',
+    reverse: { tPrice1: 7.95, tQty: 1000, tPrice2: 7.80 },
+    normal:  { tPrice1: 7.80, tQty: 1000, tPrice2: 7.95 }
+  });
+  currentStockIndex = portfolio.length - 1;
+  buildTabBar();
+  loadStockIntoForm();
+  updateSnapshot();
+  refreshEmptyState();
+  saveAll();
+  showToast('已载入示例（京东方A），数字可直接改成你自己的', 'warning');
+  setTimeout(function () { startTourIfNeeded(); }, 600);
+}
+
+// ──── 引导：三步气泡 ────
+let _tourIdx = 0;
+function tourSteps() {
+  return [
+    { sel: '#posCard', title: '① 先确认底仓',
+      text: '成本价＝你这只股票的平均买入成本；持仓数量＝现在手里有多少股。做T是围绕底仓做的，没底仓就算不了。' },
+    { sel: '#opCard', title: '② 再填今天的 T 价',
+      text: '当前是倒T（先卖后买）：卖出价填今天准备卖的价格，预期接回价填跌回来后接回的价格。股数先按 1000 股试。' },
+    { sel: '#calcBtn', title: '③ 点这里看结果',
+      text: '会算出手续费、净盈亏、以及操作后的新持仓成本。数字随时可改、随时重算。' }
+  ];
+}
+
+let _noLocalDataAtBoot = null;   // 首次进入时本机是否没有任何持仓数据（用于判断“真新用户”）
+function startTourIfNeeded() {
+  if (localStorage.getItem(TOUR_DONE_KEY)) return;
+  if (!portfolio || portfolio.length === 0) return;
+  if (_noLocalDataAtBoot === false) return;   // 老用户（本机或云端原本有数据）不自动打扰，可点「❓ 使用引导」重看
+  startTour(false);
+}
+
+function startTour(manual) {
+  if (!portfolio || portfolio.length === 0) {
+    if (manual) showToast('先添加一只持仓，再走一遍引导', 'warning');
+    return;
+  }
+  _tourIdx = 0;
+  if (!manual) localStorage.setItem(TOUR_DONE_KEY, '1');
+  document.getElementById('tourLayer').style.display = 'block';
+  showTourStep(0);
+}
+
+function showTourStep(i) {
+  const steps = tourSteps();
+  if (i >= steps.length) { endTour(); return; }
+  const el = document.querySelector(steps[i].sel);
+  if (!el || el.offsetParent === null) { showTourStep(i + 1); return; }
+  _tourIdx = i;
+  try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+  setTimeout(function () { layoutTourStep(steps[i], el); }, 320);
+}
+
+function layoutTourStep(step, el) {
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const pad = 6;
+  const hole = document.getElementById('tourHole');
+  hole.style.left = (r.left - pad) + 'px';
+  hole.style.top = (r.top - pad) + 'px';
+  hole.style.width = Math.max(0, r.width + pad * 2) + 'px';
+  hole.style.height = Math.max(0, r.height + pad * 2) + 'px';
+
+  document.getElementById('tourTitle').textContent = step.title;
+  document.getElementById('tourText').textContent = step.text;
+  const steps = tourSteps();
+  let dots = '';
+  for (let k = 0; k < steps.length; k++) dots += (k === _tourIdx ? '●' : '○');
+  document.getElementById('tourDots').textContent = dots;
+  document.getElementById('tourNext').textContent = (_tourIdx === steps.length - 1) ? '知道了' : '下一步';
+
+  const bubble = document.getElementById('tourBubble');
+  bubble.style.visibility = 'hidden';
+  bubble.style.display = 'block';
+  const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+  let top = r.bottom + 14;
+  if (top + bh > window.innerHeight - 10) top = Math.max(10, r.top - bh - 14);
+  let left = Math.max(8, Math.min(r.left, window.innerWidth - bw - 8));
+  bubble.style.top = top + 'px';
+  bubble.style.left = left + 'px';
+  bubble.style.visibility = 'visible';
+}
+
+function tourNext() {
+  if (_tourIdx >= tourSteps().length - 1) { endTour(); return; }
+  showTourStep(_tourIdx + 1);
+}
+
+function endTour() {
+  const layer = document.getElementById('tourLayer');
+  if (layer) layer.style.display = 'none';
+  localStorage.setItem(TOUR_DONE_KEY, '1');
+}
+
+window.addEventListener('resize', function () {
+  const layer = document.getElementById('tourLayer');
+  if (!layer || layer.style.display !== 'block') return;
+  const steps = tourSteps();
+  if (steps[_tourIdx]) layoutTourStep(steps[_tourIdx], document.querySelector(steps[_tourIdx].sel));
+});
 
 // ========== DATA ENGINE ==========
 const STORAGE_KEY_PORTFOLIO = 'tcalc_portfolio_v2';
@@ -2383,6 +2597,8 @@ async function saveStock() {
   updateSnapshot();
   saveAll();
   closeModal();
+  refreshEmptyState();
+  setTimeout(function () { startTourIfNeeded(); }, 500);
 }
 
 function deleteStockConfirm(idx) {
@@ -2401,6 +2617,7 @@ function deleteStockConfirm(idx) {
   loadStockIntoForm();
   updateSnapshot();
   saveAll();
+  refreshEmptyState();
 }
 
 // ──── Snapshot interactions ────
@@ -2936,10 +3153,11 @@ function calculate() {
     pctEl.textContent = '--';
   }
 
+  let newCostPrice = null;
   if (costPrice && holdQty) {
     const totalCostBefore = costPrice * holdQty;
     const totalCostAfter = totalCostBefore - diff;
-    const newCostPrice = totalCostAfter / holdQty;
+    newCostPrice = totalCostAfter / holdQty;
     document.getElementById('newCost').textContent = fmtMoney4(newCostPrice) + ' 元';
     document.getElementById('newCost').style.display = '';
     document.querySelector('.new-cost .label').style.display = '';
@@ -2947,6 +3165,28 @@ function calculate() {
     document.getElementById('newCost').textContent = '';
     document.getElementById('newCost').style.display = 'none';
     document.querySelector('.new-cost .label').style.display = 'none';
+  }
+
+  // ===== 人话解读（新用户最缺的一环：这个数字到底什么意思） =====
+  const plainEl = document.getElementById('resultPlain');
+  if (plainEl) {
+    const p1 = _fmt2(tPrice1), p2 = _fmt2(tPrice2);
+    const act = (currentMode === 'reverse')
+      ? ('以 ' + p1 + ' 元卖出 ' + tQty + ' 股、' + p2 + ' 元接回')
+      : ('以 ' + p1 + ' 元买入 ' + tQty + ' 股、' + p2 + ' 元卖出');
+    const isProfit = diff >= 0;
+    let txt = '你' + act + '：扣除手续费后<b>' + (isProfit ? '净赚 ' : '净亏 ')
+      + fmtMoney(Math.abs(diff)) + ' 元</b>';
+    if (newCostPrice != null && costPrice) {
+      const dlt = newCostPrice - costPrice;
+      if (dlt < -0.00005) txt += '，持仓成本从 ' + fmtMoney4(costPrice) + ' 降到 ' + fmtMoney4(newCostPrice);
+      else if (dlt > 0.00005) txt += '，持仓成本从 ' + fmtMoney4(costPrice) + ' 升到 ' + fmtMoney4(newCostPrice);
+      else txt += '，持仓成本基本不变';
+    }
+    txt += '。';
+    plainEl.innerHTML = txt;
+    plainEl.className = 'result-plain' + (isProfit ? '' : ' loss');
+    plainEl.style.display = 'block';
   }
 
   // Show result + scroll
@@ -3051,6 +3291,7 @@ document.addEventListener('keydown', function(e) {
 
 // ──── Init ────
 function initApp() {
+  if (_noLocalDataAtBoot === null) _noLocalDataAtBoot = !localStorage.getItem(STORAGE_KEY_PORTFOLIO);
   // 不先从localStorage加载，让loadDataAsync从云端统一加载
   // 如果云端加载失败，再从localStorage加载
   portfolio = [];
@@ -3084,6 +3325,9 @@ function initApp() {
     maybeShowTabHintOnce();
     // 每天第一次打开时自动刷新持仓的开盘价
     fetchTodayOpenPrices();
+    // 空状态（无持仓）与首次引导
+    refreshEmptyState();
+    setTimeout(function () { startTourIfNeeded(); }, 900);
   });
 }
 
