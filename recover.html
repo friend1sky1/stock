@@ -830,6 +830,24 @@ thead th{font-size:14px}
     var card = bar.closest ? bar.closest('.card') : null;
     if(card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
+  /* 从持仓总览跳转过来时，自动带入参数（name/code/shares/cost/price/comm） */
+  (function prefillFromQuery(){
+    var q = null;
+    try { q = new URLSearchParams(location.search); } catch(e) { return; }
+    if(!q) return;
+    function put(id, v){ if(v !== null && v !== '' && $(id)) $(id).value = v; }
+    put('name', q.get('name'));
+    put('code', q.get('code'));
+    put('shares', q.get('shares'));
+    put('cost', q.get('cost'));
+    put('price', q.get('price'));
+    var cr = parseFloat(q.get('comm'));
+    if(isFinite(cr) && cr > 0) $('commRate').value = cr;
+    if(q.get('name') || q.get('code')) hideNameDrop();
+    // 清掉地址栏参数，避免刷新/分享时反复带入
+    try { if(history.replaceState) history.replaceState(null, '', location.pathname); } catch(e) {}
+  })();
+
   compute();
 
   /* 打开页面自动获取现价；失败则 3 秒后自动重试一次 */
