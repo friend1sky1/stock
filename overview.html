@@ -98,8 +98,8 @@ table.overview thead th.sortable { cursor: pointer; -webkit-tap-highlight-color:
 table.overview thead th.sortable:active { background: var(--gold-light); }
 /* ── 到价提醒（与做T计算器共用同一份 localStorage） ── */
 .ov-bell {
-  display:inline-block; font-size:0.85rem; line-height:1; cursor:pointer;
-  opacity:0.35; padding:2px 3px; vertical-align:middle;
+  display:inline-block; font-size:0.8rem; line-height:1; cursor:pointer;
+  opacity:0.35; padding:1px 1px; vertical-align:middle;
   -webkit-user-select:none; user-select:none; transition:opacity .15s, transform .15s;
 }
 .ov-bell.on  { opacity:1; transform:scale(1.1); }
@@ -144,28 +144,29 @@ table.overview thead th .sort-arrow {
   font-size: 0.6rem; margin-left: 2px; color: var(--gold);
 }
 table.overview tbody td {
-  padding: 3px 3px; text-align: center; font-size: 0.78rem;
+  padding: 3px 2px; text-align: center; font-size: 0.74rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  overflow: hidden; white-space: nowrap;
 }
 table.overview tbody tr:last-child td { border-bottom: none; }
 
-/* Column widths */
-th.col-no  { width: 30px; }
-th.col-name { width: 76px; }
-th.col-qty { width: 70px; }
-th.col-cost { width: 70px; }
-th.col-price { width: 68px; }
-th.col-mkt  { width: 78px; }
-th.col-pl   { width: 86px; }
-th.col-pct  { width: 64px; }
-th.col-act  { width: 40px; }
+/* Column widths（百分比，确保 10/9 列在手机上也完整显示，不横向裁切） */
+th.col-no  { width: 5%; }
+th.col-name { width: 14%; }
+th.col-qty { width: 10%; }
+th.col-cost { width: 13%; }
+th.col-price { width: 10%; }
+th.col-mkt  { width: 10%; }
+th.col-pl   { width: 15%; }
+th.col-be   { width: 10%; }
+th.col-act  { width: 13%; }
 
 /* Editable cells (qty / cost / price) */
 td.edit-cell { padding: 2px 2px; }
 td.edit-cell input {
   width: 100%; max-width: 100%;
-  padding: 5px 3px; font-size: 0.78rem; font-weight: 600;
+  padding: 5px 1px; font-size: 0.70rem; font-weight: 600;
   border: 1.5px solid var(--border); border-radius: 6px;
   background: var(--bg); color: var(--text); text-align: center;
   transition: all var(--transition);
@@ -187,19 +188,30 @@ tr.drag-over td { border-top: 2.5px solid var(--gold) !important; }
 .drag-row-clone { position: fixed; z-index: 9999; pointer-events: none; opacity: 0.88; box-shadow: 0 6px 24px rgba(0,0,0,0.2); border-radius: 4px; transition: none; }
 
 /* Values */
-td.val-qty { font-weight: 500; color: var(--text); }
-td.val-cost { font-weight: 700; font-size: 0.82rem; color: var(--text); }
-td.val-mkt { font-weight: 600; color: var(--text); }
-td.val-pl, td.val-pct { font-weight: 700; }
-td.val-pl.profit, td.val-pct.profit { color: var(--profit); }
-td.val-pl.loss, td.val-pct.loss { color: var(--loss); }
+td.val-qty { font-weight: 500; color: var(--text); font-size: 0.72rem; }
+td.val-cost { font-weight: 700; font-size: 0.76rem; color: var(--text); }
+td.val-mkt { font-weight: 600; color: var(--text); font-size: 0.66rem; }
+.val-pl, .val-pct { font-weight: 700; line-height: 1.25; }
+.val-pl { font-size: 0.70rem; }
+.val-pct { font-size: 0.66rem; }
+.val-pl.profit, .val-pct.profit { color: var(--profit); }
+.val-pl.loss, .val-pct.loss { color: var(--loss); }
+
+/* 回本需涨：分级配色（已回本绿 / 浅套<10% 黄 / 中套10-30% 橙 / 深套>30% 红） */
+td.val-be { font-weight: 700; font-size: 0.64rem; cursor: pointer; -webkit-tap-highlight-color: transparent; white-space: nowrap; }
+td.val-be:active { opacity: 0.6; }
+td.val-be.be-ok    { color: var(--loss);   background: var(--loss-bg); }
+td.val-be.be-light { color: #A67C00;       background: #FFF9E6; }
+td.val-be.be-mid   { color: #D2691E;       background: #FFF1E3; }
+td.val-be.be-deep  { color: #C4000F;       background: var(--profit-bg); }
 
 /* Delete button */
 td.col-act .del-btn {
-  width: 26px; height: 26px; line-height: 26px;
+  width: 21px; height: 21px; line-height: 21px;
   border: none; border-radius: 6px;
   background: #FBEEEE; color: var(--profit);
-  font-size: 0.9rem; cursor: pointer; text-align: center;
+  font-size: 0.78rem; cursor: pointer; text-align: center;
+  padding: 0; vertical-align: middle;
   transition: all var(--transition);
   -webkit-tap-highlight-color: transparent;
 }
@@ -207,8 +219,9 @@ td.col-act .del-btn:active { background: var(--profit); color: #FFF; transform: 
 
 /* Summary row */
 tfoot td {
-  padding: 8px 4px; font-weight: 700; font-size: 0.8rem;
+  padding: 8px 2px; font-weight: 700; font-size: 0.64rem;
   background: var(--bg); border-top: 2px solid var(--border) !important;
+  white-space: nowrap;
 }
 tfoot td.profit { color: var(--profit); }
 tfoot td.loss { color: var(--loss); }
@@ -280,6 +293,17 @@ tfoot td.loss { color: var(--loss); }
   table.overview tbody td { font-size: 0.72rem; padding: 3px 1px; }
   td.edit-cell input { font-size: 0.7rem; padding: 5px 1px; }
 }
+/* 窄屏（如 360px）：再缩一档字号，保证 7 位成本价和盈亏金额不被截断 */
+@media (max-width: 380px) {
+  table.overview thead th { font-size: 0.58rem; letter-spacing: 0; padding: 6px 0 4px; }
+  td.edit-cell input { font-size: 0.63rem; padding: 5px 0; }
+  td.val-cost { font-size: 0.68rem; }
+  td.val-mkt { font-size: 0.6rem; }
+  .val-pl { font-size: 0.62rem; }
+  .val-pct { font-size: 0.58rem; }
+  td.val-be { font-size: 0.58rem; }
+  tfoot td { font-size: 0.58rem; }
+}
 </style>
 </head>
 <body>
@@ -341,8 +365,8 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
         <th class="col-cost sortable" data-key="cost" onclick="sortBy('cost')">成本<span class="sort-arrow" id="arrow_cost"></span></th>
         <th class="col-price sortable" data-key="price" onclick="sortBy('price')">现价<span class="sort-arrow" id="arrow_price"></span></th>
         <th class="col-mkt sortable" data-key="mkt" onclick="sortBy('mkt')">市值<span class="sort-arrow" id="arrow_mkt"></span></th>
-        <th class="col-pl sortable" data-key="pl" onclick="sortBy('pl')">盈亏<span class="sort-arrow" id="arrow_pl"></span></th>
-        <th class="col-pct sortable" data-key="pct" onclick="sortBy('pct')">盈亏%<span class="sort-arrow" id="arrow_pct"></span></th>
+        <th class="col-pl sortable" data-key="pl" onclick="sortBy('pl')" title="上：盈亏金额　下：盈亏百分比（点击按金额排序）">盈亏<span class="sort-arrow" id="arrow_pl"></span></th>
+        <th class="col-be sortable" data-key="be" onclick="sortBy('be')" title="含卖出费用：还需上涨多少才回本（点击可去算补仓方案）">回本<span class="sort-arrow" id="arrow_be"></span></th>
         <th class="col-act">操作</th>
       </tr>
     </thead>
@@ -625,6 +649,19 @@ function loadData() {
   }
 }
 
+// 读取用户的佣金费率（与做T计算器共用 user_profiles.fee_comm_wan，默认万3）
+async function loadFeeRate() {
+  if (!_user || !_supabase) return;
+  try {
+    const { data, error } = await _supabase.from('user_profiles')
+      .select('fee_comm_wan').eq('user_id', _user.id).maybeSingle();
+    if (!error && data) {
+      const v = parseFloat(data.fee_comm_wan);
+      if (!isNaN(v) && v > 0) OV_FEE.commWan = Math.min(v, 30);
+    }
+  } catch (e) {}
+}
+
 async function initApp() {
   const cloudOk = await loadDataFromCloud();
   if (cloudOk) {
@@ -639,6 +676,7 @@ async function initApp() {
     localStorage.removeItem(STORAGE_KEY);
   }
   renderTable();
+  loadFeeRate().then(() => renderTable());   // 佣金费率到手后重算一次回本列
   // 按名称从全量表补全缺失的 code（并回写数据库）
   backfillMissingCodes();
   // 首屏先用本地缓存的用户名，再异步换成云端用户名，避免闪烁
@@ -669,6 +707,43 @@ function fmtPct(v) {
   return sign + v.toFixed(2) + '%';
 }
 
+// ========== 回本需涨（含卖出费用，与回本计算器 recover.html 同口径）==========
+// 佣金默认万3（登录后读 user_profiles.fee_comm_wan 覆盖）+ 印花税卖出万5 + 过户费万0.1，最低佣金5元
+const OV_FEE = { commWan: 3, minComm: 5, stamp: 0.0005, transfer: 0.00001 };
+
+// 回本卖出价：使「卖出净得 = 总投入」，向上取整到分
+function ovBreakEvenPrice(cost, qty) {
+  const inv = cost * qty;                       // 成本价默认已含买入费（与回本计算器默认一致）
+  const cr = OV_FEE.commWan / 10000;
+  const f = cr + OV_FEE.stamp + OV_FEE.transfer; // 比例费用（含佣金）
+  const g = OV_FEE.stamp + OV_FEE.transfer;      // 比例费用（不含佣金）
+  let total = inv / (1 - f);                     // 假设佣金按比例
+  if (total * cr < OV_FEE.minComm) total = (inv + OV_FEE.minComm) / (1 - g); // 佣金触底
+  return Math.ceil(total / qty * 100) / 100;
+}
+
+// 回本所需涨幅（%）；已回本为负数
+function ovBreakEvenRise(cost, qty, price) {
+  if (!(cost > 0) || !(qty > 0) || !(price > 0)) return null;
+  const be = ovBreakEvenPrice(cost, qty);
+  if (!isFinite(be)) return null;
+  return (be / price - 1) * 100;
+}
+
+function ovBeBand(v) {
+  if (v == null) return '';
+  if (v <= 0.005) return 'be-ok';     // 已回本
+  if (v <= 10) return 'be-light';     // 浅套
+  if (v <= 30) return 'be-mid';       // 中套
+  return 'be-deep';                   // 深套
+}
+
+function ovBeText(v) {
+  if (v == null) return '--';
+  if (v <= 0.005) return '已回本';
+  return '+' + v.toFixed(0) + '%';
+}
+
 function calcRow(s) {
   const cost = s.costPrice;
   const qty  = s.holdQty;
@@ -679,13 +754,14 @@ function calcRow(s) {
   const mkt = (priceOk && qtyOk) ? (price * qty) : null;
   const pl  = (priceOk && qtyOk && costOk) ? ((price - cost) * qty) : null;
   const pct = (priceOk && costOk) ? ((price - cost) / cost * 100) : null;
-  return { costOk, qtyOk, priceOk, mkt, pl, pct };
+  const beRise = (costOk && qtyOk && priceOk) ? ovBreakEvenRise(cost, qty, price) : null;
+  return { costOk, qtyOk, priceOk, mkt, pl, pct, beRise };
 }
 
 let _ovDragState = null; // { fromIdx, startY, moved }
 
 // ========== 临时排序 ==========
-let _sortKey = null;    // 当前排序列: index/name/qty/cost/price/mkt/pl/pct
+let _sortKey = null;    // 当前排序列: index/name/qty/cost/price/mkt/pl/pct/be
 let _sortDir = 1;       // 1=升序, -1=降序
 
 function _sortValue(s, key) {
@@ -698,6 +774,7 @@ function _sortValue(s, key) {
     case 'mkt':   return r.mkt;
     case 'pl':    return r.pl;
     case 'pct':   return r.pct;
+    case 'be':    return r.beRise;
     default:      return null;
   }
 }
@@ -764,9 +841,14 @@ function renderTable() {
       + ' placeholder="现价" value="' + (r.priceOk ? s.price.toFixed(2) : '') + '"'
       + ' oninput="onPriceInput(' + i + ', this)"></td>';
     // 市值 / 盈亏 / 盈亏%
-    html += '<td class="val-mkt" id="mkt_' + i + '">' + (r.mkt != null ? (r.mkt / 10000).toFixed(2) + '万' : '--') + '</td>';
-    html += '<td class="val-pl ' + plCls + '" id="pl_' + i + '">' + (r.pl != null ? (r.pl >= 0 ? '+' : '') + fmtMoney(r.pl) : '--') + '</td>';
-    html += '<td class="val-pct ' + pctCls + '" id="pct_' + i + '">' + fmtPct(r.pct) + '</td>';
+    html += '<td class="val-mkt" id="mkt_' + i + '">' + (r.mkt != null ? (r.mkt / 10000).toFixed(1) + '万' : '--') + '</td>';
+    // 盈亏金额 + 盈亏%（两行合并为一列，腾出宽度给「回本」）
+    html += '<td class="col-pl"><div class="val-pl ' + plCls + '" id="pl_' + i + '">' + (r.pl != null ? (r.pl >= 0 ? '+' : '') + fmtMoney(r.pl) : '--') + '</div>'
+      + '<div class="val-pct ' + pctCls + '" id="pct_' + i + '">' + fmtPct(r.pct) + '</div></td>';
+    // 回本需涨（分级配色，点击去算补仓方案）
+    html += '<td class="val-be ' + ovBeBand(r.beRise) + '" id="be_' + i + '"'
+      + ' onclick="gotoRecover(' + i + ')"'
+      + ' title="含卖出费用，还需上涨多少才回本；点击去算补仓方案">' + ovBeText(r.beRise) + '</td>';
     const _ak = ovAlertKey(s);
     const _al = _ak ? _ovAlerts[_ak] : null;
     const _bcls = _al ? (_al.active ? 'ov-bell on' : (_al.lastHit ? 'ov-bell hit' : 'ov-bell')) : 'ov-bell';
@@ -802,13 +884,16 @@ function updateFoot() {
   const totalPct = (totalCostBasis > 0) ? (totalPL / totalCostBasis * 100) : null;
   foot.innerHTML =
     '<tr style="text-align:center">'
-    + '<td colspan="2">合计</td>'
-    + '<td>' + totalQty.toLocaleString() + '股</td>'
+    + '<td colspan="3" style="text-align:center">'
+      + '<div>合计</div>'
+      + '<div style="font-size:0.58rem;font-weight:600;color:var(--text-secondary)">' + totalQty.toLocaleString() + '股</div>'
+      + '</td>'
     + '<td>' + (totalCostBasis > 0 ? (totalCostBasis / 10000).toFixed(2) + '万' : '--') + '</td>'
     + '<td>--</td>'
-    + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(2) + '万' : '--') + '</td>'
-    + '<td class="' + totalPlCls + '">' + (totalPL >= 0 ? '+' : '') + fmtMoney(totalPL) + '</td>'
-    + '<td class="' + totalPlCls + '">' + (totalPct != null ? (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%' : '--') + '</td>'
+    + '<td>' + (totalMkt > 0 ? (totalMkt / 10000).toFixed(1) + '万' : '--') + '</td>'
+    + '<td><div class="val-pl ' + totalPlCls + '">' + (totalPL >= 0 ? '+' : '') + fmtMoney(totalPL) + '</div>'
+      + '<div class="val-pct ' + totalPlCls + '">' + (totalPct != null ? (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%' : '--') + '</div></td>'
+    + '<td>--</td>'
     + '<td></td>'
     + '</tr>';
 }
@@ -829,9 +914,10 @@ function updateRow(idx) {
   const mktEl = document.getElementById('mkt_' + idx);
   const plEl  = document.getElementById('pl_' + idx);
   const pctEl = document.getElementById('pct_' + idx);
+  const beEl  = document.getElementById('be_' + idx);
   if (!mktEl || !plEl || !pctEl) return;
 
-  mktEl.textContent = (r.mkt != null ? (r.mkt / 10000).toFixed(2) + '万' : '--');
+  mktEl.textContent = (r.mkt != null ? (r.mkt / 10000).toFixed(1) + '万' : '--');
 
   const plCls  = (r.pl  != null) ? (r.pl  >= 0 ? 'profit' : 'loss') : '';
   const pctCls = (r.pct != null) ? (r.pct >= 0 ? 'profit' : 'loss') : '';
@@ -839,6 +925,24 @@ function updateRow(idx) {
   pctEl.className = 'val-pct ' + pctCls;
   plEl.textContent = (r.pl != null ? (r.pl >= 0 ? '+' : '') + fmtMoney(r.pl) : '--');
   pctEl.textContent = fmtPct(r.pct);
+  if (beEl) {
+    beEl.className = 'val-be ' + ovBeBand(r.beRise);
+    beEl.textContent = ovBeText(r.beRise);
+  }
+}
+
+// 点击「回本」→ 跳到回本计算器，名称/代码/持仓/成本自动带入
+function gotoRecover(idx) {
+  const s = portfolio[idx];
+  if (!s) return;
+  const p = new URLSearchParams();
+  if (s.name) p.set('name', s.name);
+  if (s.code) p.set('code', String(s.code).replace(/^(sh|sz|bj)/i, ''));
+  if (s.holdQty > 0) p.set('shares', String(s.holdQty));
+  if (s.costPrice > 0) p.set('cost', String(s.costPrice));
+  if (s.price > 0) p.set('price', String(s.price.toFixed(2)));
+  if (OV_FEE.commWan > 0) p.set('comm', String(OV_FEE.commWan));
+  location.href = 'recover.html?' + p.toString();
 }
 
 // ========== DRAG REORDER (序号列) ==========
