@@ -674,13 +674,12 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
       <div class="s-emoji">🧭</div>
       <div class="s-title">添加你的第一只股票</div>
       <div class="s-desc">
-        做T以<b>底仓</b>为基础。填入成本价和持仓数量，<br>
-        再填今天打算卖或买的价位，就能算出这一笔的盈亏。
+        填<b>成本价</b>与<b>持股数</b>，再填今天的买卖价，即可算出这笔盈亏。
       </div>
       <button class="s-btn s-btn-primary" onclick="openAddModal()">➕ 添加持仓</button>
       <button class="s-btn s-btn-example" onclick="loadExampleStock()">🧪 先看示例（京东方A）</button>
       <a class="s-btn s-btn-ghost" href="overview.html" style="display:block;text-decoration:none;line-height:1.4;box-sizing:border-box;padding:12px;">📊 从持仓总览进来</a>
-      <div class="s-foot">未登录时数据只存本机，注册后云端同步 · 想重看引导点底部「❓ 使用引导」</div>
+      <div class="s-foot">数据只存本机，注册后云端同步</div>
     </div>
     <!-- Position Card -->
     <div class="input-card" id="posCard">
@@ -1528,11 +1527,11 @@ let _tourIdx = 0;
 function tourSteps() {
   return [
     { sel: '#posCard', title: '① 先确认底仓',
-      text: '成本价＝这只股票的平均买入成本；持仓数量＝当前持股数量。做T是围绕底仓做的，没底仓就算不了。' },
+      text: '成本价＝平均买入成本，持股数＝当前持股数量。没有底仓就算不了T。' },
     { sel: '#opCard', title: '② 再填今天的 T 价',
-      text: '当前是倒T（先卖后买）：卖出价填今天准备卖的价格，预期接回价填跌回来后接回的价格。股数先按 1000 股试。' },
+      text: '倒T＝先卖后买：填今天的卖出价和跌回后的接回价，股数先按 1000 试。' },
     { sel: '#calcBtn', title: '③ 点这里看结果',
-      text: '会算出手续费、净盈亏、以及操作后的新持仓成本。数字随时可改、随时重算。' }
+      text: '手续费、净盈亏、新持仓成本都会算出来，随时可改可重算。' }
   ];
 }
 
