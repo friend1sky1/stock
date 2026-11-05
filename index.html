@@ -417,6 +417,13 @@ html, body {
   font-size: 1.2rem; font-weight: 800; color: var(--profit);
 }
 
+.result-tail {
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.result-tail h2 { margin-bottom: 6px; }
+.result-tail .result-plain { margin-bottom: 0; }
+
 /* Footer */
 .footer {
   flex-shrink: 0; text-align: center; padding: 2px 0 0;
@@ -776,8 +783,6 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
 
     <!-- Result Card -->
     <div class="result-card" id="resultCard">
-      <h2><span class="icon">📋</span>预估结果</h2>
-      <div class="result-plain" id="resultPlain" style="display:none;"></div>
       <div class="result-big">
         <button class="copy-btn" onclick="copyResult()" id="copyBtn">复制</button>
         <div class="label">净盈亏</div>
@@ -807,6 +812,10 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
       <div class="new-cost">
         <div class="label">操作后新持仓成本</div>
         <div class="value" id="newCost">--</div>
+      </div>
+      <div class="result-tail">
+        <h2><span class="icon">📋</span>预估结果</h2>
+        <div class="result-plain" id="resultPlain" style="display:none;"></div>
       </div>
     </div>
 
