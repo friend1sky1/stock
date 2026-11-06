@@ -310,8 +310,8 @@ tfoot td.loss { color: var(--loss); }
 
 <!-- 云端数据库配置 -->
 <script>
-// 走本站同域中转（/sb → 云端），避浏览器把 supabase.co 当第三方域名拦截
-const SUPABASE_URL = 'https://t.ai-zhihui.cn/sb';
+// 直连云端（Cloudflare Pages 无反向代理）
+const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
 </script>
