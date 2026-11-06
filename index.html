@@ -585,10 +585,10 @@ html, body {
 
 <!-- 云端数据库配置 -->
 <script>
-// 走本站同域中转（/sb → 云端），避浏览器把 supabase.co 当第三方域名拦截；中转不可用时自动回退直连
+// 默认直连云端（Cloudflare Pages 无反向代理）；/sb 中转仅作历史兜底保留
 const SUPABASE_URL_DIRECT = 'https://idindbktqpjulhvcvcdj.supabase.co';
 const SUPABASE_URL_PROXY  = 'https://t.ai-zhihui.cn/sb';
-let   SUPABASE_URL        = SUPABASE_URL_PROXY;
+let   SUPABASE_URL        = SUPABASE_URL_DIRECT;
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
 // 固定会话存储键，保证「中转/直连」两种模式共用同一登录态（不丢登录）
 const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
@@ -891,7 +891,7 @@ function buildSupabaseClient() {
   return null;
 }
 let _supabase = buildSupabaseClient();
-let _sbViaProxy = true;   // 当前是否走中转
+let _sbViaProxy = false;  // 默认直连（CF Pages 无 /sb 代理）
 let _user = null;  // 当前登录用户
 
 // ========== 数据库冷启动唤醒 + 自动重试 ==========
