@@ -1,5 +1,21 @@
 # 更新日志（新→旧）
 
+## 2026-11-06 数据库改走同域云通道 `/cloud`（Cloudflare Pages Functions）
+
+**背景**：迁移 Cloudflare Pages 后浏览器直连 `supabase.co` 在国内时通时不通，登录报「连不上云端」。宝华定：网址不变、不要出现 `sb` 字样、代理优先直连兜底。
+
+### 改动
+- **新增** `functions/cloud/[[path]].js`：`/cloud/*` → `supabase.co/*`，透传 method/header/body，上游不可达返回 502。运行在 Pages Functions，免费额度 10 万次/天
+- `index.html`：`SUPABASE_URL` 默认 = `location.origin + '/cloud'`；`CLOUD_DIRECT` 保留为兜底；`_sbViaProxy`→`_viaProxy`（初始 `true`）、`sbHealth`→`probeCloud`、`SB_CLIENT_OPTS`→`CLIENT_OPTS`；清除所有 `/sb` 路径与 `[sb]` 日志前缀
+- `overview.html`：`SUPABASE_URL` 由直连改为 `/cloud`；`SB_CLIENT_OPTS`→`CLIENT_OPTS`
+- **`localStorage` 键 `sb-idindbktqpjulhvcvcdj-auth-token` 未改**，已登录用户不掉线
+
+### 验收
+- `GET /cloud/auth/v1/health` → **200**，返回 `{"version":"v2.197.0","name":"GoTrue"}`，3 次均通（1.0–2.9s）
+- 首页 200（151KB）、`/overview` 200
+- 线上源码确认 `CLOUD_PROXY = location.origin + '/cloud'`、`_viaProxy = true`
+- HTML 内 8 个 script 块 + functions 均通过 `node --check`
+
 ## 2026-11-06 迁移 Cloudflare Pages：Vercel 团队额度超限导致全站 402
 
 **背景**：Vercel 团队 `GBH's projects` 因 CDN 请求超 Hobby 公平使用额度（1,160,253 / 1,000,000）被暂停部署 30 天（11/5–12/5），全部站点 402。分项目数据定位：`chat-gpt-next-web` 一个套壳站占 1,133,103 次（**97.7%**），stock 仅 3,045 次（0.3%）。宝华决定不升级 Pro，迁移至 Cloudflare Pages。
