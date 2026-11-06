@@ -310,10 +310,10 @@ tfoot td.loss { color: var(--loss); }
 
 <!-- 云端数据库配置 -->
 <script>
-// 直连云端（Cloudflare Pages 无反向代理）
-const SUPABASE_URL = 'https://idindbktqpjulhvcvcdj.supabase.co';
+// 默认走同域云通道 /cloud（Cloudflare Pages Functions 转发到数据库）
+const SUPABASE_URL = location.origin + '/cloud';
 const SUPABASE_ANON_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
-const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
+const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
 </script>
 
 <!-- Login Overlay -->
@@ -391,8 +391,8 @@ const SB_CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token
 <script>
 // ========== SUPABASE INIT ==========
 const _supabase = (typeof supabase !== 'undefined' && supabase.createClient)
-  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SB_CLIENT_OPTS)
-  : (window.supabase && window.supabase.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SB_CLIENT_OPTS) : null);
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, CLIENT_OPTS)
+  : (window.supabase && window.supabase.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, CLIENT_OPTS) : null);
 let _user = null;
 
 // 与做T计算器共用：本地缓存的用户名（避免刷新闪烁）+ 云端用户名缓存
