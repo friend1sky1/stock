@@ -1,5 +1,20 @@
 # 更新日志（新→旧）
 
+## 2026-11-06 迁移 Cloudflare Pages：Vercel 团队额度超限导致全站 402
+
+**背景**：Vercel 团队 `GBH's projects` 因 CDN 请求超 Hobby 公平使用额度（1,160,253 / 1,000,000）被暂停部署 30 天（11/5–12/5），全部站点 402。分项目数据定位：`chat-gpt-next-web` 一个套壳站占 1,133,103 次（**97.7%**），stock 仅 3,045 次（0.3%）。宝华决定不升级 Pro，迁移至 Cloudflare Pages。
+
+### 改动
+- `index.html`：`SUPABASE_URL` 默认值 中转 → **直连**；`_sbViaProxy` 初始 `true` → `false`；`/sb` 中转常量保留为历史兜底
+- `overview.html`：`SUPABASE_URL` 由 `https://t.ai-zhihui.cn/sb` → `https://idindbktqpjulhvcvcdj.supabase.co`（原先硬编码中转、无回退，CF Pages 无反向代理会取不到数据）
+- 数据库代理的 48.4 万 Edge Function 曾被我误判为主因，分项目数据推翻（stock 仅 3,045 次），记录以免重犯
+
+### 验收
+- `https://zuot-calc.pages.dev` 部署成功，首页 200（151KB）、`/overview` 200（69KB）
+- `supabase.co/auth/v1/health` 直连 200，1.15s
+- 宝华在电脑端实测：**登录与持仓数据同步全部正常**
+- 自定义域名 `t.ai-zhihui.cn` 绑定 qingzhu-math/zuot-calc，证书签发后生效
+
 ## 2026-11-04 做T计算器：引导改为「每月一次」+ 去掉隐私感文案 + 删账号欢迎弹窗
 
 **背景**：宝华定——① 引导改为**每月首次打开**自动一次；注册用户若觉得多余，可勾选「以后不再自动显示」。② 起步卡标题「先告诉我你手里有什么」有探问感、令人担心隐私，必须改。③ 讲「账号存哪」的欢迎弹窗与引导重复，删除。
