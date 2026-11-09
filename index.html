@@ -284,14 +284,76 @@ html, body {
   border-color: #CC0008;
 }
 
-/* Ref tag row */
+/* Ref tag row（-1% / -0.5%）
+   与「操作股数」比例条同一套规则：左边缘对齐输入框、不落在 −/+ 按钮正下方 */
 #refTagRow {
-  margin-top: 2px; margin-bottom: 0;
-  padding-left: 88px;
+  margin-top: 6px; margin-bottom: 0;
+  padding-left: 128px;
   gap: 8px;
   display: flex; align-items: center;
+  justify-content: flex-start;
 }
-#refTagRow .ref-tag { margin: 0; }
+#refTagRow { margin-top: 2px; }
+#refTagRow .ref-tag {
+  margin: 0;
+  width: 56px;            /* 两个按钮等宽 */
+  box-sizing: border-box;
+  padding: 7px 0;
+  text-align: center;
+}
+@media (max-width: 400px) {
+  #refTagRow { gap: 6px; }
+  #refTagRow .ref-tag { width: 50px; font-size: 0.70rem; }
+}
+@media (max-width: 366px) {
+  #refTagRow .ref-tag { width: 46px; font-size: 0.66rem; }
+}
+
+/* Qty ratio row (倒T 快捷比例)
+   网格第二行、只占「输入框」那一列 → 天然对齐输入框、且永远不落在 −/+ 按钮下方 */
+.input-row.qty-row { row-gap: 8px; }
+#qtyRatioRow {
+  grid-column: 3 / 4;
+  grid-row: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px 2px;
+  margin: 0;
+}
+#qtyRatioRow.hide { display: none !important; }
+@media (max-width: 400px) {
+  #qtyRatioRow { padding: 0 0 4px; }
+  #qtyRatioRow .qty-radio { font-size: 0.68rem; gap: 3px; padding: 7px 0; }
+  #qtyRatioRow .qty-radio i { width: 9px; height: 9px; }
+}
+@media (max-width: 366px) {
+  #qtyRatioRow .qty-radio { font-size: 0.64rem; gap: 2px; }
+  #qtyRatioRow .qty-radio i { width: 8px; height: 8px; }
+}
+.qty-radio {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.76rem; color: #666; cursor: pointer;
+  user-select: none; -webkit-user-select: none;
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--transition);
+  flex-shrink: 0;
+  padding: 7px 1px;   /* 增高点击区，降低误触 */
+  line-height: 1;
+}
+.qty-radio i {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1.5px solid #AAA; box-sizing: border-box;
+  display: inline-block; position: relative; flex-shrink: 0;
+  transition: all var(--transition);
+}
+.qty-radio.active { color: var(--profit); font-weight: 700; }
+.qty-radio.active i { border-color: var(--profit); }
+.qty-radio.active i::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%; background: var(--profit);
+}
+.qty-radio:active { opacity: .6; }
 
 /* Ref tag */
 .ref-tag {
@@ -740,7 +802,7 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
         <span class="spin-btn" data-spin-id="tPrice1" data-spin-delta="0.01">+</span>
         <span class="unit">元</span>
       </div>
-      <div class="input-row">
+      <div class="input-row qty-row">
         <label>操作股数</label>
         <span class="spin-btn" data-spin-id="tQty" data-spin-delta="-100">−</span>
         <input type="text" inputmode="numeric" id="tQty" placeholder="1000" value="1000"
@@ -748,6 +810,12 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
           ontouchstart="slideStart(event, this, tQtyBounds, function(v){ }, 100)" onmousedown="slideStart(event, this, tQtyBounds, function(v){ }, 100)">
         <span class="spin-btn" data-spin-id="tQty" data-spin-delta="100">+</span>
         <span class="unit">股</span>
+      <div id="qtyRatioRow">
+        <span class="qty-radio" data-den="2" onclick="applyQtyRatio(2)"><i></i>1/2</span>
+        <span class="qty-radio" data-den="3" onclick="applyQtyRatio(3)"><i></i>1/3</span>
+        <span class="qty-radio" data-den="4" onclick="applyQtyRatio(4)"><i></i>1/4</span>
+        <span class="qty-radio" data-den="5" onclick="applyQtyRatio(5)"><i></i>1/5</span>
+      </div>
       </div>
       <div class="input-row">
         <label id="expectLabel">预期接回价</label>
@@ -2761,6 +2829,7 @@ function applySpin() {
     if (val < bounds.min) val = bounds.min;
     if (val > bounds.max) val = bounds.max;
     el.value = Math.round(val).toString();
+    if (spinId === 'tQty') syncQtyRatioHighlight();
     saveDebounced();
     updateSnapshot();
     return;
@@ -2802,7 +2871,43 @@ function onTQtyChange() {
   if (val > bounds.max) val = bounds.max;
   el.value = val.toString();
   if (currentMode === 'reverse') checkHoldQtySufficient();
+  syncQtyRatioHighlight();
   saveDebounced();
+}
+
+// ──── 倒T 快捷比例：持仓 × 1/N，向下取整到 100 股 ────
+function applyQtyRatio(den) {
+  const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
+  if (holdQty < 100) return;
+  const bounds = tQtyBounds();
+  let qty = Math.floor(holdQty / den / 100) * 100;
+  if (qty < bounds.min) qty = bounds.min;
+  if (qty > bounds.max) qty = bounds.max;
+  const el = document.getElementById('tQty');
+  el.value = qty.toString();
+  setQtyRatioActive(den);
+  if (currentMode === 'reverse') checkHoldQtySufficient();
+  updateSnapshot();
+  saveDebounced();
+}
+
+function setQtyRatioActive(den) {
+  document.querySelectorAll('#qtyRatioRow .qty-radio').forEach(function (n) {
+    n.classList.toggle('active', den !== null && parseInt(n.dataset.den, 10) === den);
+  });
+}
+
+function clearQtyRatio() { setQtyRatioActive(null); }
+
+// 数值被手动/加减按钮改动到与比例结果不一致时，自动取消小黑点
+function syncQtyRatioHighlight() {
+  const active = document.querySelector('#qtyRatioRow .qty-radio.active');
+  if (!active) return;
+  const holdQty = parseFloat(document.getElementById('holdQty').value) || 0;
+  const den = parseInt(active.dataset.den, 10);
+  const expect = Math.floor(holdQty / den / 100) * 100;
+  const cur = parseInt(document.getElementById('tQty').value, 10);
+  if (expect !== cur) setQtyRatioActive(null);
 }
 
 function checkHoldQtySufficient() {
@@ -2936,6 +3041,9 @@ function applyModeUI(mode) {
     document.getElementById('refTag99').style.display = '';
     document.getElementById('refTag995').style.display = '';
     document.getElementById('refTag101').style.display = 'none';
+    // 倒T 才有快捷比例（正T 不知道可用现金，无法推算）
+    document.getElementById('qtyRatioRow').classList.remove('hide');
+    clearQtyRatio();
   } else {
     document.getElementById('opTitle').textContent = '正 T 操 作';
     document.getElementById('expectLabel').textContent = '预期卖出价';
@@ -2948,6 +3056,8 @@ function applyModeUI(mode) {
     document.getElementById('refTag99').style.display = 'none';
     document.getElementById('refTag995').style.display = 'none';
     document.getElementById('refTag101').style.display = '';
+    document.getElementById('qtyRatioRow').classList.add('hide');
+    clearQtyRatio();
   }
 }
 
