@@ -582,9 +582,10 @@ html, body {
   font-size: 1rem; font-weight: 700; color: var(--profit);
   margin-bottom: 12px; font-family: 'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;
 }
-.modal-box .field { margin-bottom: 10px; }
+.modal-box .field { margin-bottom: 12px; }
 .modal-box .field label {
-  display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 3px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;
 }
 .modal-box .field input {
   width: 100%; padding: 8px 10px; font-size: 0.9rem;
@@ -594,9 +595,11 @@ html, body {
 .modal-box .field input:focus {
   outline: none; border-color: var(--profit);
 }
+/* 开盘价提示：挂在标签行右侧，不占额外行高，保证四个输入区行距一致 */
 .modal-box .modal-hint {
-  font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;
-  min-height: 14px; line-height: 1.4;
+  font-size: 0.7rem; color: var(--text-muted); line-height: 1.3;
+  font-weight: 400; text-align: right; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto;
 }
 /* 股票名称联想下拉 */
 .name-suggest-wrap { position: relative; }
@@ -620,7 +623,7 @@ html, body {
   padding: 10px 12px; font-size: 0.8rem; color: var(--text-muted); cursor: default;
 }
 .modal-actions {
-  display: flex; gap: 8px; margin-top: 14px;
+  display: flex; gap: 8px; margin-top: 12px;
 }
 .modal-actions button {
   flex: 1; padding: 8px; border-radius: 8px; border: none;
@@ -925,16 +928,15 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
   <div class="modal-box">
     <h3 id="modalTitle">新增持仓</h3>
     <div class="field">
-      <label>股票代码</label>
-      <input type="text" id="modalCode" placeholder="如：600316 / 000725" maxlength="6" inputmode="numeric">
-      <div class="modal-hint" id="modalPriceHint"></div>
-    </div>
-    <div class="field">
       <label>股票名称</label>
       <div class="name-suggest-wrap">
         <input type="text" id="modalName" placeholder="如：云铝股份（需从列表选择）" maxlength="8" autocomplete="off">
         <ul class="name-suggest" id="nameSuggest"></ul>
       </div>
+    </div>
+    <div class="field">
+      <label>股票代码<span class="modal-hint" id="modalPriceHint"></span></label>
+      <input type="text" id="modalCode" placeholder="如：600316 / 000725" maxlength="6" inputmode="numeric">
     </div>
     <div class="field">
       <label>成本价（元）</label>
@@ -2415,7 +2417,8 @@ function openAddModal() {
   setModalPriceHint('');
   hideNameSuggest();
   document.getElementById('editModal').classList.add('show');
-  setTimeout(function(){ document.getElementById('modalCode').focus(); }, 100);
+  // 名称已移到第一个输入框，新增时默认聚焦名称（选中名称会自动带出代码）
+  setTimeout(function(){ document.getElementById('modalName').focus(); }, 100);
 }
 
 function openEditModal(idx, name, cost, qty) {
