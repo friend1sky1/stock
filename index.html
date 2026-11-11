@@ -3399,8 +3399,18 @@ document.addEventListener('mousemove', function(e) { if (slideState) slideMove(e
 document.addEventListener('mouseup', function(e) { slideEnd(); });
 
 // ──── Keyboard shortcuts ────
+// 回车＝点击「计算预估盈亏」：价格/股数输入框里按 Enter 直接出结果
+const ENTER_CALC_INPUTS = { openPrice: 1, tPrice1: 1, tQty: 1, tPrice2: 1 };
 document.addEventListener('keydown', function(e) {
-  if (e.target.tagName === 'INPUT') return;
+  const _t = e.target;
+  if (_t && (_t.tagName === 'INPUT' || _t.tagName === 'TEXTAREA')) {
+    if (e.key === 'Enter' && ENTER_CALC_INPUTS[_t.id]) {
+      e.preventDefault();
+      _t.blur();                 // 先走 onblur 的取整/校验，再计算
+      setTimeout(calculate, 0);
+    }
+    return;
+  }
   if (e.key === 'Enter') { e.preventDefault(); calculate(); }
   if (e.key === 'b' || e.key === 'B') { setMode('normal'); }
   if (e.key === 's' || e.key === 'S') { setMode('reverse'); }
