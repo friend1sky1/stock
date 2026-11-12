@@ -495,7 +495,10 @@ html, body {
 .new-cost .cost-num.down-good { color: var(--profit); }
 .new-cost .cost-num.up-bad { color: var(--loss); }
 .new-cost .cost-cap { font-size: 0.55rem; color: var(--text-muted); margin-top: 3px; white-space: nowrap; }
-.new-cost .cost-cap-top { font-size: 0.65rem; color: var(--text-muted); text-align: center; margin-bottom: 2px; }
+.new-cost .cost-cap-top {
+  font-size: 0.65rem; font-weight: 600; color: var(--text-muted);
+  width: fit-content; margin: 0 auto 2px; white-space: nowrap;
+}
 .new-cost .cost-op {
   position: relative; display: block;
   font-size: 1.2rem; color: var(--text-secondary);
@@ -951,7 +954,7 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
       </div>
       <div class="new-cost">
         <div id="costWrap">
-          <div class="cost-cap-top">新持仓成本</div>
+          <div class="cost-cap-top" id="costCapTop">新持仓成本</div>
           <div class="cost-line" id="costLine">
             <span class="cost-cell"><span class="cost-num" id="costOld">--</span></span>
             <span class="cost-op minus"><i class="bar"></i></span>
@@ -3299,7 +3302,39 @@ function alignCostOps() {
       ops[i].style.transform = 'translateY(' + shift.toFixed(2) + 'px)';
     }
   } catch (e) { /* 量不到就保持默认位置，不影响计算 */ }
+  alignCostCap();
 }
+/* 让「新持仓成本」左右两端与中间数字的两端对齐：
+   字号按「数字宽度 ÷ 文字宽度」等比放大（不挤压字形、不改字距），再用 translateX 对齐中心。
+   字号限制在 11~16px，避免个别超长数字把标签缩得过小。*/
+function alignCostCap() {
+  try {
+    const cap = document.getElementById('costCapTop');
+    const num = document.getElementById('newCost');
+    if (!cap || !num) return;
+    const nw = num.getBoundingClientRect().width;
+    if (!nw) return;
+    cap.style.transform = 'none';
+    cap.style.fontSize = '';
+    cap.style.letterSpacing = '';
+    const base = parseFloat(getComputedStyle(cap).fontSize);
+    const cur = cap.getBoundingClientRect().width;
+    if (!cur) return;
+    let fs = base * nw / cur;
+    fs = Math.max(11, Math.min(16, fs));
+    cap.style.fontSize = fs.toFixed(2) + 'px';
+    cap.style.letterSpacing = '';
+    // 中文字宽按整像素取整，会有 1~2px 残差；用极小字距补足，做到两端严格对齐
+    const cw = cap.getBoundingClientRect().width;
+    const ls = (nw - cw) / 5;
+    cap.style.letterSpacing = ls.toFixed(3) + 'px';
+    const cr = cap.getBoundingClientRect(), nr = num.getBoundingClientRect();
+    const capCenter = (cr.left + (cr.right - ls)) / 2;
+    const dx = (nr.left + nr.right) / 2 - capCenter;
+    cap.style.transform = 'translateX(' + dx.toFixed(2) + 'px)';
+  } catch (e) { /* 量不到就用默认样式 */ }
+}
+
 window.addEventListener('resize', alignCostOps);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(alignCostOps);
 
