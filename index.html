@@ -495,7 +495,15 @@ html, body {
 .new-cost .cost-num.up-bad { color: var(--loss); }
 .new-cost .cost-cap { font-size: 0.55rem; color: var(--text-muted); margin-top: 3px; white-space: nowrap; }
 .new-cost .cost-cap-top { font-size: 0.65rem; color: var(--text-muted); text-align: center; margin-bottom: 2px; }
-.new-cost .cost-op { font-size: 1.2rem; font-weight: 700; color: var(--text-secondary); line-height: 1.15; padding-top: 0.05rem; }
+.new-cost .cost-op {
+  position: relative; display: block;
+  font-size: 1.2rem; color: var(--text-secondary);
+  height: 1.15em; width: 0.56em;
+}
+.new-cost .cost-op .bar { position: absolute; left: 50%; width: 0.5em; height: 0.1em; border-radius: 0.05em; background: currentColor; transform: translateX(-50%); }
+.new-cost .cost-op.minus .bar { top: calc(50% - 0.05em); }
+.new-cost .cost-op.equals .bar:first-child { top: calc(50% - 0.185em); }
+.new-cost .cost-op.equals .bar:last-child { top: calc(50% + 0.085em); }
 @media (max-width: 360px) {
   .new-cost .cost-num, .new-cost .cost-op { font-size: 1.05rem; }
 }
@@ -945,9 +953,9 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
           <div class="cost-cap-top">新持仓成本</div>
           <div class="cost-line" id="costLine">
             <span class="cost-cell"><span class="cost-num" id="costOld">--</span></span>
-            <span class="cost-op">−</span>
+            <span class="cost-op minus"><i class="bar"></i></span>
             <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span></span>
-            <span class="cost-op">=</span>
+            <span class="cost-op equals"><i class="bar"></i><i class="bar"></i></span>
             <span class="cost-cell"><span class="cost-num" id="costDrop">--</span></span>
           </div>
         </div>
@@ -3262,6 +3270,38 @@ function fmtMoney4(v) {
   return v.toFixed(4);
 }
 
+/* 让 −、= 精确对齐数字的「墨迹视觉中心」：
+   不同字体（iOS SF Pro / PingFang、安卓、Windows）数字在行盒里的视觉中心不一样，
+   写死一个偏移在任何设备上都只能碰运气。这里用 canvas 量当前字体数字的真实墨迹，
+   算出它相对行盒中心的偏移，再整体平移符号（符号本身是 CSS 画的横条，与字体无关）。*/
+function alignCostOps() {
+  try {
+    const wrap = document.getElementById('costWrap');
+    const num = document.getElementById('newCost');
+    if (!wrap || !num) return;
+    const ops = wrap.querySelectorAll('.cost-op');
+    if (!ops.length) return;
+    const cs = getComputedStyle(num);
+    const lh = parseFloat(cs.lineHeight);
+    if (!lh) return;
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    const mt = ctx.measureText('0');
+    if (mt.actualBoundingBoxAscent == null || !mt.fontBoundingBoxAscent) return;
+    const A = mt.actualBoundingBoxAscent;
+    const D = mt.actualBoundingBoxDescent || 0;
+    const fa = mt.fontBoundingBoxAscent, fd = mt.fontBoundingBoxDescent || 0;
+    const baseline = (lh - (fa + fd)) / 2 + fa;      // 基线相对行盒顶部
+    const inkCenter = baseline - A / 2;              // 数字墨迹中心（数字无下伸部）
+    const shift = inkCenter - lh / 2;                // 相对行盒中心要挪多少
+    for (let i = 0; i < ops.length; i++) {
+      ops[i].style.transform = 'translateY(' + shift.toFixed(2) + 'px)';
+    }
+  } catch (e) { /* 量不到就保持默认位置，不影响计算 */ }
+}
+window.addEventListener('resize', alignCostOps);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(alignCostOps);
+
 function calculate() {
   // 安全网：计算前统一四舍五入到2位小数（避免输入未失焦直接点计算带多位小数）
   const tPrice1 = round2(parseNum('tPrice1'));
@@ -3350,6 +3390,7 @@ function calculate() {
     document.getElementById('newCost').textContent = '--';
     document.getElementById('costDrop').textContent = '--';
   }
+  alignCostOps();
 
   // ===== 人话解读（新用户最缺的一环：这个数字到底什么意思） =====
   const plainEl = document.getElementById('resultPlain');
