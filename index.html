@@ -494,6 +494,7 @@ html, body {
 .new-cost .cost-num.down-good { color: var(--profit); }
 .new-cost .cost-num.up-bad { color: var(--loss); }
 .new-cost .cost-cap { font-size: 0.55rem; color: var(--text-muted); margin-top: 3px; white-space: nowrap; }
+.new-cost .cost-cap-top { font-size: 0.65rem; color: var(--text-muted); text-align: center; margin-bottom: 2px; }
 .new-cost .cost-op { font-size: 0.95rem; font-weight: 700; color: var(--text-secondary); line-height: 1.15; padding-top: 0.05rem; }
 
 .result-tail {
@@ -937,12 +938,15 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
         </div>
       </div>
       <div class="new-cost">
-        <div class="cost-line" id="costLine">
-          <span class="cost-cell"><span class="cost-num" id="costOld">--</span></span>
-          <span class="cost-op">−</span>
-          <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span><span class="cost-cap">新持仓成本</span></span>
-          <span class="cost-op">=</span>
-          <span class="cost-cell"><span class="cost-num" id="costDrop">--</span></span>
+        <div id="costWrap">
+          <div class="cost-cap-top">新持仓成本</div>
+          <div class="cost-line" id="costLine">
+            <span class="cost-cell"><span class="cost-num" id="costOld">--</span></span>
+            <span class="cost-op">−</span>
+            <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span></span>
+            <span class="cost-op">=</span>
+            <span class="cost-cell"><span class="cost-num" id="costDrop">--</span></span>
+          </div>
         </div>
       </div>
       <div class="result-tail">
@@ -3324,7 +3328,7 @@ function calculate() {
   }
 
   let newCostPrice = null;
-  const costLineEl = document.getElementById('costLine');
+  const costLineEl = document.getElementById('costWrap');
   if (costPrice && holdQty) {
     const totalCostBefore = costPrice * holdQty;
     const totalCostAfter = totalCostBefore - diff;
