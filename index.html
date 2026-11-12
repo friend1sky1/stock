@@ -486,7 +486,7 @@ html, body {
 .new-cost .value {
   font-size: 1.2rem; font-weight: 800; color: var(--profit);
 }
-/* 成本三连：原成本 − 操作后新持仓成本 = 下降 */
+/* 成本三连：原成本 − 新持仓成本 = 差额 */
 .new-cost .cost-line { display: flex; align-items: flex-start; justify-content: center; gap: 5px; }
 .new-cost .cost-cell { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .new-cost .cost-num { font-size: 0.95rem; font-weight: 800; color: var(--text); line-height: 1.15; }
@@ -938,11 +938,11 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
       </div>
       <div class="new-cost">
         <div class="cost-line" id="costLine">
-          <span class="cost-cell"><span class="cost-num" id="costOld">--</span><span class="cost-cap">原成本</span></span>
+          <span class="cost-cell"><span class="cost-num" id="costOld">--</span></span>
           <span class="cost-op">−</span>
-          <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span><span class="cost-cap">操作后新持仓成本</span></span>
+          <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span><span class="cost-cap">新持仓成本</span></span>
           <span class="cost-op">=</span>
-          <span class="cost-cell"><span class="cost-num" id="costDrop">--</span><span class="cost-cap" id="costDropCap">下降</span></span>
+          <span class="cost-cell"><span class="cost-num" id="costDrop">--</span></span>
         </div>
       </div>
       <div class="result-tail">
@@ -3335,8 +3335,6 @@ function calculate() {
     const dropEl = document.getElementById('costDrop');
     dropEl.textContent = (drop < 0 ? '-' : '') + fmtMoney4(Math.abs(drop));
     dropEl.className = 'cost-num' + (drop >= 0.00005 ? ' down-good' : (drop <= -0.00005 ? ' up-bad' : ''));
-    document.getElementById('costDropCap').textContent =
-      drop >= 0.00005 ? '下降' : (drop <= -0.00005 ? '上升' : '持平');
     if (costLineEl) costLineEl.style.display = '';
   } else {
     newCostPrice = null;
@@ -3408,14 +3406,7 @@ function copyResult() {
   lines.push('手续费合计：' + document.getElementById('feeTotal').textContent + ' 元');
   lines.push('净盈亏：' + document.getElementById('resultBig').textContent);
   lines.push('盈亏率：' + document.getElementById('resultPct').textContent);
-  const _co = document.getElementById('costOld');
-  const _nc = document.getElementById('newCost');
-  const _cd = document.getElementById('costDrop');
-  const _cc = document.getElementById('costDropCap');
-  if (_co && _nc && _co.textContent && _co.textContent !== '--') {
-    lines.push('原成本 ' + _co.textContent + ' \u2212 操作后新持仓成本 ' + _nc.textContent
-      + ' = ' + (_cc ? _cc.textContent : '') + ' ' + (_cd ? _cd.textContent : ''));
-  }
+  lines.push('新持仓成本：' + document.getElementById('newCost').textContent);
 
   const text = lines.join('\n');
   if (navigator.clipboard) {
