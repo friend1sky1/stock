@@ -1,5 +1,26 @@
 # 更新日志（新→旧）
 
+## 2026-11-12 新增「隔夜美股参考条」（仅注册用户可见，宝华要求）
+
+**需求**：宝华观察到隔夜美股对 A 股影响很大（属"开盘情绪定价 + 板块映射"，非全天定价权），要求在做T计算器里加一条隔夜参考，方案选 B（指数 + 板块风向标 + 持仓对标）。
+
+### 改动（index.html）
+- **位置**：标题下方、股票标签栏上方，整宽通栏，米金底色 `--gold-light`，可收起；展开状态记 `localStorage.on_us_open_v1`
+- **收起态**：道指 / 纳指 / 标普 三个涨跌幅一行
+- **展开态**：① 板块风向标 费半(usSOXX) / 英伟达(usNVDA) / 康宁(usGLW) / 中概(usKWEB)；② 你的持仓 → 对标
+- **持仓对标**：按 `portfolio` 动态生成，代码表 `ON_CODE_MAP`（优先）+ 名称关键词表 `ON_NAME_MAP` 兜底；未命中不显示（不出现"无直接对标"噪音）
+- **权限**：`__onBarRefresh()` 里 `if (!_user) display:none`，仅注册用户可见，访客/未登录不显示；挂在 `updateUserDisplay` / `buildTabBar` 上自动刷新
+- **数据源**：腾讯行情 `https://qt.gtimg.cn/q=...`，返回 `Access-Control-Allow-Origin: *` → 浏览器直连，**未改 `/cloud` 代理函数**
+- **缓存**：每自然日只请求一次，存 `localStorage.on_us_cache_v1`；取数失败静默隐藏，不影响主功能
+
+### 验收
+- **基线**：本次以线上最新 `index.html`（md5 `cde817feed1bd92398432ec5c3457cea`）为 base，本地 `/tmp/deploy/stock` 已过期，未使用
+- Cloudflare Pages direct upload（项目 `t-calc`），日志出现 `✨ Uploading Functions bundle`
+- 线上 `index.html` md5 = 本地构建 = `3bbc02c882bbc2f39f7482668edc14da`
+- `/cloud/auth/v1/health` 返回 **401 + JSON**（同域代理通道正常，非 SPA 兜底）
+- 本地登录态注入实测：三指数与四板块数值正确、亨通光电→光通信 +7.43%、精华制药→医药 +0.81%、黄河旋风无命中不显示
+- 线上游客态实测：`#onBar` 为 `display:none`，无 console/pageerror
+
 ## 2026-11-10 新增/编辑持仓弹窗：股票名称移到代码前面 + 四栏行距统一（宝华要求）
 
 **需求**：弹窗里「股票名称」挪到「股票代码」前面；四个输入区（名称/代码/成本价/持仓数量）之间行距必须一致。
