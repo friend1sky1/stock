@@ -652,6 +652,29 @@ html, body {
     box-shadow: 0 4px 24px rgba(0,0,0,0.08);
   }
 }
+
+/* ===== 隔夜美股参考条（仅注册用户可见） ===== */
+.on-bar { background: var(--gold-light); border-bottom: 1px solid var(--border); }
+.on-main { display:flex; align-items:center; gap:7px; padding:7px 12px; cursor:pointer; min-width:0; }
+.on-lbl { font-size:0.62rem; color:#B8912E; font-weight:700; flex-shrink:0; }
+.on-idx { display:flex; gap:8px; flex:1; min-width:0; justify-content:space-between; overflow:hidden; }
+.on-cell { font-size:0.64rem; color:var(--text-secondary); white-space:nowrap; }
+.on-cell b { font-weight:700; }
+.on-cell .up { color: var(--profit); }
+.on-cell .down { color: var(--loss); }
+.on-caret { font-size:0.55rem; color:var(--text-muted); flex-shrink:0; transition: transform .15s ease; }
+.on-bar.open .on-caret { transform: rotate(180deg); }
+.on-more { display:none; padding:0 12px 8px; border-top:1px dashed rgba(212,168,67,0.4); }
+.on-bar.open .on-more { display:block; }
+.on-sec { font-size:0.60rem; color:var(--text-muted); margin:7px 0 5px; }
+.on-chips { display:flex; flex-wrap:wrap; gap:5px; }
+.on-chip { font-size:0.62rem; padding:3px 8px; border-radius:20px; background:#fff;
+  border:1px solid var(--border); color:var(--text-secondary); white-space:nowrap; }
+.on-chip b { font-weight:700; }
+.on-chip.hit { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(212,168,67,0.13); }
+.on-chip .up { color: var(--profit); }
+.on-chip .down { color: var(--loss); }
+.on-note { font-size:0.56rem; color:var(--text-muted); margin-top:7px; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -730,6 +753,22 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
     <h1>做T计算器</h1>
     <div id="userEmail" style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;cursor:pointer;" onclick="openUsernameOverlay()" title="点击修改用户名"></div>
     <a href="#" onclick="headerAuthAction();return false;" id="headerAuthLink" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">登录/注册</a>
+  </div>
+
+  <!-- 隔夜美股参考（仅注册用户可见） -->
+  <div class="on-bar" id="onBar" style="display:none;">
+    <div class="on-main" onclick="onToggle()">
+      <span class="on-lbl">🌎 隔夜美股</span>
+      <span class="on-idx" id="onIdx"><span class="on-cell">加载中…</span></span>
+      <span class="on-caret">▾</span>
+    </div>
+    <div class="on-more">
+      <div class="on-sec">板块风向标</div>
+      <div class="on-chips" id="onSect"></div>
+      <div class="on-sec" id="onMineSec" style="display:none;">你的持仓 → 对标</div>
+      <div class="on-chips" id="onMine"></div>
+      <div class="on-note">美股收盘价，仅作<b>开盘情绪</b>参考；开盘 30 分钟后回归 A 股自身逻辑。</div>
+    </div>
   </div>
 
   <!-- Stock Tab Bar -->
@@ -3863,5 +3902,175 @@ window.__onSbUnavailable = function() {
 ⚠️ 您的浏览器禁用了 JavaScript（或处于"兼容模式"），云端同步与计算功能不可用。请在浏览器设置中开启 JS，或切换到"高速模式"。
 </div>
 </noscript>
+<script>
+/* ===== 隔夜美股参考条（仅注册用户可见） =====
+   数据源：腾讯行情，接口返回 Access-Control-Allow-Origin: *
+   编码 GBK，但只取数字字段，不取中文名，故不受编码影响
+   每个自然日只请求一次，结果缓存在本机；取数失败则静默隐藏，不影响主功能 */
+var ON_QUOTE_URL = 'https://qt.gtimg.cn/q=';
+var ON_CACHE_KEY = 'on_us_cache_v1';
+var ON_OPEN_KEY  = 'on_us_open_v1';
+var ON_IDX  = [{k:'usDJI',n:'道指'},{k:'usIXIC',n:'纳指'},{k:'usINX',n:'标普'}];
+var ON_SECT = [{k:'usSOXX',n:'费半'},{k:'usNVDA',n:'英伟达'},{k:'usGLW',n:'康宁'},{k:'usKWEB',n:'中概'}];
+var ON_KEYS = ['usDJI','usIXIC','usINX','usSOXX','usNVDA','usGLW','usKWEB','usITA','usXBI','usTSLA','usTAN'];
+var ON_CODE_MAP = { '600487': {k:'usGLW', s:'光通信'} };
+var ON_NAME_MAP = [
+  {re: /光纤|光缆|光通信|光模块|海缆/, k:'usGLW',  s:'光通信'},
+  {re: /半导体|芯片|集成|微电子|光电|面板|显示|晶圆|存储/, k:'usSOXX', s:'半导体'},
+  {re: /航天|航空|军工|国防|船舶|导弹/, k:'usITA', s:'军工'},
+  {re: /医药|生物|制药|药业|医疗|疫苗/, k:'usXBI', s:'医药'},
+  {re: /锂|电池|储能|新能源|汽车|整车/, k:'usTSLA', s:'新能源车'},
+  {re: /光伏|硅片|组件|太阳能/, k:'usTAN', s:'光伏'}
+];
+var _onData = null;
+var _onLoading = null;
+
+function onPctClass(p){ return p > 0.001 ? 'up' : (p < -0.001 ? 'down' : ''); }
+function onPctText(p){
+  var sign = p > 0.0005 ? '+' : (p < -0.0005 ? '-' : '');
+  return sign + Math.abs(p).toFixed(2) + '%';
+}
+function onEsc(t){
+  return String(t == null ? '' : t).replace(/[&<>"]/g, function(c){
+    return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c];
+  });
+}
+function onTodayKey(){
+  var d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+function onParseQuotes(txt){
+  var out = {};
+  var re = /v_(\w+)="([^"]*)"/g, m;
+  while ((m = re.exec(txt)) !== null) {
+    var f = m[2].split('~');
+    var cur = parseFloat(f[3]), pre = parseFloat(f[4]);
+    if (!isFinite(cur) || !isFinite(pre) || pre <= 0) continue;
+    var pct = parseFloat(f[32]);
+    if (!isFinite(pct)) pct = (cur - pre) / pre * 100;
+    out[m[1]] = { cur: cur, pre: pre, pct: pct };
+  }
+  return out;
+}
+function onLoadQuotes(force){
+  if (_onData && !force) return Promise.resolve(_onData);
+  try {
+    var cached = JSON.parse(localStorage.getItem(ON_CACHE_KEY) || 'null');
+    if (cached && cached.day === onTodayKey() && cached.data) {
+      _onData = cached.data;
+      return Promise.resolve(_onData);
+    }
+  } catch (e) {}
+  if (_onLoading) return _onLoading;
+  _onLoading = fetch(ON_QUOTE_URL + ON_KEYS.join(','), { cache: 'no-store' })
+    .then(function(r){ return r.text(); })
+    .then(function(txt){
+      var data = onParseQuotes(txt);
+      if (data && Object.keys(data).length) {
+        _onData = data;
+        try { localStorage.setItem(ON_CACHE_KEY, JSON.stringify({ day: onTodayKey(), data: data })); } catch (e) {}
+      }
+      _onLoading = null;
+      return _onData;
+    })
+    .catch(function(e){
+      console.warn('隔夜行情取数失败：', e && e.message);
+      _onLoading = null;
+      return _onData;
+    });
+  return _onLoading;
+}
+function renderOnIdx(data){
+  var box = document.getElementById('onIdx');
+  if (!box) return;
+  var html = '';
+  ON_IDX.forEach(function(x){
+    var d = data[x.k];
+    if (!d) return;
+    html += '<span class="on-cell">' + x.n + ' <b class="' + onPctClass(d.pct) + '">' + onPctText(d.pct) + '</b></span>';
+  });
+  if (html) box.innerHTML = html;
+}
+function renderOnSect(data){
+  var box = document.getElementById('onSect');
+  if (!box) return;
+  var html = '';
+  ON_SECT.forEach(function(x){
+    var d = data[x.k];
+    if (!d) return;
+    html += '<span class="on-chip">' + x.n + ' <b class="' + onPctClass(d.pct) + '">' + onPctText(d.pct) + '</b></span>';
+  });
+  box.innerHTML = html;
+}
+function onMatchStock(s){
+  var code = String((s && s.code) || '').replace(/[^0-9]/g, '');
+  if (code && ON_CODE_MAP[code]) return ON_CODE_MAP[code];
+  var name = String((s && s.name) || '');
+  for (var i = 0; i < ON_NAME_MAP.length; i++) {
+    if (ON_NAME_MAP[i].re.test(name)) return ON_NAME_MAP[i];
+  }
+  return null;
+}
+function renderOnMine(data){
+  var box = document.getElementById('onMine');
+  var sec = document.getElementById('onMineSec');
+  if (!box) return;
+  var list = (typeof portfolio !== 'undefined' && portfolio) ? portfolio : [];
+  var html = '';
+  list.forEach(function(s){
+    var map = onMatchStock(s);
+    if (!map) return;
+    var d = data[map.k];
+    if (!d) return;
+    html += '<span class="on-chip hit">' + onEsc(s.name) + ' → ' + map.s +
+            ' <b class="' + onPctClass(d.pct) + '">' + onPctText(d.pct) + '</b></span>';
+  });
+  box.innerHTML = html;
+  if (sec) sec.style.display = html ? '' : 'none';
+}
+function __onBarRefresh(){
+  var bar = document.getElementById('onBar');
+  if (!bar) return;
+  if (typeof _user === 'undefined' || !_user) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  var open = '0';
+  try { open = localStorage.getItem(ON_OPEN_KEY) || '0'; } catch (e) {}
+  if (open === '1') bar.classList.add('open'); else bar.classList.remove('open');
+  onLoadQuotes(false).then(function(data){
+    if (!data) { bar.style.display = 'none'; return; }
+    renderOnIdx(data);
+    renderOnSect(data);
+    renderOnMine(data);
+  });
+}
+function onToggle(){
+  var bar = document.getElementById('onBar');
+  if (!bar) return;
+  bar.classList.toggle('open');
+  try { localStorage.setItem(ON_OPEN_KEY, bar.classList.contains('open') ? '1' : '0'); } catch (e) {}
+  if (bar.classList.contains('open')) {
+    onLoadQuotes(false).then(function(data){ if (data) renderOnMine(data); });
+  }
+}
+(function hookExisting(){
+  function wrap(name, after){
+    var fn = window[name];
+    if (typeof fn !== 'function') return;
+    window[name] = function(){
+      var r = fn.apply(this, arguments);
+      try { after(); } catch (e) {}
+      return r;
+    };
+  }
+  wrap('updateUserDisplay', __onBarRefresh);
+  wrap('buildTabBar', __onBarRefresh);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(__onBarRefresh, 300); });
+  } else {
+    setTimeout(__onBarRefresh, 300);
+  }
+})();
+</script>
+
 </body>
 </html>
