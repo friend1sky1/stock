@@ -3318,19 +3318,27 @@ function alignCostCap() {
     cap.style.fontSize = '';
     cap.style.letterSpacing = '';
     const base = parseFloat(getComputedStyle(cap).fontSize);
-    const cur = cap.getBoundingClientRect().width;
-    if (!cur) return;
-    let fs = base * nw / cur;
+    if (!base) return;
+    const n = cap.textContent.trim().length || 5;
+
+    // 字号：比「刚好铺满数字宽度」再放大 5%，视觉更饱满
+    let fs = base * nw / cap.getBoundingClientRect().width * 1.05;
     fs = Math.max(11, Math.min(16, fs));
     cap.style.fontSize = fs.toFixed(2) + 'px';
-    cap.style.letterSpacing = '';
-    // 中文字宽按整像素取整，会有 1~2px 残差；用极小字距补足，做到两端严格对齐
-    const cw = cap.getBoundingClientRect().width;
-    const ls = (nw - cw) / 5;
+
+    // 用 Range 量文字真实墨迹宽度，迭代求字距，让墨迹宽度严格等于数字宽度
+    const ink = () => { const r = document.createRange(); r.selectNodeContents(cap); return r.getBoundingClientRect(); };
+    let ls = 0;
+    for (let i = 0; i < 3; i++) {
+      cap.style.letterSpacing = ls.toFixed(3) + 'px';
+      const w = ink().width;
+      if (!w) return;
+      ls += (nw - w) / Math.max(1, n - 1);
+    }
     cap.style.letterSpacing = ls.toFixed(3) + 'px';
-    const cr = cap.getBoundingClientRect(), nr = num.getBoundingClientRect();
-    const capCenter = (cr.left + (cr.right - ls)) / 2;
-    const dx = (nr.left + nr.right) / 2 - capCenter;
+
+    const ir = ink(), nr = num.getBoundingClientRect();
+    const dx = (nr.left + nr.right) / 2 - (ir.left + ir.right) / 2;
     cap.style.transform = 'translateX(' + dx.toFixed(2) + 'px)';
   } catch (e) { /* 量不到就用默认样式 */ }
 }
