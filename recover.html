@@ -300,8 +300,10 @@ thead th{font-size:14px}
     };
   }
   /* 买入费用（金额 V） */
-  function buyFee(V, fp){
-    if(fp.included) return 0;
+  /* isAdd=true 表示补仓买入：补仓永远照收佣金+过户费，
+     不受「成本价已含买入费」影响（该开关只描述原持仓的成本口径） */
+  function buyFee(V, fp, isAdd){
+    if(fp.included && !isAdd) return 0;
     return Math.max(fp.minC, V * fp.cr) + V * fp.tr;
   }
   /* 回本卖出价：使 卖出净得 = 总投入 的卖出价 */
@@ -354,6 +356,7 @@ thead th{font-size:14px}
     /* ===== 当前持仓 ===== */
     var buyCostOrig = cost * shares;
     var inv0 = buyCostOrig + buyFee(buyCostOrig, fp);          // 原投入（含买入费）
+    var avg0 = shares > 0 ? inv0 / shares : NaN;               // 原平均成本（与补仓后同口径）
     var curValue = price * shares;
     var loss = inv0 - curValue;
     var be0 = Math.ceil(solveBe(inv0, shares, fp) * 100) / 100;  // 回本卖出价（含卖出费，统一向上取整到分）
@@ -361,7 +364,7 @@ thead th{font-size:14px}
 
     /* ===== 补仓后 ===== */
     var addCost = addPrice * addShares;
-    var addFee = buyFee(addCost, fp);
+    var addFee = (addShares > 0 && addCost > 0) ? buyFee(addCost, fp, true) : 0;   // 未补仓不收保底佣金
     var inv1 = inv0 + addCost + addFee;
     var newShares = shares + addShares;
     var avg1 = newShares > 0 ? inv1 / newShares : NaN;
@@ -373,7 +376,10 @@ thead th{font-size:14px}
       '<div class="stats">' +
         statCard('新投入', sharesFmt(addCost + addFee), '', addShares>0 ? (addFee>0?'含买入费 '+sharesFmt(addFee):'') : '（未补仓）') +
         statCard('总投入', sharesFmt(inv1)) +
-        statCard('成本降低为', isFinite(avg1) ? avg1.toFixed(2) : '-', 'blue') +
+        statCard('摊薄成本', isFinite(avg1) ? avg1.toFixed(4) : '-', 'blue',
+          (isFinite(avg1) && isFinite(avg0))
+            ? '原 ' + avg0.toFixed(4) + ' · 下降 ' + (avg0 - avg1).toFixed(4)
+            : '') +
         statCard('还需几个涨停', lup1 + ' 个', 'blue') +
       '</div>' +
       '<div class="stats" style="margin-top:10px">' +
@@ -392,7 +398,7 @@ thead th{font-size:14px}
     for(var i = 0; i < plans.length; i++){
       var n = plans[i];
       var ac = addPrice * n;
-      var af = buyFee(ac, fp);
+      var af = buyFee(ac, fp, true);
       var invN = inv0 + ac + af;
       var tsN = shares + n;
       var avgN = invN / tsN;
@@ -405,7 +411,7 @@ thead th{font-size:14px}
         '<td>'+sharesFmt(ac + af)+'</td>' +
         '<td>'+sharesFmt(invN)+'</td>' +
         '<td>'+sharesFmt(tsN)+'</td>' +
-        '<td class="hl">'+avgN.toFixed(2)+'</td>' +
+        '<td class="hl">'+avgN.toFixed(4)+'</td>' +
         '<td class="'+(riseN>=0?'red':'')+'">'+pct(riseN)+'</td>' +
         '<td class="lup">'+lupN+'</td>' +
         '</tr>';
