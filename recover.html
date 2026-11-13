@@ -168,6 +168,16 @@ thead th{font-size:14px}
 .name-drop .mk{font-size:11px;line-height:15px;color:#fffdf7;background:var(--gold);border-radius:3px;padding:0 4px;flex-shrink:0}
 .name-drop .cd{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .name-drop .empty{display:block;padding:8px 10px;font-size:13px;color:var(--muted)}
+/* 补仓价：重点输入，视觉上先抓住眼 */
+input#addPrice.hl{
+  border:2px solid var(--gold) !important;
+  background:#fffbe9 !important;
+  font-weight:800; font-size:17px; color:#8a5a00;
+  box-shadow:0 0 0 3px rgba(201,168,76,.16);
+  border-radius:8px; text-align:center; width:98px;
+}
+/* 左右滑动改数值：横向手势留给自己，纵向仍能滚页面 */
+input[data-swipe]{ touch-action:pan-y; }
 </style>
 </head>
 <script src="stock_names.js" defer></script>
@@ -203,7 +213,7 @@ thead th{font-size:14px}
 
   <div class="card">
     <div class="row-inline">
-      <span class="pair"><label>补仓价</label><input id="addPrice" type="number" step="0.01" min="0" value="5.89"><span class="unit">元</span></span>
+      <span class="pair"><label>补仓价</label><input id="addPrice" class="hl" type="number" step="0.01" min="0" value="" placeholder="自动取现价"><span class="unit">元</span></span>
       <span class="pair"><label>补仓数</label><input id="addShares" type="number" step="100" min="0" value="1000"><span class="unit">股</span></span>
     </div>
   </div>
@@ -480,18 +490,23 @@ thead th{font-size:14px}
     $('quoteBtn').disabled = b;
     $('quoteBtn').textContent = b ? '获取中…' : '获取现价';
   }
-  var lastAutoAddPrice = '';
+  var lastAutoAddPrice = document.getElementById('addPrice') ? String(document.getElementById('addPrice').value || '') : '';
+  /* 补仓价跟随现价：只要用户没自己改过，就跟着现价走 */
+  function syncAddPriceToPrice(){
+    var pv = parseFloat($('price').value);
+    if(!isFinite(pv) || pv <= 0) return;
+    var ap = $('addPrice');
+    var cur = (ap.value || '').trim();
+    if(cur === '' || cur === lastAutoAddPrice){
+      ap.value = String(pv);
+      lastAutoAddPrice = String(pv);
+    }
+  }
   function qFill(data){
     $('price').value = String(data.price);
     $('price').classList.remove('stale');
     $('price').title = '';
-    var ap = $('addPrice');
-    var cur = (ap.value || '').trim();
-    // 空 or 仍是上次自动填入的值 → 跟随现价；用户手填过 → 保留不被冲掉
-    if(cur === '' || cur === lastAutoAddPrice){
-      ap.value = String(data.price);
-      lastAutoAddPrice = String(data.price);
-    }
+    syncAddPriceToPrice();
     if(data.name && data.name.indexOf('\uFFFD') < 0) $('name').value = data.name;
     compute();
   }
@@ -876,6 +891,7 @@ thead th{font-size:14px}
         name: $('name').value, code: $('code').value,
         cost: $('cost').value, shares: $('shares').value,
         addPrice: $('addPrice').value, addShares: $('addShares').value,
+        addAuto: ($('addPrice').value === lastAutoAddPrice) ? 1 : 0,   // 补仓价是否仍在跟随现价
         commRate: $('commRate').value, minComm: $('minComm').value,
         planCount: $('planCount').value,
         included: $('buyFeeIncluded').checked ? 1 : 0,
@@ -898,13 +914,60 @@ thead th{font-size:14px}
         if(o[keys[i]] != null && o[keys[i]] !== '' && $(keys[i])) $(keys[i]).value = o[keys[i]];
       }
       if(o.included != null) $('buyFeeIncluded').checked = !!o.included;
+      /* 上次补仓价还在「跟随现价」状态 → 继续跟随；已手动改过 → 守住用户的值 */
+      if(o.addAuto) lastAutoAddPrice = String($('addPrice').value || '');
       return true;
     }catch(e){ return false; }
   }
   function onFormChange(){
+    var pv = parseFloat($('price').value);
+    if(isFinite(pv) && pv > 0) syncAddPriceToPrice();      // 改了现价，补仓价跟着走（除非已手动设过）
     compute();
     scheduleRemember();
   }
+
+  /* ========== 左右滑动改数值（鼠标拖 / 手指滑通用） ========== */
+  var SWIPE_PX = 8;          // 每 8px 走一个步进
+  function bindSwipe(id, step, dec){
+    var el = $(id);
+    if(!el) return;
+    el.setAttribute('data-swipe', '1');
+    var pid = null, sx = 0, sy = 0, sv = 0, moved = false;
+    el.addEventListener('pointerdown', function(e){
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      pid = e.pointerId; sx = e.clientX; sy = e.clientY;
+      sv = parseFloat(el.value) || 0; moved = false;
+    });
+    el.addEventListener('pointermove', function(e){
+      if(pid !== e.pointerId) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if(!moved){
+        if(Math.abs(dx) < 6) return;
+        if(Math.abs(dy) > Math.abs(dx)){ pid = null; return; }    // 竖着划：还给页面滚动
+        moved = true;
+        try{ el.setPointerCapture(e.pointerId); }catch(_e){}
+      }
+      e.preventDefault();
+      var v = sv + Math.round(dx / SWIPE_PX) * step;
+      var mn = parseFloat(el.getAttribute('min')); if(isFinite(mn) && v < mn) v = mn;
+      var mx = parseFloat(el.getAttribute('max')); if(isFinite(mx) && v > mx) v = mx;
+      el.value = (dec == null) ? String(Math.round(v)) : v.toFixed(dec);
+      try{ el.setSelectionRange(0, 0); }catch(_e){}
+      onFormChange();
+    });
+    function end(e){ if(pid !== e.pointerId) return; pid = null; moved = false; }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('selectstart', function(e){ if(moved) e.preventDefault(); });
+    el.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  }
+  bindSwipe('price', 0.01, 2);
+  bindSwipe('cost', 0.01, 4);
+  bindSwipe('addPrice', 0.01, 2);
+  bindSwipe('shares', 100, null);
+  bindSwipe('addShares', 100, null);
+  bindSwipe('commRate', 0.1, 3);
+  bindSwipe('minComm', 1, null);
 
   function renderNameDrop(list){
     var box = $('nameDrop');
