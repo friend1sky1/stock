@@ -486,7 +486,7 @@ html, body {
 .new-cost .value {
   font-size: 1.2rem; font-weight: 800; color: var(--profit);
 }
-/* 成本三连：原成本 − 新持仓成本 = 差额 */
+/* 成本三连：原成本 − 降幅 = 新持仓成本 */
 .new-cost .cost-line { display: flex; align-items: flex-start; justify-content: center; gap: 5px; }
 .new-cost .cost-cell { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .new-cost .cost-num { font-size: 1.2rem; font-weight: 800; color: var(--text); line-height: 1.15; }
@@ -958,9 +958,9 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
           <div class="cost-line" id="costLine">
             <span class="cost-cell"><span class="cost-num" id="costOld">--</span></span>
             <span class="cost-op minus"><i class="bar"></i></span>
-            <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span></span>
-            <span class="cost-op equals"><i class="bar"></i><i class="bar"></i></span>
             <span class="cost-cell"><span class="cost-num" id="costDrop">--</span></span>
+            <span class="cost-op equals"><i class="bar"></i><i class="bar"></i></span>
+            <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span></span>
           </div>
         </div>
       </div>
@@ -3424,7 +3424,7 @@ function calculate() {
     document.getElementById('costOld').textContent = fmtMoney4(costPrice);
     document.getElementById('newCost').textContent = fmtMoney4(newCostPrice);
     const dropEl = document.getElementById('costDrop');
-    dropEl.textContent = (drop < 0 ? '-' : '') + fmtMoney4(Math.abs(drop));
+    dropEl.textContent = (drop < 0 ? '(-' + fmtMoney4(Math.abs(drop)) + ')' : fmtMoney4(Math.abs(drop)));   // 换序后：降幅带负号时加括号，避免「− -」两个横杠打架
     dropEl.className = 'cost-num' + (drop >= 0.00005 ? ' down-good' : (drop <= -0.00005 ? ' up-bad' : ''));
     if (costLineEl) costLineEl.style.display = '';
   } else {
