@@ -85,9 +85,12 @@ input[type=number]{appearance:textfield;-moz-appearance:textfield}
 .stat .v.red{color:var(--red)}
 .stat .v.green{color:var(--green)}
 .stat .v.blue{color:var(--gold)}
-.stat.stat-h{display:flex;align-items:baseline;justify-content:center;gap:8px}
-.stat.stat-h .k{font-size:13px;color:var(--muted);font-weight:600}
-.stat.stat-h .v{font-size:22px;font-weight:700;margin-top:0}
+.stat.stat-h{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:nowrap}
+.stat.stat-h .k{font-size:clamp(14px, 4.1vw, 16px);color:var(--text);font-weight:600;line-height:1.2;white-space:nowrap}
+.stat.stat-h .v{font-size:clamp(17px, 4.8vw, 20px);font-weight:700;margin-top:0;line-height:1.2;white-space:nowrap;word-break:normal}
+@media (max-width:352px){
+  .stat.stat-h .k{font-size:13.5px}
+}
 .bar-wrap{margin-top:8px}
 .bar{position:relative;background:#eadfc0;border-radius:6px;height:14px;overflow:hidden}
 .bar i{position:absolute;left:0;top:0;bottom:0;width:0%;border-radius:6px;background:linear-gradient(90deg,#4ade80 0%,#86efac 22%,#bbf7d0 38%,#fef9c3 48%,#fde047 60%,#eab308 68%,#fca5a5 78%,#ef4444 90%,#CC0000 100%);background-repeat:no-repeat;transition:width .3s}
