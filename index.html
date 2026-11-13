@@ -506,6 +506,9 @@ html, body {
 }
 .new-cost .cost-op .bar { position: absolute; left: 50%; width: 0.5em; height: 0.1em; border-radius: 0.05em; background: currentColor; transform: translateX(-50%); }
 .new-cost .cost-op.minus .bar { top: calc(50% - 0.05em); }
+.new-cost .cost-op.minus .bar:nth-child(2) { display: none; }
+.new-cost .cost-op.plus .bar:first-child { top: calc(50% - 0.05em); }
+.new-cost .cost-op.plus .bar:last-child { left: 50%; top: 50%; width: 0.1em; height: 0.5em; transform: translate(-50%, -50%); }
 .new-cost .cost-op.equals .bar:first-child { top: calc(50% - 0.185em); }
 .new-cost .cost-op.equals .bar:last-child { top: calc(50% + 0.085em); }
 @media (max-width: 360px) {
@@ -957,7 +960,7 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
           <div class="cost-cap-top" id="costCapTop">新持仓成本</div>
           <div class="cost-line" id="costLine">
             <span class="cost-cell"><span class="cost-num" id="costOld">--</span></span>
-            <span class="cost-op minus"><i class="bar"></i></span>
+            <span class="cost-op minus" id="costOp1"><i class="bar"></i><i class="bar"></i></span>
             <span class="cost-cell"><span class="cost-num" id="costDrop">--</span></span>
             <span class="cost-op equals"><i class="bar"></i><i class="bar"></i></span>
             <span class="cost-cell"><span class="cost-num mid" id="newCost">--</span></span>
@@ -3424,7 +3427,10 @@ function calculate() {
     document.getElementById('costOld').textContent = fmtMoney4(costPrice);
     document.getElementById('newCost').textContent = fmtMoney4(newCostPrice);
     const dropEl = document.getElementById('costDrop');
-    dropEl.textContent = (drop < 0 ? '(-' + fmtMoney4(Math.abs(drop)) + ')' : fmtMoney4(Math.abs(drop)));   // 换序后：降幅带负号时加括号，避免「− -」两个横杠打架
+    const opEl = document.getElementById('costOp1');
+    /* 成本下降用「−」，成本上升用「+」：符号直接表达方向，不靠负号绕 */
+    if (opEl) opEl.className = 'cost-op ' + (drop <= -0.00005 ? 'plus' : 'minus');
+    dropEl.textContent = fmtMoney4(Math.abs(drop));
     dropEl.className = 'cost-num' + (drop >= 0.00005 ? ' down-good' : (drop <= -0.00005 ? ' up-bad' : ''));
     if (costLineEl) costLineEl.style.display = '';
   } else {
@@ -3433,6 +3439,8 @@ function calculate() {
     document.getElementById('costOld').textContent = '--';
     document.getElementById('newCost').textContent = '--';
     document.getElementById('costDrop').textContent = '--';
+    const opEl2 = document.getElementById('costOp1');
+    if (opEl2) opEl2.className = 'cost-op minus';
   }
   alignCostOps();
 
