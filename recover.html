@@ -157,6 +157,10 @@ thead th{font-size:14px}
 .note{font-size:13px}
 /* 名称联想下拉 */
 .name-wrap{position:relative;display:inline-block}
+.name-arrow{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:22px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:10px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;border-radius:4px}
+.name-arrow:hover{color:var(--gold);background:#f7ecc9}
+.name-drop .drop-hd{display:block;padding:5px 9px;font-size:11.5px;color:var(--muted);background:#f3ead1;border-bottom:1px solid #e8dcbb;position:sticky;top:0;z-index:1}
+.name-drop .drop-item .qt{font-size:11.5px;color:var(--muted);margin-left:4px;white-space:nowrap}
 .name-drop{display:none;position:absolute;z-index:60;left:0;top:100%;margin-top:2px;width:250px;max-height:250px;overflow-y:auto;background:#fffdf7;border:1px solid var(--gold);border-radius:8px;box-shadow:0 6px 18px rgba(150,110,30,.2)}
 .name-drop .drop-item{display:flex;align-items:center;gap:6px;padding:6px 9px;cursor:pointer;font-size:14px;white-space:nowrap}
 .name-drop .drop-item:hover,.name-drop .drop-item.on{background:#f7ecc9}
@@ -172,7 +176,7 @@ thead th{font-size:14px}
   <h1>📈 回本计算器</h1>
   <div class="card">
       <div class="row-inline">
-        <span class="pair"><label>名称</label><span class="name-wrap"><input id="name" type="text" value="京东方A" style="width:110px" autocomplete="off" placeholder="输入名称"><div class="name-drop" id="nameDrop"></div></span></span>
+        <span class="pair"><label>名称</label><span class="name-wrap"><input id="name" type="text" value="京东方A" style="width:110px;padding-right:20px" autocomplete="off" placeholder="输入名称"><button type="button" id="nameArrow" class="name-arrow" aria-label="选择我的持仓" title="选择我的持仓">▾</button><div class="name-drop" id="nameDrop"></div></span></span>
         <span class="pair"><label>代码</label><input id="code" type="text" value="000725" style="width:110px"></span>
         <span class="pair"><label>股数</label><input id="shares" type="number" step="100" min="0" value="500" style="width:110px"><span class="unit">股</span></span>
         <span class="pair"><label>成本</label><input id="cost" type="number" step="0.0001" min="0" value="27.0032" style="width:110px"><span class="unit">元</span></span>
@@ -263,6 +267,7 @@ thead th{font-size:14px}
 
 <div class="footer-quote" id="footerQuote"></div>
 
+<script src="supabase.min.js" onerror="window.__sbLoadFailed=true"></script>
 <script>
 (function(){
   var $ = function(id){ return document.getElementById(id); };
@@ -749,6 +754,158 @@ thead th{font-size:14px}
     box.style.display = 'none'; box.innerHTML = '';
     nameList = []; nameIdx = -1;
   }
+  /* ========== 我的持仓：下拉选择 + 账号同步（只读）+ 记忆 ========== */
+  var HOLDING_KEYS = ['tcalc_overview_v1', 'tcalc_portfolio_v2'];
+  var AUTH_KEY = 'tcalc_user_v1';
+  var RECALL_KEY = 'tcalc_recover_last_v1';
+  var SB_KEY = 'sb_publishable_T6Frrq5pHqJbvSgcm4Df-Q_U1xpMszp';
+  var SB_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' } };
+  var myHoldings = [];
+  var rememberTimer = null;
+
+  function fmt4(n){
+    var s = Number(n).toFixed(4);
+    return s.replace(/0+$/, '').replace(/\.$/, '');
+  }
+  /* 统一代码为 sh/sz/bj + 6 位数字 */
+  function normCode(c){
+    c = String(c == null ? '' : c).toLowerCase().replace(/[^0-9a-z]/g, '');
+    if(!c) return '';
+    if(/^(sh|sz|bj)\d{6}$/.test(c)) return c;
+    if(/^\d{6}$/.test(c)){
+      if(c.charAt(0) === '6') return 'sh' + c;
+      if(c.charAt(0) === '0' || c.charAt(0) === '3') return 'sz' + c;
+      return 'bj' + c;
+    }
+    return c;
+  }
+  function pushHolding(arr, x){
+    if(!x || !x.name) return;
+    var code = normCode(x.code);
+    var cost = parseFloat(x.costPrice != null ? x.costPrice : x.cost_price) || 0;
+    var qty = parseInt(x.holdQty != null ? x.holdQty : x.hold_qty, 10) || 0;
+    for(var i = 0; i < arr.length; i++){
+      if((code && arr[i].code === code) || (!code && arr[i].name === String(x.name))){
+        if(!arr[i].holdQty && qty) arr[i].holdQty = qty;
+        if(!arr[i].costPrice && cost) arr[i].costPrice = cost;
+        return;
+      }
+    }
+    arr.push({ name: String(x.name), code: code, costPrice: cost, holdQty: qty });
+  }
+  /* 本机缓存：做T计算器 / 持仓总览写下的同一份数据（同域可见） */
+  function readLocalHoldings(){
+    var out = [];
+    for(var k = 0; k < HOLDING_KEYS.length; k++){
+      try{
+        var raw = localStorage.getItem(HOLDING_KEYS[k]);
+        if(!raw) continue;
+        var arr = JSON.parse(raw);
+        if(Array.isArray(arr)) for(var i = 0; i < arr.length; i++) pushHolding(out, arr[i]);
+      }catch(e){}
+    }
+    return out;
+  }
+  /* 账号同步：登录且有股票才用账号，否则保持本地（只读，绝不回写） */
+  async function loadMyHoldings(){
+    myHoldings = readLocalHoldings();
+    var authRaw = null;
+    try{ authRaw = localStorage.getItem(AUTH_KEY); }catch(e){}
+    if(!authRaw) return;                                              // 未登录：用本地
+    if(typeof supabase === 'undefined' || !supabase.createClient) return;   // 脚本没加载：用本地
+    try{
+      var sb = supabase.createClient(location.origin + '/cloud', SB_KEY, SB_OPTS);
+      var sess = await sb.auth.getSession();
+      var user = sess && sess.data && sess.data.session && sess.data.session.user;
+      if(!user) return;                                               // 会话已失效：用本地
+      var r = await sb.from('stocks').select('name,code,cost_price,hold_qty').eq('user_id', user.id).order('sort_order');
+      if(r.error || !r.data || !r.data.length) return;                // 账号里没股票：用本地
+      var arr = [];
+      for(var i = 0; i < r.data.length; i++) pushHolding(arr, r.data[i]);
+      if(arr.length) myHoldings = arr;
+    }catch(e){ /* 网络/权限失败一律静默，继续用本地 */ }
+  }
+  function holdMatches(kw){
+    kw = (kw || '').toLowerCase();
+    var out = [];
+    for(var i = 0; i < myHoldings.length; i++){
+      var h = myHoldings[i];
+      if(!kw || h.name.toLowerCase().indexOf(kw) >= 0 || (h.code && h.code.indexOf(kw) >= 0)) out.push(h);
+    }
+    return out;
+  }
+  /* 下拉：第一组「我的持仓」（带成本/股数），第二组名称库 */
+  function renderDrop(kw){
+    var box = $('nameDrop');
+    var hs = holdMatches(kw);
+    var st = (typeof searchStocks === 'function' && kw) ? searchStocks(kw) : [];
+    if(!hs.length && !st.length){
+      if(!kw){ hideNameDrop(); return; }
+      box.innerHTML = '<span class="empty">没找到匹配的股票，可直接填代码</span>';
+      box.style.display = 'block'; nameList = []; nameIdx = -1; return;
+    }
+    var html = '', list = [], i;
+    if(hs.length){
+      html += '<div class="drop-hd">我的持仓（' + hs.length + '）</div>';
+      for(i = 0; i < hs.length; i++){
+        var hmk = /^sh/.test(hs[i].code) ? '沪' : (/^sz/.test(hs[i].code) ? '深' : (/^bj/.test(hs[i].code) ? '北' : ''));
+        var meta = (hs[i].holdQty ? hs[i].holdQty + '股' : '') + (hs[i].costPrice ? (hs[i].holdQty ? ' · ' : '') + '成本' + fmt4(hs[i].costPrice) : '');
+        list.push(hs[i]);
+        html += '<div class="drop-item" data-i="' + (list.length - 1) + '"><b>' + esc(hs[i].name) + '</b>'
+              + (hmk ? '<span class="mk">' + hmk + '</span>' : '')
+              + (meta ? '<span class="qt">' + meta + '</span>' : '') + '</div>';
+      }
+    }
+    if(st.length){
+      html += '<div class="drop-hd">' + (hs.length ? '其他匹配' : '股票名称库') + '</div>';
+      for(i = 0; i < st.length; i++){
+        var mk = /^sh/.test(st[i].code) ? '沪' : (/^sz/.test(st[i].code) ? '深' : '北');
+        list.push(st[i]);
+        html += '<div class="drop-item" data-i="' + (list.length - 1) + '"><b>' + esc(st[i].name) + '</b><span class="mk">' + mk + '</span><span class="cd">' + st[i].code.slice(2) + '</span></div>';
+      }
+    }
+    nameList = list; nameIdx = 0;
+    box.innerHTML = html; box.style.display = 'block';
+    var first = box.querySelector('.drop-item');
+    if(first) first.className = 'drop-item on';
+  }
+  /* 记住表单（不含现价：现价是实时行情，不能拿旧值充数） */
+  function rememberState(){
+    try{
+      localStorage.setItem(RECALL_KEY, JSON.stringify({
+        name: $('name').value, code: $('code').value,
+        cost: $('cost').value, shares: $('shares').value,
+        addPrice: $('addPrice').value, addShares: $('addShares').value,
+        commRate: $('commRate').value, minComm: $('minComm').value,
+        planCount: $('planCount').value,
+        included: $('buyFeeIncluded').checked ? 1 : 0,
+        ts: Date.now()
+      }));
+    }catch(e){}
+  }
+  function scheduleRemember(){
+    if(rememberTimer) clearTimeout(rememberTimer);
+    rememberTimer = setTimeout(function(){ rememberTimer = null; rememberState(); }, 500);
+  }
+  function restoreState(){
+    try{
+      var raw = localStorage.getItem(RECALL_KEY);
+      if(!raw) return false;
+      var o = JSON.parse(raw);
+      if(!o) return false;
+      var keys = ['name','code','cost','shares','addPrice','addShares','commRate','minComm','planCount'];
+      for(var i = 0; i < keys.length; i++){
+        if(o[keys[i]] != null && o[keys[i]] !== '' && $(keys[i])) $(keys[i]).value = o[keys[i]];
+      }
+      if(o.included != null) $('buyFeeIncluded').checked = !!o.included;
+      return true;
+    }catch(e){ return false; }
+  }
+  function onFormChange(){
+    compute();
+    scheduleRemember();
+  }
+
   function renderNameDrop(list){
     var box = $('nameDrop');
     if(list === null){ hideNameDrop(); return; }          // 字典未加载：静默不干扰
@@ -776,8 +933,12 @@ thead th{font-size:14px}
     if(!it) return;
     $('name').value = it.name;
     $('code').value = it.code.slice(2);                  // 填 6 位数字，取价时自动识别沪深/北交所
+    /* 选中自己的持仓时：股数与成本一并带过来 */
+    if(it.holdQty > 0) $('shares').value = it.holdQty;
+    if(it.costPrice > 0) $('cost').value = it.costPrice;
     hideNameDrop();
     compute();
+    scheduleRemember();
     if(pickQuoteTimer){ clearTimeout(pickQuoteTimer); pickQuoteTimer = null; }
     // 换股后顺手取现价；若还在冷却期（如刚打开页面自动取过一次），等冷却结束再取，避免弹"太频繁"
     var same = qLast.ok && qLast.code === it.code.slice(2);
@@ -793,7 +954,7 @@ thead th{font-size:14px}
     clearTimeout(nameTimer);
     var v = this.value.trim();
     if(!v){ hideNameDrop(); return; }
-    nameTimer = setTimeout(function(){ renderNameDrop(searchStocks(v)); }, 180);
+    nameTimer = setTimeout(function(){ renderDrop(v); }, 180);
   });
   $('name').addEventListener('keydown', function(e){
     var box = $('nameDrop');
@@ -803,7 +964,19 @@ thead th{font-size:14px}
     else if(e.key === 'Enter'){ e.preventDefault(); if(nameIdx >= 0) pickName(nameIdx); }
     else if(e.key === 'Escape'){ hideNameDrop(); }
   });
-  $('name').addEventListener('blur', function(){ setTimeout(hideNameDrop, 180); });   // 延后，保证点击能选中
+  $('name').addEventListener('blur', function(){ setTimeout(function(){ if(document.activeElement === $('nameArrow')) return; hideNameDrop(); }, 180); });   // 延后，保证点击能选中
+  /* 右侧下拉箭头：点一下列出「我的持仓」（不改输入框，仍可手填） */
+  $('nameArrow').addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation();
+    if($('nameDrop').style.display === 'block'){ hideNameDrop(); return; }
+    if(!myHoldings.length){
+      var box = $('nameDrop');
+      box.innerHTML = '<span class="empty">还没读到你的持仓：登录做T计算器并保存持仓，或直接输名称</span>';
+      box.style.display = 'block';
+      return;
+    }
+    renderDrop('');
+  });
   // pointerdown 统一鼠标与触摸（移动端只会合成 click，用 pointerdown 最稳），旧浏览器回落 mousedown
   $('nameDrop').addEventListener(window.PointerEvent ? 'pointerdown' : 'mousedown', function(e){
     var el = e.target.closest ? e.target.closest('.drop-item') : null;
@@ -815,10 +988,10 @@ thead th{font-size:14px}
   /* 绑定事件 */
   var ids = ['name','code','price','cost','shares','addPrice','addShares','commRate','minComm','planCount'];
   for(var j = 0; j < ids.length; j++){
-    $(ids[j]).addEventListener('input', compute);
-    $(ids[j]).addEventListener('change', compute);
+    $(ids[j]).addEventListener('input', onFormChange);
+    $(ids[j]).addEventListener('change', onFormChange);
   }
-  $('buyFeeIncluded').addEventListener('change', compute);
+  $('buyFeeIncluded').addEventListener('change', onFormChange);
   $('quoteBtn').addEventListener('click', fetchQuote);
   $('netBtn').addEventListener('click', netCheck);
   $('code').addEventListener('keydown', function(e){ if(e.key === 'Enter') fetchQuote(); });
@@ -836,6 +1009,9 @@ thead th{font-size:14px}
     var card = bar.closest ? bar.closest('.card') : null;
     if(card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
+  /* 先恢复上次选择，再用地址栏参数覆盖（从总览跳转的优先级最高） */
+  restoreState();
+
   /* 从持仓总览跳转过来时，自动带入参数（name/code/shares/cost/price/comm） */
   (function prefillFromQuery(){
     var q = null;
@@ -856,7 +1032,8 @@ thead th{font-size:14px}
 
   compute();
 
-  /* 打开页面自动获取现价；失败则 3 秒后自动重试一次 */
+  /* 拉取我的持仓（先本地，登录后换成账号的；全程只读） */
+  loadMyHoldings();
   var autoTries = 0;
   function autoQuote(){
     if(!qNormalize($('code').value)) return;   // 没填代码就不自动取价
