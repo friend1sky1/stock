@@ -1,5 +1,26 @@
 # 更新日志（新→旧）
 
+## 2026-11-16 补记：14:23 那次部署漏带 functions/，同域云通道断了 25 分钟（已修复）
+
+**发现**：宝华转来 DeepSeek Harness 的判断——「问题出在那次部署的方式把 functions 丢了，不是代码没有」，核实属实。
+
+### 事故经过
+- 14:23 修复滑动改价，用「干净目录 + wrangler pages deploy」推 `t-calc`，目录里**只放 6 个静态文件，漏了 `functions/cloud/[[path]].js`**
+- 后果：`/cloud/*` 同域代理消失 → 登录、云端同步全部静默失败
+- **为什么没被发现**：Pages 的 SPA 兜底把 `/cloud/auth/v1/health` 当静态路由，返回**首页 HTML（http=200，171987 字节）**，页面照常能打开
+
+### 补部署与验收
+| 检查项 | 出事时 | 修复后 |
+|---|---|---|
+| `/cloud/auth/v1/health`（无 key） | 200 + index.html | **401 + `{"message":"No API key found..."}` JSON** |
+| `/cloud/auth/v1/health`（带 anon key） | — | **200 `{"version":"v2.197.0","name":"GoTrue"}`**，与直连 supabase 一致 |
+| wrangler 日志 | 无 Functions bundle 行 | **`✨ Uploading Functions bundle`** |
+| 静态 md5 | index 27fb92b3 | 不变（index 27fb92b3 + 其余 5 个未变） |
+
+### 新增铁律（已写入 TOOLS.md 经验45）
+1. 部署 `t-calc` 必须把 `functions/` 一起上传，`wrangler` 输出没有 `✨ Uploading Functions bundle` 即判定失败
+2. 验收必须测代理端点「返回 JSON 还是 HTML」，不能只比静态文件 md5——**「能打开」≠「能用」**
+
 ## 2026-11-16 修复：左右滑动改价被「开盘价 ±10%」卡死（宝华报障）
 
 **问题原文**：「做T计算器的有些输入框继续向左滑动时，居然不能把价格往下降了。尤其是倒T的预期接回价。」
