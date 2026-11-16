@@ -2817,11 +2817,9 @@ window.addEventListener('pagehide', function() { saveAll(); });
 let slideState = null;
 const SLIDE_PIXEL_STEP = 5;
 
-function sellPriceBounds() {
-  const openP = parseFloat(document.getElementById('openPrice').value);
-  if (isNaN(openP) || openP <= 0) return { min: 0.01, max: 99999 };
-  return { min: Math.round(openP * 0.9 * 100) / 100, max: Math.round(openP * 1.1 * 100) / 100 };
-}
+// 买卖价滑动范围：只做「价格必须为正」的兜底，不再按开盘价 ±10% 卡死
+// （旧版下限=开盘价×0.9，倒T接回价低于该值时向左滑会被抬高并卡住）
+function sellPriceBounds() { return { min: 0.01, max: 99999 }; }
 
 function buybackPriceBounds() { return sellPriceBounds(); }
 function holdQtyBounds() { return { min: 100, max: 999999 }; }
