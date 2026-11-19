@@ -1,3 +1,35 @@
+## 2026-11-19 19:00 做T计算器：模式切换框下移 + 真吸顶；触发价入口隐藏
+
+**需求（宝华定稿，逐条确认后才动手）**
+1. 「倒T / 正T」切换框从页面顶部搬到「持仓信息」卡与「倒T操作」卡之间
+2. 真吸顶：滚到它那儿之后钉在滚动区顶部，下面卡片从它底下穿过
+3. 按钮上下加高一点点（36→40px），左右不变仍平分
+4. 未选中的按钮铺一层淡米灰底，提升辨识度（字色与色彩体系未动）
+5. 触发价那一行（铃铛 + ≥ + 输入框）和「未设置到价提醒」提示行隐藏，**代码保留不删**
+6. 股票标签上的提醒小红点一并隐藏（功能先不用）
+
+**改动文件**：`index.html`
+- `.mode-toggle` 改为 `position: sticky; top:0`，铺 `var(--bg)` 不透明底，`margin:0 -10px; padding:6px 10px`
+- markup 从 `.scroll-area` 外搬入 `posCard` 之后、`opCard` 之前
+- `.alert-row`、`.alert-status` 加 `display:none`；`.stock-tab .alert-dot` 加 `display:none`
+- `.mode-btn` padding 7px→9px，未选中底色 `#F6F0E9`
+
+**未动**：计算逻辑、数据结构、云端同步、佣金费率、到价提醒的 JS 逻辑（仅隐藏入口）
+
+**部署验收（Cloudflare Pages `t-calc`）**
+| 检查项 | 结果 |
+|---|---|
+| wrangler 日志 | ✨ Uploading Functions bundle（functions 已带上） |
+| `/cloud/auth/v1/health` 无 key | 401 + `{"message":"No API key found..."}` JSON |
+| `/cloud/auth/v1/health` 带 anon key | 200 + `{"version":"v2.198.0","name":"GoTrue"}` JSON |
+| 线上 index md5 | 80564dc8 == 本地 80564dc8 |
+| 其余 5 文件 md5 | overview b15bcc34 / clear 76e12f0c / recover ed2bd549 / stock_names.js f2d432ba / supabase.min.js f7ee2a8c，部署前后一致 |
+| 本地渲染实测 | 390×620 下滚动 240px，toggle 顶部 139 == 滚动区顶 139（真吸顶）；点正T，标题变「正 T 操 作」；无 JS 异常 |
+
+**基线说明**：改前本地副本落后远程（远程 HEAD 5f89776 / 本地 24fcc75），本次直接在远程 HEAD 上改，11/16 的滑动改价封边修复未被覆盖。
+
+---
+
 # 更新日志（新→旧）
 
 ## 2026-11-16 补记：14:23 那次部署漏带 functions/，同域云通道断了 25 分钟（已修复）
