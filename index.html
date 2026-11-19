@@ -146,13 +146,16 @@ html, body {
 .pos-snapshot .snap-val.profit { color: var(--profit); }
 .pos-snapshot .snap-val.loss { color: var(--loss); }
 
-/* Mode Toggle */
+/* Mode Toggle —— 挪进滚动区，真吸顶（贴在滚动区顶部，下方卡片从其底下穿过） */
 .mode-toggle {
-  flex-shrink: 0; display: flex; gap: 6px; margin-bottom: 6px;
+  position: sticky; top: 0; z-index: 20;
+  display: flex; gap: 6px;
+  margin: 0 -10px 8px; padding: 6px 10px;
+  background: var(--bg);
 }
 .mode-btn {
-  flex: 1; padding: 7px 0; border-radius: 8px; border: 1.5px solid var(--border);
-  background: var(--card); font-size: 0.85rem; font-weight: 600;
+  flex: 1; padding: 9px 0; border-radius: 8px; border: 1.5px solid var(--border);
+  background: #F6F0E9; font-size: 0.85rem; font-weight: 600;
   cursor: pointer; transition: all var(--transition);
   color: var(--text-secondary); font-family: inherit;
 }
@@ -226,7 +229,7 @@ html, body {
 }
 .alert-status.on { color: var(--loss); }
 .alert-status.hit { color: var(--profit); font-weight: 700; }
-.stock-tab .alert-dot { font-size: 0.65rem; margin-left: 2px; }
+.stock-tab .alert-dot { display: none; font-size: 0.65rem; margin-left: 2px; } /* 到价提醒暂不用，小红点一并隐藏 */
 
 .input-row label {
   font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap;
@@ -809,12 +812,6 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
   <!-- Position Snapshot -->
   <div class="pos-snapshot" id="posSnapshot"></div>
 
-  <!-- Mode Toggle -->
-  <div class="mode-toggle" id="modeToggle">
-    <button class="mode-btn active" id="modeReverse" onclick="setMode('reverse')">倒T · 高抛低吸</button>
-    <button class="mode-btn" id="modeNormal" onclick="setMode('normal')">正T · 先买后卖</button>
-  </div>
-
   <div class="scroll-area" id="scrollArea">
     <!-- 新用户起步卡（无持仓时显示） -->
     <div class="starter-card" id="starterCard" style="display:none;">
@@ -851,14 +848,21 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
           <span class="spin-btn" data-spin-id="holdQty" data-spin-delta="100">+</span>
           <span class="unit">股</span>
         </div>
-        <div class="alert-row">
+        <!-- 到价提醒：功能暂不用，先隐藏不删（要去掉把 display:none 删掉即可） -->
+        <div class="alert-row" style="display:none">
           <span class="alert-bell" id="alertBell" onclick="toggleAlertActive()" title="开启/关闭到价提醒">🔔</span>
           <span class="alert-dir" id="alertDir" onclick="toggleAlertDir()" title="点击切换 ≥ / ≤">≥</span>
           <input type="text" inputmode="decimal" id="alertPrice" placeholder="触发价（元）" onchange="onAlertPriceChange()" onblur="onAlertPriceBlur()">
           <span class="unit">元</span>
         </div>
-        <div class="alert-status" id="alertStatus">未设置到价提醒</div>
+        <div class="alert-status" id="alertStatus" style="display:none">未设置到价提醒</div>
       </div>
+    </div>
+
+    <!-- Mode Toggle（从顶部搬到此，紧贴操作区之上；滚动时吸顶） -->
+    <div class="mode-toggle" id="modeToggle">
+      <button class="mode-btn active" id="modeReverse" onclick="setMode('reverse')">倒T · 高抛低吸</button>
+      <button class="mode-btn" id="modeNormal" onclick="setMode('normal')">正T · 先买后卖</button>
     </div>
 
     <!-- T Operation Card -->
