@@ -1,99 +1,28 @@
-## 2026-11-19 19:00 做T计算器：模式切换框下移 + 真吸顶；触发价入口隐藏
-
-**需求（宝华定稿，逐条确认后才动手）**
-1. 「倒T / 正T」切换框从页面顶部搬到「持仓信息」卡与「倒T操作」卡之间
-2. 真吸顶：滚到它那儿之后钉在滚动区顶部，下面卡片从它底下穿过
-3. 按钮上下加高一点点（36→40px），左右不变仍平分
-4. 未选中的按钮铺一层淡米灰底，提升辨识度（字色与色彩体系未动）
-5. 触发价那一行（铃铛 + ≥ + 输入框）和「未设置到价提醒」提示行隐藏，**代码保留不删**
-6. 股票标签上的提醒小红点一并隐藏（功能先不用）
-
-**改动文件**：`index.html`
-- `.mode-toggle` 改为 `position: sticky; top:0`，铺 `var(--bg)` 不透明底，`margin:0 -10px; padding:6px 10px`
-- markup 从 `.scroll-area` 外搬入 `posCard` 之后、`opCard` 之前
-- `.alert-row`、`.alert-status` 加 `display:none`；`.stock-tab .alert-dot` 加 `display:none`
-- `.mode-btn` padding 7px→9px，未选中底色 `#F6F0E9`
-
-**未动**：计算逻辑、数据结构、云端同步、佣金费率、到价提醒的 JS 逻辑（仅隐藏入口）
-
-**部署验收（Cloudflare Pages `t-calc`）**
-| 检查项 | 结果 |
-|---|---|
-| wrangler 日志 | ✨ Uploading Functions bundle（functions 已带上） |
-| `/cloud/auth/v1/health` 无 key | 401 + `{"message":"No API key found..."}` JSON |
-| `/cloud/auth/v1/health` 带 anon key | 200 + `{"version":"v2.198.0","name":"GoTrue"}` JSON |
-| 线上 index md5 | 80564dc8 == 本地 80564dc8 |
-| 其余 5 文件 md5 | overview b15bcc34 / clear 76e12f0c / recover ed2bd549 / stock_names.js f2d432ba / supabase.min.js f7ee2a8c，部署前后一致 |
-| 本地渲染实测 | 390×620 下滚动 240px，toggle 顶部 139 == 滚动区顶 139（真吸顶）；点正T，标题变「正 T 操 作」；无 JS 异常 |
-
-**基线说明**：改前本地副本落后远程（远程 HEAD 5f89776 / 本地 24fcc75），本次直接在远程 HEAD 上改，11/16 的滑动改价封边修复未被覆盖。
-
----
-
 # 更新日志（新→旧）
 
-## 2026-11-16 补记：14:23 那次部署漏带 functions/，同域云通道断了 25 分钟（已修复）
+## 2026-11-20 隔夜美股横条：展开 20 秒自动折叠（宝华要求）
 
-**发现**：宝华转来 DeepSeek Harness 的判断——「问题出在那次部署的方式把 functions 丢了，不是代码没有」，核实属实。
+**需求原文**：「做T计算器，隔夜美股，自动折叠」，并给出三处改动规格与关键约束。
 
-### 事故经过
-- 14:23 修复滑动改价，用「干净目录 + wrangler pages deploy」推 `t-calc`，目录里**只放 6 个静态文件，漏了 `functions/cloud/[[path]].js`**
-- 后果：`/cloud/*` 同域代理消失 → 登录、云端同步全部静默失败
-- **为什么没被发现**：Pages 的 SPA 兜底把 `/cloud/auth/v1/health` 当静态路由，返回**首页 HTML（http=200，171987 字节）**，页面照常能打开
+### 改动（`index.html`，隔夜美股模块 4159~4196 行）
+1. `__onBarRefresh()`：设置 `open` 类后补 `if (bar.classList.contains('open')) onScheduleFold(); else onCancelFold();`
+2. 新增 `ON_AUTO_FOLD_MS = 20000`（停留时长，改这一处即可）、`_onFoldTimer`、`onCancelFold()`、`onScheduleFold()`
+3. `onToggle()`：展开 → `onScheduleFold()`；收起 → `onCancelFold()`；手动开关照旧写 `on_us_open_v1` 为 `1/0`
+4. **自动收起只 `remove('open')`，不写 localStorage** —— 记忆保持 `1`，下次进来仍「先展开再自动收起」；只有手动收起才写 `0`
 
-### 补部署与验收
-| 检查项 | 出事时 | 修复后 |
-|---|---|---|
-| `/cloud/auth/v1/health`（无 key） | 200 + index.html | **401 + `{"message":"No API key found..."}` JSON** |
-| `/cloud/auth/v1/health`（带 anon key） | — | **200 `{"version":"v2.197.0","name":"GoTrue"}`**，与直连 supabase 一致 |
-| wrangler 日志 | 无 Functions bundle 行 | **`✨ Uploading Functions bundle`** |
-| 静态 md5 | index 27fb92b3 | 不变（index 27fb92b3 + 其余 5 个未变） |
+### 验收
+| 场景 | 结果 |
+|---|---|
+| 记忆=1 页面加载 | 先展开 → 自动收起 → 记忆仍 `1` ✅ |
+| 手动展开 | 自动收起 → 记忆仍 `1` ✅ |
+| 手动展开后手动收起 | 立即收起、写 `0`、定时器已清、无残留动作 ✅ |
+| 记忆=0 加载 | 保持收起，不排定时器 ✅ |
+| 语法 | 5 个内联脚本块全部通过 `vm.Script` 检查 ✅ |
+| 线上 index md5 | `274d551ab8e3f0ef3cafbe1859ec9ccb`（本地=部署目录=线上）✅ |
+| Functions | `✨ Uploading Functions bundle`；`/cloud/auth/v1/health` 无 key 401 JSON、带 anon key 200 GoTrue v2.198.0 ✅ |
 
-### 新增铁律（已写入 TOOLS.md 经验45）
-1. 部署 `t-calc` 必须把 `functions/` 一起上传，`wrangler` 输出没有 `✨ Uploading Functions bundle` 即判定失败
-2. 验收必须测代理端点「返回 JSON 还是 HTML」，不能只比静态文件 md5——**「能打开」≠「能用」**
-
-## 2026-11-16 修复：左右滑动改价被「开盘价 ±10%」卡死（宝华报障）
-
-**问题原文**：「做T计算器的有些输入框继续向左滑动时，居然不能把价格往下降了。尤其是倒T的预期接回价。」
-
-### 根因
-11/13 上线滑动改值时，`sellPriceBounds()` 把价格滑动范围定义成 **开盘价 × 0.9 ~ × 1.1**，`buybackPriceBounds()` 直接复用同一函数：
-
-```js
-// 旧
-const openP = parseFloat(openPrice.value);
-if (!isNaN(openP) && openP > 0) return { min: openP*0.9, max: openP*1.1 };
-```
-
-- 倒T 预期接回价常低于开盘价 −10%（卖出价抬得高时更明显），一旦触到 0.9 倍下限，**继续左滑数值不再下降**
-- 更糟：起始值本身已低于下限时，**第一次左滑反而把价格向上跳到下限**（实测 8.42 → 9.00）
-
-### 改动（`index.html`）
-`sellPriceBounds()` 改为只做正数兜底，不再按开盘价百分比卡死；`buybackPriceBounds()` 随之放开：
-
-```js
-// 新
-function sellPriceBounds() { return { min: 0.01, max: 99999 }; }
-```
-
-股数滑动仍受持仓约束（100 ~ min(10000, 持仓)），未改动。
-
-### 验收（CDP + iPhone 视口 390×844 真实页面模拟滑动）
-| 场景 | 修复前 | 修复后 |
-|---|---|---|
-| 倒T 接回价 9.41 左滑 100 步 | 停在 9.00 | 8.41 |
-| 倒T 接回价 左滑 200 步 | 停在 9.00 | 7.41 |
-| 倒T 接回价 右滑 200 步 | — | 9.41（可回去） |
-| 低起点 8.42 左滑 3 步 | 跳高到 9.00 | 8.39 |
-| 卖出价 9.50 左滑 100 步 | 停在 9.00 | 8.50 |
-| 正T 预期卖出价 9.60 左/右滑 10 步 | — | 9.50 / 9.60 |
-| 股数 左滑 20 步 / 右滑 20 步 | — | 100 / 500（持仓上限） |
-| −/+ 微调按钮 | — | 正常 |
-
-- 线上 `index.html` md5 = 部署目录 = `27fb92b327...`，其余 5 个文件（overview / recover / clear / stock_names.js / supabase.min.js）md5 与修复前逐一相同，无副作用
-- 部署：Cloudflare Pages `t-calc`（direct upload，wrangler）
-- 推送：main / OpenClaw
+- 部署：`wrangler pages deploy` → `t-calc`（direct upload，推 Git 不会自动部署）
+- 备份：`index.html.bak-20261120-onautofold-pre`
 
 ## 2026-11-13 回本价/回本涨幅两行：汉字加大 + 垂直居中（宝华要求）
 
