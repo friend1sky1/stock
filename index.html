@@ -4159,6 +4159,7 @@ function __onBarRefresh(){
   var open = '0';
   try { open = localStorage.getItem(ON_OPEN_KEY) || '0'; } catch (e) {}
   if (open === '1') bar.classList.add('open'); else bar.classList.remove('open');
+  if (bar.classList.contains('open')) onScheduleFold(); else onCancelFold();
   onLoadQuotes(false).then(function(data){
     if (!data) { bar.style.display = 'none'; return; }
     renderOnIdx(data);
@@ -4166,13 +4167,33 @@ function __onBarRefresh(){
     renderOnMine(data);
   });
 }
+/* 展开后停留多久自动收起（毫秒），改这里 */
+var ON_AUTO_FOLD_MS = 20000;
+var _onFoldTimer = null;
+function onCancelFold(){
+  if (_onFoldTimer) { clearTimeout(_onFoldTimer); _onFoldTimer = null; }
+}
+function onScheduleFold(){
+  onCancelFold();
+  var bar = document.getElementById('onBar');
+  if (!bar || !bar.classList.contains('open')) return;
+  _onFoldTimer = setTimeout(function(){
+    _onFoldTimer = null;
+    var b = document.getElementById('onBar');
+    if (b && b.classList.contains('open')) b.classList.remove('open');
+    /* 只收起，不改记忆开关（保持 1），下次进来仍先展开再自动收起 */
+  }, ON_AUTO_FOLD_MS);
+}
 function onToggle(){
   var bar = document.getElementById('onBar');
   if (!bar) return;
   bar.classList.toggle('open');
   try { localStorage.setItem(ON_OPEN_KEY, bar.classList.contains('open') ? '1' : '0'); } catch (e) {}
   if (bar.classList.contains('open')) {
+    onScheduleFold();
     onLoadQuotes(false).then(function(data){ if (data) renderOnMine(data); });
+  } else {
+    onCancelFold();
   }
 }
 (function hookExisting(){
