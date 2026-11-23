@@ -730,15 +730,16 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
     </div>
     <div id="authFormView">
       <div id="authUsernameRow" style="margin-bottom:12px;display:none;">
-        <input id="authUsername" type="text" placeholder="用户名（全局唯一）" maxlength="20" autocomplete="username"
+        <input id="authUsername" type="text" placeholder="用户名（全局唯一）" maxlength="20" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"
           style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'">
       </div>
-      <div style="margin-bottom:12px;">
-        <input id="authEmail" type="email" placeholder="邮箱" autocomplete="email"
+      <div style="margin-bottom:6px;">
+        <input id="authEmail" type="text" placeholder="邮箱或用户名" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text"
           style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
           onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'">
       </div>
+      <div id="authIdHint" style="font-size:0.7rem;color:var(--text-muted);margin:0 0 12px 2px;line-height:1.4;">用户名不区分大小写，也可以直接用邮箱登录</div>
       <div style="margin-bottom:16px;position:relative;">
         <input id="authPassword" type="password" placeholder="密码" autocomplete="current-password"
           style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:0.95rem;background:var(--card);color:var(--text);outline:none;box-sizing:border-box;"
@@ -766,10 +767,12 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
   <div style="width:88%;max-width:340px;background:var(--card);border-radius:16px;padding:26px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
     <h2 style="font-family:'Songti SC','STSong','SimSun','Noto Serif CJK SC',Georgia,serif;font-size:1.15rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:2px;">设置用户名</h2>
     <p id="usernameHint" style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:16px;">给自己起个名字，更方便</p>
+    <p id="usernameWarn" style="display:none;font-size:0.72rem;color:var(--text-muted);text-align:left;line-height:1.5;margin:-8px 0 14px;padding:8px 10px;border-radius:8px;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.35);">改名后，旧用户名立即失效，可能被别人使用；以后请用新用户名登录。</p>
     <input id="usernameInput" type="text" placeholder="输入用户名" maxlength="20"
       style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:0.95rem;background:#fff;color:var(--text);outline:none;box-sizing:border-box;text-align:center;"
       onfocus="this.style.borderColor='var(--profit)'" onblur="this.style.borderColor='var(--border)'"
       onkeydown="if(event.key==='Enter')saveUsername()">
+    <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;text-align:left;line-height:1.4;">2-20位，可用中文、字母、数字、下划线，不能有 @ 和空格</div>
     <div id="usernameMsg" style="margin-top:10px;font-size:0.78rem;text-align:center;min-height:16px;"></div>
     <div style="display:flex;gap:10px;margin-top:12px;">
       <button onclick="closeUsernameOverlay()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:12px;background:var(--card);color:var(--text-secondary);font-size:0.9rem;cursor:pointer;">取消</button>
@@ -784,6 +787,13 @@ const CLIENT_OPTS = { auth: { storageKey: 'sb-idindbktqpjulhvcvcdj-auth-token' }
     <h1>做T计算器</h1>
     <div id="userEmail" style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;cursor:pointer;" onclick="openUsernameOverlay()" title="点击修改用户名"></div>
     <a href="#" onclick="headerAuthAction();return false;" id="headerAuthLink" style="position:absolute;right:4px;top:6px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;">登录/注册</a>
+  </div>
+
+  <!-- 未设置用户名提醒（可关闭，不强制）-->
+  <div id="noNameHint" style="display:none;margin:6px 10px 0;padding:8px 10px;border-radius:10px;background:rgba(201,168,76,0.13);border:1px solid rgba(201,168,76,0.4);font-size:0.74rem;color:var(--text-secondary);line-height:1.5;">
+    你还没设置自己的用户名，设置后可以用它登录。
+    <a href="#" onclick="closeNoNameHintOpenEditor();return false;" style="color:var(--profit);font-weight:600;margin-left:2px;">去设置</a>
+    <span onclick="dismissNoNameHint()" style="float:right;color:var(--text-muted);cursor:pointer;padding:0 2px;">✕</span>
   </div>
 
   <!-- 隔夜美股参考（仅注册用户可见） -->
@@ -1154,6 +1164,7 @@ const GUEST_USERNAME_KEY = 'tcalc_guest_username_v1';
 const PROFILE_NAME_CACHE_KEY = 'tcalc_profile_name_v1'; // 本地缓存用户名，避免刷新时闪烁
 const TAB_HINT_SHOWN_KEY = 'tcalc_tab_hint_shown_v1'; // A: 进页提示是否已显示过
 const TAB_HINT_LONGPRESS_KEY = 'tcalc_tab_hint_longpress_v1'; // C: 长按提示是否已显示过
+const NO_NAME_HINT_KEY = 'tcalc_noname_hint_v1'; // 未设用户名提醒：用户关掉后不再提
 let _authMode = 'login';  // 'login' | 'signup'
 
 function showAuth(mode) {
@@ -1174,6 +1185,10 @@ function closeAuth() {
 function syncAuthModeUI() {
   const isSignup = (_authMode === 'signup');
   document.getElementById('authUsernameRow').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('authEmail').setAttribute('placeholder', isSignup ? '邮箱（用于找回密码）' : '邮箱或用户名');
+  document.getElementById('authIdHint').textContent = isSignup
+    ? '邮箱只用于找回密码，登录用不上'
+    : '用户名不区分大小写，也可以直接用邮箱登录';
   document.getElementById('authSubmitBtn').textContent = isSignup ? '注册' : '登录';
   document.getElementById('authSubtitle').textContent = isSignup ? '注册后数据云端同步' : '登录后数据云端同步';
   document.getElementById('authSwitchHint').textContent = isSignup ? '已有账号？' : '还没有账号？';
@@ -1291,10 +1306,86 @@ async function isUsernameTaken(username) {
   return data === true;
 }
 
+// ===== 登录输入归一化与小工具 =====
+// 中文输入法容易打出全角字母/全角＠，统一转成半角再判断
+function toHalfWidth(s) {
+  return String(s == null ? '' : s)
+    .replace(/[\uFF01-\uFF5E]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+    .replace(/\u3000/g, ' ');
+}
+function normalizeLoginId(v) { return toHalfWidth(v).trim(); }
+function looksLikeEmail(v) { return v.indexOf('@') > 0; }
+
+// 用户名规则：2-20 位，中文/字母/数字/下划线，不能有 @ 和空格
+function usernameError(name) {
+  const v = toHalfWidth(name).trim();
+  if (!v) return '请输入用户名';
+  if (v.length < 2) return '用户名至少2个字符';
+  if (v.length > 20) return '用户名最多20个字符';
+  if (/[@\s]/.test(v)) return '用户名不能包含 @ 或空格';
+  if (v.replace(/[\u4e00-\u9fa5A-Za-z0-9_]/g, '')) return '用户名只能用中文、字母、数字和下划线';
+  return '';
+}
+
+// 登录：填了 @ 就按邮箱走，否则按用户名走（用户名不允许含 @，判断不歧义）
 async function doLogin() {
-  const email = document.getElementById('authEmail').value.trim();
+  const id = normalizeLoginId(document.getElementById('authEmail').value);
   const password = document.getElementById('authPassword').value;
-  if (!email || !password) { setAuthMsg('请输入注册邮箱，并设置登录密码', true); return; }
+  if (!id || !password) { setAuthMsg('请输入邮箱或用户名，并填写密码', true); return; }
+  if (looksLikeEmail(id)) return doLoginByEmail(id, password);
+  return doLoginByUsername(id, password);
+}
+
+// 用用户名登录：交给同域服务端把用户名换成邮箱并换凭证（邮箱不出服务器）
+async function doLoginByUsername(name, password) {
+  document.getElementById('authSubmitBtn').disabled = true;
+  setAuthMsg('登录中…', false);
+  let resp = null, data = {};
+  try {
+    resp = await fetch(CLOUD_PROXY + '/tcalc/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ name: name, password: password })
+    });
+    data = await resp.json().catch(function () { return {}; });
+  } catch (e) {
+    document.getElementById('authSubmitBtn').disabled = false;
+    setAuthMsg('连不上云端（网络不稳或被拦截）。可以改用邮箱登录。', true);
+    return;
+  }
+  if (!resp || !resp.ok) {
+    document.getElementById('authSubmitBtn').disabled = false;
+    const code = (data && data.error) || '';
+    if (code === 'invalid_credentials') {
+      setAuthMsg('用户名或密码不正确。老账号可能还没设置用户名，可改用邮箱登录。', true);
+    } else if (code === 'duplicate_username') {
+      setAuthMsg('这个用户名有重名，暂时不能用它登录，请改用邮箱登录。', true);
+    } else if (code === 'rate_limited') {
+      setAuthMsg('试得有点频繁，请等 1 分钟再试。', true);
+    } else if (code === 'server_not_configured') {
+      setAuthMsg('用户名登录还没开通，请先用邮箱登录。', true);
+    } else if (code === 'lookup_failed' || code === 'upstream_unreachable') {
+      setAuthMsg('云端暂时连不上，请稍后再试，或改用邮箱登录。', true);
+    } else {
+      setAuthMsg('登录没成功，请稍后再试，或改用邮箱登录。', true);
+    }
+    return;
+  }
+  const { data: sess, error } = await _supabase.auth.setSession({
+    access_token: data.access_token, refresh_token: data.refresh_token
+  });
+  document.getElementById('authSubmitBtn').disabled = false;
+  if (error || !sess || !sess.session) {
+    setAuthMsg('登录没成功，请改用邮箱登录。', true);
+    return;
+  }
+  _user = sess.session.user;
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ email: _user.email }));
+  hideAuth();
+  await afterLoginSuccess();
+}
+
+async function doLoginByEmail(email, password) {
   document.getElementById('authSubmitBtn').disabled = true;
   setAuthMsg('登录中…', false);
   let result;
@@ -1322,11 +1413,12 @@ async function doLogin() {
 }
 
 async function doSignup() {
-  const username = document.getElementById('authUsername').value.trim();
+  const username = toHalfWidth(document.getElementById('authUsername').value).trim();
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   if (!username || !email || !password) { setAuthMsg('请填写用户名、邮箱和密码', true); return; }
-  if (username.length < 2) { setAuthMsg('用户名至少2个字符', true); return; }
+  const unameErr = usernameError(username);
+  if (unameErr) { setAuthMsg(unameErr, true); return; }
   if (password.length < 6) { setAuthMsg('密码至少6位', true); return; }
   document.getElementById('authSubmitBtn').disabled = true;
   setAuthMsg('注册中...', false);
@@ -1505,6 +1597,7 @@ function updateUserDisplay() {
       const finalName = uname || cached || (_user.email ? _user.email.split('@')[0] : '已登录');
       if (uname) setCachedProfileName(uname);
       el.textContent = finalName + '（点击改名）';
+      maybeShowNoNameHint(uname);
     });
   } else {
     const guest = getGuestUsername();
@@ -1561,7 +1654,9 @@ async function ensureProfile(desiredName) {
 function openUsernameOverlay() {
   const input = document.getElementById('usernameInput');
   const hint = document.getElementById('usernameHint');
+  const warn = document.getElementById('usernameWarn');
   document.getElementById('usernameMsg').textContent = '';
+  if (warn) warn.style.display = _user ? 'block' : 'none';
   if (_user) {
     hint.textContent = '修改您的用户名';
     getProfileUsername().then(uname => { input.value = uname || ''; });
@@ -1578,10 +1673,11 @@ function closeUsernameOverlay() {
 
 async function saveUsername() {
   const input = document.getElementById('usernameInput');
-  const username = input.value.trim();
+  const username = toHalfWidth(input.value).trim();
   const msgEl = document.getElementById('usernameMsg');
   msgEl.textContent = '';
-  if (username.length < 2) { msgEl.textContent = '用户名至少2个字符'; msgEl.style.color = 'var(--profit)'; return; }
+  const unameErr = usernameError(username);
+  if (unameErr) { msgEl.textContent = unameErr; msgEl.style.color = 'var(--profit)'; return; }
 
   if (_user) {
     // 注册用户改名：检测唯一性
@@ -1613,11 +1709,42 @@ async function saveUsername() {
   closeUsernameOverlay();
   updateUserDisplay();
   if (_user) {
-    // 注册用户改名后：刷新显示 + 写入缓存
+    // 注册用户改名后：刷新显示 + 写入缓存 + 告知旧名已失效
     const el = document.getElementById('userEmail');
     el.textContent = username + '（点击改名）';
     setCachedProfileName(username);
+    dismissNoNameHint();
+    toastLine('已改名为「' + username + '」，下次请用新用户名登录', 6000);
   }
+}
+
+// 轻提示：借用标签提示条，几秒后自动收起
+function toastLine(msg, ms) {
+  const el = document.getElementById('tabHint');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(function () { el.style.display = 'none'; }, ms || 4000);
+}
+
+// 未设用户名：提醒一次（可关掉，不强制）
+function maybeShowNoNameHint(name) {
+  const el = document.getElementById('noNameHint');
+  if (!el) return;
+  if (!_user || localStorage.getItem(NO_NAME_HINT_KEY)) { el.style.display = 'none'; return; }
+  const prefix = (_user.email ? String(_user.email).split('@')[0] : '').toLowerCase();
+  const cur = String(name || '').trim().toLowerCase();
+  if (!cur || (prefix && cur === prefix)) el.style.display = 'block';
+  else el.style.display = 'none';
+}
+function dismissNoNameHint() {
+  try { localStorage.setItem(NO_NAME_HINT_KEY, '1'); } catch (e) {}
+  const el = document.getElementById('noNameHint');
+  if (el) el.style.display = 'none';
+}
+function closeNoNameHintOpenEditor() {
+  openUsernameOverlay();
 }
 
 // ========== 标签删除提示 ==========
