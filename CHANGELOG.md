@@ -1,5 +1,37 @@
 # 更新日志（新→旧）
 
+## 2026-11-23 支持「用户名登录」（邮箱登录保留）
+
+**需求原文**：「做T计算器，可以通过用户名登录」，并明确：保留邮箱登录、用户名不能带 @、用户名不能重复、大小写算同一个名字（Bob 与 bob 视为同一个，注册拦、登录也认）、允许中文名、改名时告知旧名失效、老账号没用户名用邮箱登录（提醒但不强制）。
+
+### 前端（`index.html`）
+1. 登录框输入格：`type=email` → `type=text`，占位改为「邮箱或用户名」；下方小字「用户名不区分大小写，也可以直接用邮箱登录」
+2. 关闭自动大写/自动纠错（`autocapitalize=off autocorrect=off spellcheck=false`）
+3. 新增 `toHalfWidth()`：中文输入法打出的全角字母/全角＠ 自动转半角；`looksLikeEmail()` 判定含 `@` 走邮箱、否则走用户名
+4. 新增 `usernameError()`：2–20 位，仅中文/字母/数字/下划线，禁 `@`、空格、emoji；注册与改名共用
+5. `doLogin()` 拆为 `doLoginByEmail()` / `doLoginByUsername()`（后者调 `/cloud/tcalc/login` 拿凭证后 `setSession`）
+6. 改名弹窗新增常驻说明「改名后旧用户名立即失效，可能被别人使用」；改完 `toastLine('已改名为「XX」，下次请用新用户名登录')`
+7. 老账号（无用户名或仍是邮箱前缀）登录后显示一次性提醒条，点 ✕ 记入 `tcalc_noname_hint_v1` 不再出现，不强制
+
+### 服务端（`functions/cloud/[[path]].js`，部署在 Cloudflare Pages Functions）
+- 新增 `POST /cloud/tcalc/login`：服务端用「口令 + 密码」调数据库函数取邮箱，再内部换 GoTrue 凭证；**邮箱不出服务器**，浏览器只拿到 token
+- 每 IP 60 秒 10 次限流；错误文案不区分「无此人」「密码错」
+- 依赖：CF Secret `TCALC_LOGIN_TOKEN`（已用 wrangler 写入）+ 数据库函数 `public.tcalc_login_email`（**待宝华在 SQL Editor 执行**，脚本存 `.secrets/tcalc_login_function.sql`）
+
+### 验收（已完成的）
+| 项 | 结果 |
+|---|---|
+| 服务端 10 个分支（正常/无此人/重名/密码错/缺参/无口令/函数未建/限流） | 全部符合预期（本地 mock 测试）|
+| 前端 `toHalfWidth` / `usernameError` 15 组输入 | 全对（ＢＯＢ→BOB、小 明→拦、user-name→拦、😀→拦）|
+| 5 个内联脚本块语法 | 全部通过 `node --check` |
+| 线上 index md5 | `24513269c7c9a2fdd17fe3f098c6aef8`（本地=部署目录=线上）|
+| Functions bundle | 输出含 `✨ Uploading Functions bundle` |
+| `/cloud/auth/v1/health` | 无 key → 401 JSON；带 anon key → 200 GoTrue v2.198.0 |
+| `/cloud/tcalc/login` | 当前返回 503 `server_not_configured`（数据库函数未建），登录框显示「用户名登录还没开通，请先用邮箱登录」|
+
+- 备份：`index.html.bak-20261123-prelogin-username`
+- 待验证：数据库函数建好后，需实测「用户名+正确密码 → 200」「错误密码 → 401」
+
 ## 2026-11-20 隔夜美股横条：展开 20 秒自动折叠（宝华要求）
 
 **需求原文**：「做T计算器，隔夜美股，自动折叠」，并给出三处改动规格与关键约束。
